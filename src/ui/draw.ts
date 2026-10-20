@@ -1,5 +1,5 @@
 import { HANDLE_ZOOM, type App, type HandlePos } from './app.ts'
-import type { FieldObj, PatchObject, SoundObj } from '../core/types.ts'
+import type { FieldObj, PatchObject, Role, SoundObj } from '../core/types.ts'
 import {
   PPQ,
   RIPPLE_SPEED,
@@ -63,6 +63,7 @@ export function draw(app: App): void {
   }
 
   drawMotionBar(app)
+  drawTabStack(app)
   drawLogo(app)
   drawPalette(app)
   drawTimeline(app)
@@ -79,6 +80,52 @@ export function draw(app: App): void {
   if (app.panel) drawPanel(app)
   if (app.showHelp) drawHelp(app)
   drawToast(app)
+}
+
+/** After Tab: the stack under the cursor, with the current pick marked. */
+function drawTabStack(app: App): void {
+  const info = app.tabInfo
+  if (!info) return
+  const age = performance.now() - info.t
+  if (age > 2500) return
+  const g = app.g
+  const a = Math.min(1, (2500 - age) / 400)
+  g.font = FONT_SMALL
+  g.textAlign = 'left'
+  g.textBaseline = 'middle'
+  const rows = info.stack.map((id) => {
+    const o = app.obj(id)
+    const label = !o
+      ? id
+      : o.kind === 'sound'
+        ? (soundTypes[o.type]?.label ?? o.type)
+        : (fieldTypes[o.type]?.label ?? o.type)
+    const role: Role | 'sound' =
+      !o || o.kind === 'sound' ? 'sound' : (fieldTypes[o.type]?.role ?? 'fx')
+    return { id, text: `${label} ${id}`, role }
+  })
+  const w = Math.max(...rows.map((r) => g.measureText(r.text).width)) + 34
+  const x = Math.min(app.mouse.x + 16, app.W - w - 8)
+  const y = Math.min(
+    app.mouse.y + 14,
+    app.H - STRIP_H - rows.length * 17 - 14,
+  )
+  g.fillStyle = `rgba(11,11,14,${0.9 * a})`
+  g.beginPath()
+  g.roundRect(x, y, w, rows.length * 17 + 10, 6)
+  g.fill()
+  rows.forEach((r, i) => {
+    const on = r.id === app.sel
+    g.fillStyle = rgba(r.role, (on ? 1 : 0.5) * a)
+    g.fillText((on ? '▸ ' : '  ') + r.text, x + 8, y + 13 + i * 17)
+  })
+  g.fillStyle = `rgba(233,228,218,${0.3 * a})`
+  g.textAlign = 'right'
+  g.fillText(
+    `${info.stack.indexOf(app.sel ?? '') + 1}/${info.stack.length}`,
+    x + w - 8,
+    y + 13,
+  )
 }
 
 function drawLogo(app: App): void {
@@ -587,6 +634,7 @@ const HELP = [
   'select anything  motion bar below it: breathe / orbit / drift / path',
   '                 drag or scroll its values (depth, period, radius…)',
   'm / b            shortcuts: cycle motion / toggle breathe',
+  'tab / shift-tab  cycle through everything under the cursor (incl. field edges)',
   '[ ]              layer down / up (order within a role)',
   '↑ ↓ ← →          nudge a semitone (shift: an octave)',
   'delete           remove selection',

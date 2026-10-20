@@ -115,6 +115,9 @@ export class App {
   uiHits: { id: string; x: number; y: number; w: number; h: number }[] = [];
   motionHits: MotionHit[] = [];
   examplesOpen = false;
+  /** Object picked with Tab: clicks near where Tab was pressed go to it, not to whatever is on top. */
+  pinned: string | null = null;
+  tabInfo: { stack: string[]; t: number; x: number; y: number } | null = null;
   private drawFailed = false;
   showHelp = false;
   toastMsg = '';
@@ -402,20 +405,60 @@ export class App {
         for (const h of this.handlesFor(o)) if (Math.hypot(mx - h.x, my - h.y) < 9) return { kind: 'handle', id: o.id, h };
       }
     }
-    const sorted = v.objects.slice().sort(byLayer).reverse();
+    void v;
+    const stack = this.stackAt(mx, my);
+    if (this.pinned && stack.includes(this.pinned)) return { kind: 'object', id: this.pinned };
+    return stack.length ? { kind: 'object', id: stack[0] } : null;
+  }
+
+  /**
+   * Everything under a screen point, top first: sounds (by layer), then fields
+   * the point is inside or whose edge is within a few pixels (by layer).
+   */
+  stackAt(mx: number, my: number): string[] {
+    const EDGE = 8;
+    const sorted = this.view.objects.slice().sort(byLayer).reverse();
+    const out: string[] = [];
     for (const o of sorted) {
       if (o.kind !== 'sound') continue;
       const p = this.poseOf(o);
       const [sx, sy] = this.w2s(p.x, p.y);
-      if (Math.hypot(mx - sx, my - sy) < this.soundRadius(o) + 4) return { kind: 'object', id: o.id };
+      if (Math.hypot(mx - sx, my - sy) < this.soundRadius(o) + 4) out.push(o.id);
     }
     const [wx, wy] = this.s2w(mx, my);
+    const z = this.cam.zoom;
     for (const o of sorted) {
       if (o.kind !== 'field') continue;
       const p = this.poseOf(o);
-      if (depthAt(o.shape, p.x, p.y, p.scale, wx, wy) > 0) return { kind: 'object', id: o.id };
+      let edgePx: number;
+      if (isCircle(o.shape)) {
+        edgePx = Math.abs(Math.hypot(wx - p.x, wy - p.y) - o.shape.r * p.scale) * z;
+      } else {
+        const hw = (o.shape.w * p.scale) / 2;
+        const hh = (o.shape.h * p.scale) / 2;
+        const dx = Math.abs(wx - p.x);
+        const dy = Math.abs(wy - p.y);
+        const inside = dx <= hw && dy <= hh;
+        edgePx = (inside ? Math.min(hw - dx, hh - dy) : Math.hypot(Math.max(dx - hw, 0), Math.max(dy - hh, 0))) * z;
+      }
+      if (edgePx < EDGE || depthAt(o.shape, p.x, p.y, p.scale, wx, wy) > 0) out.push(o.id);
     }
-    return null;
+    return out;
+  }
+
+  /** Tab / shift-Tab: step through the stack under the cursor (wraps). */
+  private cycleStack(dir: 1 | -1): void {
+    const stack = this.stackAt(this.mouse.x, this.mouse.y);
+    if (!stack.length) {
+      this.toast('nothing under the cursor');
+      return;
+    }
+    const i = this.sel ? stack.indexOf(this.sel) : -1;
+    const n = stack.length;
+    const next = i < 0 ? (dir > 0 ? 0 : n - 1) : (i + dir + n) % n;
+    this.sel = stack[next];
+    this.pinned = stack[next];
+    this.tabInfo = { stack, t: performance.now(), x: this.mouse.x, y: this.mouse.y };
   }
 
   // ---------- objects ----------
@@ -606,6 +649,8 @@ export class App {
     this.mouse = { x: mx, y: my, inside: true };
     const d = this.drag;
     if (!d) {
+      const ti = this.tabInfo;
+      if (this.pinned && (!ti || Math.hypot(mx - ti.x, my - ti.y) > 30)) this.pinned = null;
       this.hover = this.panel ? null : this.hitTest(mx, my);
       this.canvas.style.cursor = this.hover && this.hover.kind !== 'strip' ? 'pointer' : 'default';
       return;
@@ -695,6 +740,11 @@ export class App {
     if (!d) return;
     const mx = e.offsetX;
     const my = e.offsetY;
+    // a dragged Tab pick stays pinned where it was dropped
+    if (this.pinned && this.tabInfo && d.kind === 'move' && d.id === this.pinned) {
+      this.tabInfo.x = mx;
+      this.tabInfo.y = my;
+    }
     if (d.kind === 'palette') {
       const inCanvas = !paletteHit(this, mx, my) && my < this.H - STRIP_H;
       const [wx, wy] = inCanvas ? this.s2w(mx, my) : [this.cam.x, this.cam.y];
@@ -870,6 +920,11 @@ export class App {
       return;
     }
     if (mod) return;
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      this.cycleStack(e.shiftKey ? -1 : 1);
+      return;
+    }
     if (e.code === 'Space') {
       e.preventDefault();
       if (!this.spaceDown && !e.repeat) {
@@ -883,6 +938,7 @@ export class App {
     const sel = this.sel;
     switch (e.key) {
       case 'Escape':
+        this.pinned = null;
         if (this.examplesOpen) this.examplesOpen = false;
         else if (this.scrub) this.scrub.cancelled = true;
         else if (this.panel) this.panel = null;
