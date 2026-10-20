@@ -21,13 +21,13 @@ interface Slot {
 const SIZE = 30;
 const COLS = 2;
 const X = 10;
-export const PALETTE_TOP = 64;
+export const PALETTE_TOP = 72;
 const GROUP_GAP = 12;
 
 /** Two columns, one block per role. */
-function slots(): Slot[] {
+function slots(top: number): Slot[] {
   const out: Slot[] = [];
-  let y = PALETTE_TOP;
+  let y = top;
   const groups: [Role | 'sound', { item: PaletteItem; label: string }[]][] = [
     ['sound', Object.values(soundTypes).map((t) => ({ item: { kind: 'sound', type: t.id }, label: t.label }))],
   ];
@@ -48,10 +48,17 @@ function slots(): Slot[] {
   return out;
 }
 
-const SLOTS = slots();
+const DESKTOP = slots(PALETTE_TOP);
+const MOBILE = slots(92);
 
-export function paletteHit(_app: App, mx: number, my: number): PaletteItem | null {
-  for (const s of SLOTS) if (mx >= s.x && mx < s.x + SIZE && my >= s.y && my < s.y + SIZE) return s.item;
+/** On mobile the palette lives behind a toggle under the logo. */
+function visibleSlots(app: App): Slot[] {
+  if (!app.mobile) return DESKTOP;
+  return app.paletteOpen ? MOBILE : [];
+}
+
+export function paletteHit(app: App, mx: number, my: number): PaletteItem | null {
+  for (const s of visibleSlots(app)) if (mx >= s.x && mx < s.x + SIZE && my >= s.y && my < s.y + SIZE) return s.item;
   return null;
 }
 
@@ -87,7 +94,29 @@ export function drawPaletteIcon(g: CanvasRenderingContext2D, item: PaletteItem, 
 export function drawPalette(app: App): void {
   const g = app.g;
   const hovered = app.hover?.kind === 'palette' ? app.hover.item : null;
-  for (const s of SLOTS) {
+  if (app.mobile) {
+    g.strokeStyle = 'rgba(233,228,218,0.5)';
+    g.fillStyle = app.paletteOpen ? 'rgba(233,228,218,0.85)' : 'rgba(233,228,218,0.06)';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.arc(26, 64, 15, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = app.paletteOpen ? '#0b0b0e' : 'rgba(233,228,218,0.85)';
+    g.font = '18px ui-monospace, Menlo, monospace';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(app.paletteOpen ? '×' : '+', 26, 65);
+    if (app.paletteOpen) {
+      const sl = MOBILE;
+      const bottom = Math.max(...sl.map((s) => s.y)) + SIZE + 8;
+      g.fillStyle = 'rgba(11,11,14,0.88)';
+      g.beginPath();
+      g.roundRect(4, 84, COLS * SIZE + 12, bottom - 84, 8);
+      g.fill();
+    }
+  }
+  for (const s of visibleSlots(app)) {
     const on = hovered && hovered.kind === s.item.kind && hovered.type === s.item.type;
     drawPaletteIcon(g, s.item, s.x + SIZE / 2, s.y + SIZE / 2, SIZE / 2 - 3, on ? 1 : 0.55);
     if (on) {

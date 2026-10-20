@@ -1,0 +1,180 @@
+{
+ "format": "gener8.patch",
+ "version": 1,
+ "seed": 6600,
+ "tempo": 66,
+ "key": {
+  "root": 7,
+  "scale": "mixolydian"
+ },
+ "objects": [
+  {
+   "id": "f1",
+   "kind": "field",
+   "type": "shimmer",
+   "x": 0,
+   "y": 0,
+   "shape": {
+    "r": 700
+   },
+   "layer": 0,
+   "handles": {
+    "size": 0.8,
+    "shimmer": 0.5
+   }
+  },
+  {
+   "id": "f2",
+   "kind": "field",
+   "type": "chorus",
+   "x": -100,
+   "y": 0,
+   "shape": {
+    "r": 180
+   },
+   "layer": 1,
+   "handles": {
+    "rate": 0.3,
+    "depth": 0.6
+   }
+  },
+  {
+   "id": "f3",
+   "kind": "field",
+   "type": "strum",
+   "x": -100,
+   "y": 0,
+   "shape": {
+    "r": 160
+   },
+   "layer": 2,
+   "handles": {
+    "every": 0.75,
+    "spread": 0.6
+   }
+  },
+  {
+   "id": "f4",
+   "kind": "field",
+   "type": "hold",
+   "x": -100,
+   "y": 0,
+   "shape": {
+    "r": 100
+   },
+   "layer": 3,
+   "handles": {
+    "length": 0.3
+   }
+  },
+  {
+   "id": "f5",
+   "kind": "field",
+   "type": "rain",
+   "x": 250,
+   "y": 180,
+   "shape": {
+    "r": 150
+   },
+   "layer": 4,
+   "handles": {
+    "density": 0.2,
+    "range": 0.4
+   }
+  },
+  {
+   "id": "f6",
+   "kind": "field",
+   "type": "harmony",
+   "x": 250,
+   "y": 180,
+   "shape": {
+    "r": 80
+   },
+   "layer": 5,
+   "handles": {
+    "interval": 0.5,
+    "level": 0.5
+   }
+  },
+  {
+   "id": "s1",
+   "kind": "sound",
+   "type": "fm",
+   "x": -100,
+   "y": 20,
+   "size": 42,
+   "layer": 10,
+   "params": {
+    "ratio": 1,
+    "index": 1.5,
+    "indexDecay": 0.6,
+    "sustainIndex": 0.12,
+    "a": 0.004,
+    "d": 4,
+    "s": 0.3,
+    "r": 5
+   }
+  },
+  {
+   "id": "s2",
+   "kind": "sound",
+   "type": "subtractive",
+   "x": -40,
+   "y": -60,
+   "size": 36,
+   "layer": 11,
+   "params": {
+    "shape": 0.05,
+    "detune": 8,
+    "wobble": 5,
+    "cutoff": 700,
+    "res": 0.1,
+    "envAmt": 1.2,
+    "fa": 0.3,
+    "fd": 3,
+    "fs": 0.4,
+    "fr": 6,
+    "a": 0.25,
+    "d": 3,
+    "s": 0.6,
+    "r": 7
+   }
+  },
+  {
+   "id": "s3",
+   "kind": "sound",
+   "type": "fm",
+   "x": 250,
+   "y": 200,
+   "size": 30,
+   "layer": 12,
+   "params": {
+    "ratio": 3.5,
+    "index": 2.4,
+    "indexDecay": 0.5,
+    "sustainIndex": 0.02,
+    "a": 0.002,
+    "d": 3.5,
+    "s": 0,
+    "r": 4
+   }
+  },
+  {
+   "id": "s4",
+   "kind": "sound",
+   "type": "additive",
+   "x": 0,
+   "y": -170,
+   "size": 40,
+   "layer": 13,
+   "params": {
+    "partials": 10,
+    "tilt": 1.7,
+    "hollow": 0.3,
+    "shimmer": 0.6
+   }
+  }
+ ],
+ "master": -3
+}

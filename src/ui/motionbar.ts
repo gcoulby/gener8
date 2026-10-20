@@ -6,7 +6,6 @@ import type { App } from './app.ts';
 import type { Edit, PatchObject, PosMotion } from '../core/types.ts';
 import { isCircle } from '../core/geometry.ts';
 import { FONT_SMALL, INK } from './theme.ts';
-import { STRIP_H } from './timeline.ts';
 
 export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256];
 
@@ -99,7 +98,7 @@ export function drawMotionBar(app: App): void {
   const maxW = Math.max(...widths);
   const totalH = rs.length * ROW;
   let [cx, top] = anchor(app, o);
-  top = Math.min(Math.max(top, 40), app.H - STRIP_H - totalH - 10);
+  top = Math.min(Math.max(top, 40), app.H - app.barH - totalH - 10);
   const left = Math.min(Math.max(cx - maxW / 2, 84), app.W - maxW - 12);
   g.fillStyle = 'rgba(11,11,14,0.82)';
   g.beginPath();

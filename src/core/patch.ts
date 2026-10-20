@@ -78,6 +78,9 @@ export function applyEdit(p: Patch, e: Edit): Patch {
     case 'seed':
       p.seed = e.value >>> 0;
       return p;
+    case 'master':
+      p.master = Math.min(12, Math.max(-60, e.value));
+      return p;
     case 'load':
       return normalizePatch(e.patch);
   }

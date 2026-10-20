@@ -15,6 +15,8 @@ export interface Tele {
   /** contextFrame = engineSample + base */
   base: number;
   voices: number;
+  /** Peak level per sound / FX bus id and 'master' since the last post. */
+  meters: Record<string, number>;
   events: EventRecord[];
   edits: LoggedEdit[];
   visuals: Visual[];

@@ -11,18 +11,29 @@ import { History } from './history.ts';
 import { download, encodeWav } from './wav.ts';
 import { draw } from './draw.ts';
 import { paletteHit, type PaletteItem } from './palette.ts';
-import { STRIP_H, stripSampleAt } from './timeline.ts';
+import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
+import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, type MixerHit } from './mixer.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import { motionHitAt, readValue, stepValue, toggleEdit, valueEdit, type MotionHit, type ValueKey } from './motionbar.ts';
 import demoPatch from '../../patches/demo.json';
 import stressPatch from '../../patches/stress-24x12.json';
 import rhythmicPatch from '../../patches/rhythmic.json';
 import tapePatch from '../../patches/tape.json';
+import loopsPatch from '../../patches/loops.json';
+import rainfallPatch from '../../patches/rainfall.json';
+import cellsPatch from '../../patches/cells.json';
+import choirPatch from '../../patches/choir.json';
+import bloomPatch from '../../patches/bloom.json';
 
-/** Bundled patches, in menu order; `key` is the shift-shortcut. */
-export const EXAMPLES: { id: string; label: string; key: string; patch: unknown }[] = [
+/** Bundled patches, in menu order; `key` is an optional shift-shortcut. */
+export const EXAMPLES: { id: string; label: string; key?: string; patch: unknown }[] = [
   { id: 'ambient', label: 'ambient', key: 'D', patch: demoPatch },
   { id: 'tape', label: 'tape', key: 'T', patch: tapePatch },
+  { id: 'loops', label: 'loops (airports)', patch: loopsPatch },
+  { id: 'rainfall', label: 'rainfall', patch: rainfallPatch },
+  { id: 'bloom', label: 'bloom', patch: bloomPatch },
+  { id: 'choir', label: 'choir (motion)', patch: choirPatch },
+  { id: 'cells', label: 'cells (automaton)', patch: cellsPatch },
   { id: 'rhythmic', label: 'rhythmic', key: 'R', patch: rhythmicPatch },
   { id: 'stress', label: 'stress 24×12', key: 'X', patch: stressPatch },
 ];
@@ -71,6 +82,9 @@ export type Hit =
   | { kind: 'palette'; item: PaletteItem }
   | { kind: 'ui'; id: string }
   | { kind: 'motion'; hit: MotionHit }
+  | { kind: 'mixer'; hit: MixerHit }
+  | { kind: 'mixerBg' }
+  | { kind: 'paletteToggle' }
   | { kind: 'strip' };
 
 type Drag =
@@ -80,6 +94,10 @@ type Drag =
   | { kind: 'palette'; item: PaletteItem }
   | { kind: 'scrub' }
   | { kind: 'mvalue'; id: string; key: ValueKey; start: number; sx: number }
+  | { kind: 'fader'; id: string }
+  | { kind: 'vol'; sx: number; start: number }
+  | { kind: 'mixerScroll'; sx: number; start: number }
+  | { kind: 'pinch'; d0: number; z0: number; wx: number; wy: number }
   | { kind: 'panel'; key: string; data: any };
 
 const STORE_KEY = 'gener8.patch.v2';
@@ -115,6 +133,18 @@ export class App {
   uiHits: { id: string; x: number; y: number; w: number; h: number }[] = [];
   motionHits: MotionHit[] = [];
   examplesOpen = false;
+  /** Touch device with a phone/tablet-sized screen: switches to the mobile layout. */
+  mobile = false;
+  /** Height of the bottom bar (one row on desktop, wrapped rows on mobile). */
+  barH = STRIP_H;
+  paletteOpen = false;
+  mixerOpen = false;
+  mixerScroll = 0;
+  mixerHits: MixerHit[] = [];
+  meterLevel = new Map<string, number>();
+  private pointers = new Map<number, { x: number; y: number; touch: boolean }>();
+  private downAt: { x: number; y: number; id: string | null; wasSel: boolean; touch: boolean } | null = null;
+  private lastTap: { t: number; id: string } | null = null;
   /** Object picked with Tab: clicks near where Tab was pressed go to it, not to whatever is on top. */
   pinned: string | null = null;
   tabInfo: { stack: string[]; t: number; x: number; y: number } | null = null;
@@ -206,6 +236,10 @@ export class App {
     this.toastT = performance.now();
   }
 
+  anySolo(): boolean {
+    return this.patch.objects.some((o) => o.kind === 'sound' && o.solo);
+  }
+
   // ---------- coordinates ----------
 
   w2s(x: number, y: number): [number, number] {
@@ -230,6 +264,7 @@ export class App {
       this.history?.ingest(t.edits, t.events, t.sample);
       for (const e of t.events) this.pending.push(e);
       if (this.pending.length > 4000) this.pending.splice(0, this.pending.length - 4000);
+      for (const id in t.meters) this.meterLevel.set(id, Math.max(this.meterLevel.get(id) ?? 0, t.meters[id]));
       for (const v of t.visuals) this.grids.set(v.id, { ...(v.data as Omit<GridVis, 't'>), t: performance.now() });
     };
     try {
@@ -277,6 +312,7 @@ export class App {
       this.activate(a, now);
     }
     this.beat = this.tickNow / PPQ;
+    for (const [id, v] of this.meterLevel) this.meterLevel.set(id, v * 0.88);
     requestAnimationFrame(this.frame);
     this.computePoses();
     this.autoPanel();
@@ -388,13 +424,21 @@ export class App {
 
   hitTest(mx: number, my: number): Hit | null {
     for (const u of this.uiHits) if (mx >= u.x && mx <= u.x + u.w && my >= u.y && my <= u.y + u.h) return { kind: 'ui', id: u.id };
+    if (this.mixerOpen) {
+      const r = mixerRect(this);
+      if (my >= r.y && my < r.y + r.h) {
+        const xh = mixerHitAt(this, mx, my);
+        return xh ? { kind: 'mixer', hit: xh } : { kind: 'mixerBg' };
+      }
+    }
+    if (this.mobile && mx >= 8 && mx <= 44 && my >= 46 && my <= 82) return { kind: 'paletteToggle' };
     const mh = motionHitAt(this, mx, my);
     if (mh) return { kind: 'motion', hit: mh };
     const pi = paletteHit(this, mx, my);
     if (pi) return { kind: 'palette', item: pi };
-    if (my > this.H - STRIP_H) {
+    if (my > this.H - this.barH) {
       for (const u of this.uiHits) if (mx >= u.x && mx <= u.x + u.w && my >= u.y && my <= u.y + u.h) return { kind: 'ui', id: u.id };
-      return { kind: 'strip' };
+      return inStrip(this, mx, my) ? { kind: 'strip' } : { kind: 'ui', id: 'none' };
     }
     const v = this.view;
     if (this.cam.zoom >= HANDLE_ZOOM) {
@@ -402,12 +446,13 @@ export class App {
       for (const id of cands) {
         const o = this.obj(id);
         if (!o) continue;
-        for (const h of this.handlesFor(o)) if (Math.hypot(mx - h.x, my - h.y) < 9) return { kind: 'handle', id: o.id, h };
+        const reach = this.mobile ? 18 : 9;
+        for (const h of this.handlesFor(o)) if (Math.hypot(mx - h.x, my - h.y) < reach) return { kind: 'handle', id: o.id, h };
       }
     }
     void v;
     const stack = this.stackAt(mx, my);
-    if (this.pinned && stack.includes(this.pinned)) return { kind: 'object', id: this.pinned };
+    if (this.pinned && this.nearPin(mx, my) && stack.includes(this.pinned)) return { kind: 'object', id: this.pinned };
     return stack.length ? { kind: 'object', id: stack[0] } : null;
   }
 
@@ -444,6 +489,12 @@ export class App {
       if (edgePx < EDGE || depthAt(o.shape, p.x, p.y, p.scale, wx, wy) > 0) out.push(o.id);
     }
     return out;
+  }
+
+  /** Is (mx, my) within reach of where the current pin was made? */
+  private nearPin(mx: number, my: number): boolean {
+    const ti = this.tabInfo;
+    return !!ti && Math.hypot(mx - ti.x, my - ti.y) <= 30;
   }
 
   /** Tab / shift-Tab: step through the stack under the cursor (wraps). */
@@ -545,6 +596,11 @@ export class App {
     c.addEventListener('pointermove', (e) => this.onMove(e));
     c.addEventListener('pointerup', (e) => this.onUp(e));
     c.addEventListener('pointerleave', () => (this.mouse.inside = false));
+    c.addEventListener('pointercancel', (e) => {
+      this.pointers.delete(e.pointerId);
+      this.drag = null;
+      this.downAt = null;
+    });
     c.addEventListener('dblclick', (e) => this.onDbl(e));
     c.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     window.addEventListener('keydown', (e) => this.onKey(e));
@@ -563,6 +619,7 @@ export class App {
     this.dpr = window.devicePixelRatio || 1;
     this.W = window.innerWidth;
     this.H = window.innerHeight;
+    this.mobile = window.matchMedia('(pointer: coarse)').matches && Math.min(this.W, this.H) < 900;
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
   }
@@ -573,6 +630,17 @@ export class App {
     const mx = e.offsetX;
     const my = e.offsetY;
     this.mouse = { x: mx, y: my, inside: true };
+    const touch = e.pointerType === 'touch';
+    this.pointers.set(e.pointerId, { x: mx, y: my, touch });
+    if (this.pinned && !this.nearPin(mx, my)) this.pinned = null;
+    if (this.pointers.size === 2 && [...this.pointers.values()].every((p) => p.touch)) {
+      // second finger: pinch-zoom and pan, abandoning whatever the first finger started
+      const [a, b] = [...this.pointers.values()];
+      const [wx, wy] = this.s2w((a.x + b.x) / 2, (a.y + b.y) / 2);
+      this.drag = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: this.cam.zoom, wx, wy };
+      this.downAt = null;
+      return;
+    }
 
     if (this.panel) {
       const r = panelRect(this);
@@ -591,6 +659,7 @@ export class App {
     }
 
     const hit = this.hitTest(mx, my);
+    this.downAt = { x: mx, y: my, id: hit?.kind === 'object' ? hit.id : null, wasSel: hit?.kind === 'object' && hit.id === this.sel, touch };
     if (this.examplesOpen && !(hit?.kind === 'ui' && (hit.id === 'examples' || hit.id.startsWith('example:')))) {
       this.examplesOpen = false;
     }
@@ -604,8 +673,32 @@ export class App {
         this.drag = { kind: 'palette', item: hit.item };
         return;
       case 'ui':
+        if (hit.id === 'vol') {
+          this.drag = { kind: 'vol', sx: mx, start: this.patch.master ?? 0 };
+          return;
+        }
         this.onUi(hit.id);
         return;
+      case 'paletteToggle':
+        this.paletteOpen = !this.paletteOpen;
+        return;
+      case 'mixerBg':
+        this.drag = { kind: 'mixerScroll', sx: mx, start: this.mixerScroll };
+        return;
+      case 'mixer': {
+        const h = hit.hit;
+        if (h.kind === 'fader') {
+          this.drag = { kind: 'fader', id: h.id };
+          this.commitCoalesced('fader:' + h.id, trimEdit(this, h.id, faderDbAt(this, my)));
+        } else if (h.kind === 'label') {
+          if (h.id !== 'master') this.sel = h.id;
+          this.drag = { kind: 'mixerScroll', sx: mx, start: this.mixerScroll };
+        } else {
+          const ed = mixerToggle(this, h.id, h.kind);
+          if (ed) this.commit(ed);
+        }
+        return;
+      }
       case 'motion': {
         const o = this.patch.objects.find((q) => q.id === this.sel);
         if (!o) return;
@@ -647,10 +740,24 @@ export class App {
     const mx = e.offsetX;
     const my = e.offsetY;
     this.mouse = { x: mx, y: my, inside: true };
+    const pt = this.pointers.get(e.pointerId);
+    if (pt) {
+      pt.x = mx;
+      pt.y = my;
+    }
     const d = this.drag;
+    if (d?.kind === 'pinch') {
+      if (this.pointers.size < 2) return;
+      const [a, b] = [...this.pointers.values()];
+      this.cam.zoom = Math.min(8, Math.max(0.15, d.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / d.d0)));
+      // keep the world point that started under the fingers' midpoint under it
+      const [wx, wy] = this.s2w((a.x + b.x) / 2, (a.y + b.y) / 2);
+      this.cam.x += d.wx - wx;
+      this.cam.y += d.wy - wy;
+      return;
+    }
     if (!d) {
-      const ti = this.tabInfo;
-      if (this.pinned && (!ti || Math.hypot(mx - ti.x, my - ti.y) > 30)) this.pinned = null;
+      if (this.pinned && !this.nearPin(mx, my)) this.pinned = null;
       this.hover = this.panel ? null : this.hitTest(mx, my);
       this.canvas.style.cursor = this.hover && this.hover.kind !== 'strip' ? 'pointer' : 'default';
       return;
@@ -675,6 +782,17 @@ export class App {
         return;
       case 'panel':
         panelPointerMove(this, d.data, mx, my);
+        return;
+      case 'fader':
+        this.commitCoalesced('fader:' + d.id, trimEdit(this, d.id, faderDbAt(this, my)));
+        return;
+      case 'vol': {
+        const db = Math.round(Math.min(12, Math.max(-40, d.start + (mx - d.sx) / 6)) * 2) / 2;
+        this.commitCoalesced('vol', { op: 'master', value: db });
+        return;
+      }
+      case 'mixerScroll':
+        this.mixerScroll = d.start - (mx - d.sx);
         return;
       case 'mvalue': {
         const o = this.patch.objects.find((q) => q.id === d.id);
@@ -735,24 +853,29 @@ export class App {
   }
 
   private onUp(e: PointerEvent): void {
+    this.pointers.delete(e.pointerId);
     const d = this.drag;
     this.drag = null;
-    if (!d) return;
     const mx = e.offsetX;
     const my = e.offsetY;
+    const down = this.downAt;
+    this.downAt = null;
+    if (down?.touch && down.id && Math.hypot(mx - down.x, my - down.y) < 8) this.onTap(down.id, down.wasSel);
+    if (!d) return;
     // a dragged Tab pick stays pinned where it was dropped
     if (this.pinned && this.tabInfo && d.kind === 'move' && d.id === this.pinned) {
       this.tabInfo.x = mx;
       this.tabInfo.y = my;
     }
     if (d.kind === 'palette') {
-      const inCanvas = !paletteHit(this, mx, my) && my < this.H - STRIP_H;
+      const inCanvas = !paletteHit(this, mx, my) && my < this.H - this.barH;
       const [wx, wy] = inCanvas ? this.s2w(mx, my) : [this.cam.x, this.cam.y];
       const o = this.makeObject(d.item, wx, wy);
       if (o) {
         this.commit({ op: 'add', obj: o });
         this.sel = o.id;
       }
+      if (this.mobile) this.paletteOpen = false;
     } else if (d.kind === 'scrub') {
       const s = this.scrub;
       this.scrub = null;
@@ -771,7 +894,25 @@ export class App {
     this.scrub = { sample, preview: this.history.patchAt(sample), cancelled: false };
   }
 
+  /** Touch taps: tap a selected object again to step down its stack; double-tap a sound for its panel. */
+  private onTap(id: string, wasSel: boolean): void {
+    const now = performance.now();
+    const o = this.obj(id);
+    if (this.lastTap && this.lastTap.id === id && now - this.lastTap.t < 350 && o?.kind === 'sound') {
+      this.panel = { id, auto: false };
+      this.lastTap = null;
+      return;
+    }
+    this.lastTap = { t: now, id };
+    if (wasSel) this.cycleStack(1);
+  }
+
   private onDbl(e: MouseEvent): void {
+    const xh = this.mixerOpen ? mixerHitAt(this, e.offsetX, e.offsetY) : null;
+    if (xh?.kind === 'fader') {
+      this.commit(trimEdit(this, xh.id, 0));
+      return;
+    }
     const hit = this.hitTest(e.offsetX, e.offsetY);
     if (hit?.kind === 'object' && this.obj(hit.id)?.kind === 'sound') this.panel = { id: hit.id, auto: false };
   }
@@ -780,10 +921,23 @@ export class App {
     e.preventDefault();
     const mx = e.offsetX;
     const my = e.offsetY;
-    if (my > this.H - STRIP_H) {
+    if (my > this.H - this.barH) {
       const u = this.uiHits.find((q) => mx >= q.x && mx <= q.x + q.w);
       if (u) this.wheelUi(u.id, e.deltaY < 0 ? 1 : -1);
       return;
+    }
+    if (this.mixerOpen) {
+      const r = mixerRect(this);
+      if (my >= r.y && my < r.y + r.h) {
+        const xh = mixerHitAt(this, mx, my);
+        if (xh?.kind === 'fader') {
+          const cur = xh.id === 'master' ? (this.patch.master ?? 0) : (this.patch.objects.find((o) => o.id === xh.id)?.trim ?? 0);
+          this.commit(trimEdit(this, xh.id, Math.min(12, Math.max(-40, cur + (e.deltaY < 0 ? 1 : -1)))));
+        } else {
+          this.mixerScroll += e.deltaX + e.deltaY;
+        }
+        return;
+      }
     }
     const mh = motionHitAt(this, mx, my);
     if (mh && mh.action.kind === 'value') {
@@ -867,6 +1021,9 @@ export class App {
       case 'examples':
         this.examplesOpen = !this.examplesOpen;
         return;
+      case 'mixer':
+        this.mixerOpen = !this.mixerOpen;
+        return;
     }
     if (id.startsWith('example:')) {
       const ex = EXAMPLES.find((x) => 'example:' + x.id === id);
@@ -900,6 +1057,7 @@ export class App {
       const i = SCALE_ORDER.indexOf(p.key.scale);
       this.commit({ op: 'key', value: { ...p.key, scale: SCALE_ORDER[(i + dir + SCALE_ORDER.length) % SCALE_ORDER.length] } });
     } else if (id === 'seed') this.commit({ op: 'seed', value: (p.seed + dir) >>> 0 });
+    else if (id === 'vol') this.commit({ op: 'master', value: Math.min(12, Math.max(-40, (p.master ?? 0) + dir)) });
   }
 
   private onKey(e: KeyboardEvent): void {

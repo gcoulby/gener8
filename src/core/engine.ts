@@ -37,7 +37,7 @@ import { fieldTypes } from './fields/registry.ts';
 import { hash32, rand, strHash } from './rand.ts';
 import { angleTurns, depthAt, shapeDims } from './geometry.ts';
 import { indexToMidi, nearestIndex, scaleSteps, snapToScale, yToMidi } from './music.ts';
-import { cosTurns, sinTurns, tanh } from './dspmath.ts';
+import { cosTurns, dbToGain, sinTurns, tanh } from './dspmath.ts';
 
 const MASTER_GAIN = 0.9;
 const NO_SOUNDED: { e: NoteEvent; off: number }[] = [];
@@ -79,6 +79,8 @@ interface FieldRT {
   proc: FxProcessor | null;
   busL: Float64Array | null;
   busR: Float64Array | null;
+  ret: number;
+  peak: number;
 }
 
 interface SoundRT {
@@ -102,6 +104,7 @@ interface SoundRT {
   sendPrev: Map<string, number>;
   gL: number;
   gR: number;
+  peak: number;
   lastRipple: number;
   buf: Float64Array;
   bufR: Float64Array | null;
@@ -164,6 +167,9 @@ export class Engine {
   private carry = BLOCK;
   private log: LoggedEdit[] = [];
   private records: EventRecord[] = [];
+  private anySolo = false;
+  private master = MASTER_GAIN;
+  private masterPeak = 0;
 
   constructor(patch: Patch) {
     this.patch = normalizePatch(patch);
@@ -203,6 +209,22 @@ export class Engine {
       }
     }
     return out;
+  }
+
+  /** Peak levels since the last call, per sound / FX bus id, plus 'master'. */
+  meters(): Record<string, number> {
+    const m: Record<string, number> = { master: this.masterPeak };
+    this.masterPeak = 0;
+    for (const s of this.soundList) {
+      m[s.id] = s.peak;
+      s.peak = 0;
+    }
+    for (const f of this.fieldList) {
+      if (!f.busL) continue;
+      m[f.id] = f.peak;
+      f.peak = 0;
+    }
+    return m;
   }
 
   get activeVoiceCount(): number {
@@ -273,6 +295,8 @@ export class Engine {
             proc: null,
             busL: null,
             busR: null,
+            ret: 1,
+            peak: 0,
           };
           this.fields.set(o.id, rt);
         }
@@ -342,6 +366,7 @@ export class Engine {
       sendPrev: new Map(),
       gL: 0,
       gR: 0,
+      peak: 0,
       lastRipple: -Infinity,
       buf: new Float64Array(BLOCK),
       bufR: t.stereo ? new Float64Array(BLOCK) : null,
@@ -487,24 +512,52 @@ export class Engine {
         f.busR!.fill(0);
       }
     }
+    this.anySolo = false;
+    for (const s of this.soundList) if (s.obj.solo) this.anySolo = true;
     for (const s of this.soundList) this.renderSound(s, s0, t0, tps);
 
-    // 7. Buses
+    // 7. Buses, with their mixer return level (ramped)
     for (const f of this.fieldList) {
       if (f.proc && f.proc.stereo && f.busL && f.busR) {
         f.proc.stereo(f.busL, f.busR, BLOCK);
+        const target = f.obj.trim ? dbToGain(f.obj.trim) : 1;
+        const d = (target - f.ret) / BLOCK;
+        let g = f.ret;
+        let pk = f.peak;
         for (let i = 0; i < BLOCK; i++) {
-          outL[i] += f.busL[i];
-          outR[i] += f.busR[i];
+          g += d;
+          const l = f.busL[i] * g;
+          const r = f.busR[i] * g;
+          outL[i] += l;
+          outR[i] += r;
+          const al = l < 0 ? -l : l;
+          const ar = r < 0 ? -r : r;
+          if (al > pk) pk = al;
+          if (ar > pk) pk = ar;
         }
+        f.ret = target;
+        f.peak = pk;
       }
     }
 
-    // 8. Master: gentle soft clip above 0.6
+    // 8. Master level (ramped), then a gentle soft clip above 0.6
+    const mTarget = patch.master ? MASTER_GAIN * dbToGain(patch.master) : MASTER_GAIN;
+    const md = (mTarget - this.master) / BLOCK;
+    let mg = this.master;
+    let mpk = this.masterPeak;
     for (let i = 0; i < BLOCK; i++) {
-      outL[i] = soft(outL[i] * MASTER_GAIN);
-      outR[i] = soft(outR[i] * MASTER_GAIN);
+      mg += md;
+      const l = soft(outL[i] * mg);
+      const r = soft(outR[i] * mg);
+      outL[i] = l;
+      outR[i] = r;
+      const al = l < 0 ? -l : l;
+      const ar = r < 0 ? -r : r;
+      if (al > mpk) mpk = al;
+      if (ar > mpk) mpk = ar;
     }
+    this.master = mTarget;
+    this.masterPeak = mpk;
 
     this.sample = s0 + BLOCK;
     this.tick = t1;
@@ -673,7 +726,9 @@ export class Engine {
     }
 
     // Gain and equal-power pan, ramped across the block
-    const gain = (s.obj.size * s.pose.scale) / UNITY_SIZE;
+    const o = s.obj;
+    const silenced = o.mute || (this.anySolo && !o.solo);
+    const gain = silenced ? 0 : ((o.size * s.pose.scale) / UNITY_SIZE) * (o.trim ? dbToGain(o.trim) : 1);
     let p = s.pose.x / STAGE_HALF;
     p = p < -1 ? -1 : p > 1 ? 1 : p;
     const gL = gain * cosTurns((p + 1) / 8);
@@ -684,12 +739,20 @@ export class Engine {
     const outR = this.outR;
     let l = s.gL;
     let r = s.gR;
+    let pk = s.peak;
     for (let i = 0; i < BLOCK; i++) {
       l += dL;
       r += dR;
-      outL[i] += buf[i] * l;
-      outR[i] += bufR[i] * r;
+      const a = buf[i] * l;
+      const b = bufR[i] * r;
+      outL[i] += a;
+      outR[i] += b;
+      const aa = a < 0 ? -a : a;
+      const ab = b < 0 ? -b : b;
+      if (aa > pk) pk = aa;
+      if (ab > pk) pk = ab;
     }
+    s.peak = pk;
 
     // Sends (parallel, send level = depth, ramped)
     for (const m of s.buses) {

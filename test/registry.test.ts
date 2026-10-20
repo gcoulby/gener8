@@ -7,7 +7,7 @@ import type { Patch, PatchObject } from '../src/core/types.ts';
 import { soundTypes, defaultParams } from '../src/core/sounds/registry.ts';
 import { fieldTypes, defaultHandles } from '../src/core/fields/registry.ts';
 import { renderOffline } from '../src/core/render.ts';
-import { hashAudio } from './util.ts';
+import { hashAudio, loadPatch } from './util.ts';
 
 function patch(objects: PatchObject[]): Patch {
   return { format: 'gener8.patch', version: 1, seed: 7, tempo: 100, key: { root: 2, scale: 'major' }, objects };
@@ -57,5 +57,14 @@ for (const t of Object.values(fieldTypes)) {
     const withF = renderOffline(patch(objs), 6);
     const without = renderOffline(patch(objs.filter((o) => o !== f)), 6);
     assert.notEqual(hashAudio(withF.left, withF.right), hashAudio(without.left, without.right), `${t.id} has no audible effect`);
+  });
+}
+
+import { readdirSync } from 'node:fs';
+
+for (const f of readdirSync(new URL('../patches/', import.meta.url)).filter((n) => n.endsWith('.json'))) {
+  test(`example patch "${f}" renders`, () => {
+    const name = f.replace(/\.json$/, '');
+    check(loadPatch(name), 6, name);
   });
 }

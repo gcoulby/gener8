@@ -1,0 +1,178 @@
+{
+ "format": "gener8.patch",
+ "version": 1,
+ "seed": 808,
+ "tempo": 50,
+ "key": {
+  "root": 2,
+  "scale": "lydian"
+ },
+ "objects": [
+  {
+   "id": "f1",
+   "kind": "field",
+   "type": "shimmer",
+   "x": 0,
+   "y": 0,
+   "shape": {
+    "r": 700
+   },
+   "layer": 0,
+   "handles": {
+    "size": 0.85,
+    "shimmer": 0.45
+   }
+  },
+  {
+   "id": "f2",
+   "kind": "field",
+   "type": "filter",
+   "x": 0,
+   "y": 0,
+   "shape": {
+    "r": 200
+   },
+   "layer": 1,
+   "handles": {
+    "cutoff": 0.2,
+    "res": 0.45
+   },
+   "motion": {
+    "breathe": {
+     "amount": 0.6,
+     "periodBeats": 64
+    }
+   }
+  },
+  {
+   "id": "f3",
+   "kind": "field",
+   "type": "chorus",
+   "x": -200,
+   "y": -60,
+   "shape": {
+    "r": 220
+   },
+   "layer": 2,
+   "handles": {
+    "rate": 0.2,
+    "depth": 0.7
+   }
+  },
+  {
+   "id": "f4",
+   "kind": "field",
+   "type": "tape",
+   "x": 150,
+   "y": -100,
+   "shape": {
+    "r": 160
+   },
+   "layer": 3,
+   "handles": {
+    "age": 0.35,
+    "wobble": 0.6
+   }
+  },
+  {
+   "id": "s1",
+   "kind": "sound",
+   "type": "additive",
+   "x": -200,
+   "y": -60,
+   "size": 42,
+   "layer": 10,
+   "params": {
+    "partials": 12,
+    "tilt": 1.2,
+    "hollow": 0.5,
+    "shimmer": 0.8
+   },
+   "motion": {
+    "pos": {
+     "type": "orbit",
+     "radius": 40,
+     "periodBeats": 64,
+     "phase": 0
+    }
+   }
+  },
+  {
+   "id": "s2",
+   "kind": "sound",
+   "type": "pad",
+   "x": 150,
+   "y": -100,
+   "size": 48,
+   "layer": 11,
+   "params": {
+    "tone": 900,
+    "floor": 0.6,
+    "motion": 1,
+    "spread": 16
+   },
+   "motion": {
+    "pos": {
+     "type": "path",
+     "points": [
+      [
+       0,
+       0
+      ],
+      [
+       -200,
+       10
+      ],
+      [
+       -320,
+       -10
+      ],
+      [
+       -120,
+       -20
+      ]
+     ],
+     "periodBeats": 96,
+     "mode": "loop"
+    }
+   }
+  },
+  {
+   "id": "s3",
+   "kind": "sound",
+   "type": "pad",
+   "x": 0,
+   "y": 80,
+   "size": 40,
+   "layer": 12,
+   "params": {
+    "tone": 1300,
+    "floor": 0.55,
+    "motion": 0.8,
+    "spread": 12
+   },
+   "motion": {
+    "pos": {
+     "type": "drift",
+     "amplitude": 60,
+     "rateBeats": 32
+    }
+   }
+  },
+  {
+   "id": "s4",
+   "kind": "sound",
+   "type": "drone",
+   "x": 0,
+   "y": -220,
+   "size": 44,
+   "layer": 13,
+   "params": {
+    "tone": 300,
+    "spread": 5,
+    "drift": 8,
+    "sub": 0.7
+   }
+  }
+ ]
+}

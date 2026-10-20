@@ -27,6 +27,10 @@ export interface SoundObj {
   layer: number;
   params: Record<string, number>;
   motion?: Motion;
+  /** Mixer: level trim in dB (default 0), mute, solo. */
+  trim?: number;
+  mute?: boolean;
+  solo?: boolean;
 }
 
 export type FieldShape = { r: number } | { w: number; h: number };
@@ -41,6 +45,8 @@ export interface FieldObj {
   layer: number;
   handles: Record<string, number>;
   motion?: Motion;
+  /** Mixer: FX bus return level in dB (default 0). */
+  trim?: number;
 }
 
 export type PatchObject = SoundObj | FieldObj;
@@ -56,6 +62,8 @@ export interface Patch {
   seed: number;
   tempo: number;
   key: Key;
+  /** Master level in dB (default 0). */
+  master?: number;
   objects: PatchObject[];
 }
 
@@ -67,6 +75,7 @@ export type Edit =
   | { op: 'tempo'; value: number }
   | { op: 'key'; value: Key }
   | { op: 'seed'; value: number }
+  | { op: 'master'; value: number }
   | { op: 'load'; patch: Patch };
 
 export interface LoggedEdit {

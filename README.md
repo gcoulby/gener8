@@ -13,7 +13,9 @@ npm install
 npm run dev        # open the printed URL, press space
 ```
 
-Press **space** to start audio. The ambient demo loads first. **examples ▾** in the bottom bar has more.
+Press **space** to start audio. The ambient demo loads first. **examples ▾** in the bottom bar has eight more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), rhythmic and a stress patch.
+
+**On a phone or tablet** the layout adapts: tap ▶ to start, **+** opens the palette, pinch to zoom, drag empty space to pan, tap a selected object again to step down through what's under it, and double-tap a sound for its internals.
 
 ## How it works
 
@@ -62,8 +64,12 @@ Press **space** to start audio. The ambient demo loads first. **examples ▾** i
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |
+| vol | master level (drag or scroll) |
+| mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
 | bottom bar | new · open · save · examples |
 | h / ? | help |
+
+Mixer levels, mutes and solos are stored in the patch, so they're part of every capture and replay.
 
 ## Determinism
 

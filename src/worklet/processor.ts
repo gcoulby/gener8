@@ -71,6 +71,7 @@ class Gener8Processor extends AudioWorkletProcessor {
         tempo: e.patch.tempo,
         base: this.base,
         voices: e.activeVoiceCount,
+        meters: e.meters(),
         events: e.drainRecords(),
         edits: e.drainLog(),
         visuals: e.visuals(),

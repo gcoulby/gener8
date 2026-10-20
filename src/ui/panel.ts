@@ -9,10 +9,29 @@ import { BG, FONT, FONT_SMALL, rgba } from './theme.ts';
 const PAD = 18;
 const HEAD = 34;
 
+function gridCols(app: App, sections: number): number {
+  return app.mobile && app.W < 700 ? Math.min(2, sections) : sections;
+}
+
 export function panelRect(app: App): { x: number; y: number; w: number; h: number } {
-  const w = Math.min(860, app.W - 120);
-  const h = Math.min(300, app.H - 140);
-  return { x: (app.W - w) / 2, y: (app.H - h) / 2 - 20, w, h };
+  const o = app.obj(app.panel?.id ?? null);
+  const n = (o?.kind === 'sound' && soundTypes[o.type]?.panel.length) || 1;
+  const rows = Math.ceil(n / gridCols(app, n));
+  const w = app.mobile ? app.W - 24 : Math.min(860, app.W - 120);
+  const h = Math.min(rows === 1 ? 300 : 70 + rows * (app.mobile ? 180 : 220), app.H - app.barH - 30);
+  return { x: (app.W - w) / 2, y: Math.max(10, (app.H - app.barH - h) / 2), w, h };
+}
+
+/** Section cell i: column/row in the panel grid. */
+function cell(app: App, n: number, i: number): { x: number; top: number; bottom: number; w: number } {
+  const r = panelRect(app);
+  const cols = gridCols(app, n);
+  const rows = Math.ceil(n / cols);
+  const cw = (r.w - PAD * (cols + 1)) / cols;
+  const ch = (r.h - HEAD - PAD) / rows;
+  const row = Math.floor(i / cols);
+  const top = r.y + HEAD + row * ch;
+  return { x: r.x + PAD + (i % cols) * (cw + PAD), top: top + 22, bottom: top + ch - PAD, w: cw };
 }
 
 function norm(s: ParamSpec, v: number): number {
@@ -48,14 +67,9 @@ interface Ctl {
 function layout(app: App, o: SoundObj): Ctl[] {
   const t = soundTypes[o.type];
   if (!t) return [];
-  const r = panelRect(app);
-  const cols = t.panel.length;
-  const cw = (r.w - PAD * (cols + 1)) / cols;
-  const top = r.y + HEAD + 22;
-  const bottom = r.y + r.h - PAD;
   const out: Ctl[] = [];
   t.panel.forEach((sec, i) => {
-    const x = r.x + PAD + i * (cw + PAD);
+    const { x, top, bottom, w: cw } = cell(app, t.panel.length, i);
     if (sec.kind === 'knobs') {
       sec.keys.forEach((k, j) => out.push({ key: k, kind: 'slider', x, y: top + j * 42, w: cw, h: 34, section: sec }));
     } else if (sec.kind === 'adsr') {
@@ -133,21 +147,21 @@ export function drawPanel(app: App): void {
   const steps = scaleSteps(k.scale);
   const m = yToMidi(app.poseOf(o).y);
   const pitch = noteName(indexToMidi(nearestIndex(m, k.root, steps), k.root, steps));
-  g.fillText(`${o.id} · ${t?.label ?? o.type} · ${t?.mode ?? ''} · ${pitch} · size ${o.size}`, r.x + PAD, r.y + HEAD / 2 + 4);
+  const head = app.mobile ? `${o.id} · ${t?.label ?? o.type} · ${pitch}` : `${o.id} · ${t?.label ?? o.type} · ${t?.mode ?? ''} · ${pitch} · size ${o.size}`;
+  g.fillText(head, r.x + PAD, r.y + HEAD / 2 + 4);
   g.textAlign = 'right';
   g.fillStyle = 'rgba(233,228,218,0.4)';
-  g.fillText('esc / zoom out to close', r.x + r.w - PAD, r.y + HEAD / 2 + 4);
+  g.fillText(app.mobile ? 'tap outside to close' : 'esc / zoom out to close', r.x + r.w - PAD, r.y + HEAD / 2 + 4);
   if (!t) return;
 
   const ctls = layout(app, o);
   // section titles
-  const cols = t.panel.length;
-  const cw = (r.w - PAD * (cols + 1)) / cols;
   t.panel.forEach((sec, i) => {
+    const c = cell(app, t.panel.length, i);
     g.textAlign = 'left';
     g.fillStyle = 'rgba(233,228,218,0.45)';
     g.font = FONT_SMALL;
-    g.fillText(sec.title.toUpperCase(), r.x + PAD + i * (cw + PAD), r.y + HEAD + 8);
+    g.fillText(sec.title.toUpperCase(), c.x, c.top - 14);
   });
 
   const active = app.drag?.kind === 'panel' ? app.drag.key : null;

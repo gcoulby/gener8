@@ -1,0 +1,205 @@
+{
+ "format": "gener8.patch",
+ "version": 1,
+ "seed": 1978,
+ "tempo": 30,
+ "key": {
+  "root": 5,
+  "scale": "major"
+ },
+ "objects": [
+  {
+   "id": "f1",
+   "kind": "field",
+   "type": "shimmer",
+   "x": 0,
+   "y": 0,
+   "shape": {
+    "r": 800
+   },
+   "layer": 0,
+   "handles": {
+    "size": 0.8,
+    "shimmer": 0.25
+   }
+  },
+  {
+   "id": "f2",
+   "kind": "field",
+   "type": "delay",
+   "x": 0,
+   "y": 40,
+   "shape": {
+    "r": 650
+   },
+   "layer": 1,
+   "handles": {
+    "time": 0,
+    "feedback": 0.45
+   }
+  },
+  {
+   "id": "f3",
+   "kind": "field",
+   "type": "pulse",
+   "x": -450,
+   "y": 10,
+   "shape": {
+    "r": 90
+   },
+   "layer": 2,
+   "handles": {
+    "hits": 0.08,
+    "length": 0.643
+   }
+  },
+  {
+   "id": "f4",
+   "kind": "field",
+   "type": "pulse",
+   "x": -150,
+   "y": 50,
+   "shape": {
+    "r": 90
+   },
+   "layer": 3,
+   "handles": {
+    "hits": 0.08,
+    "length": 0.786
+   }
+  },
+  {
+   "id": "f5",
+   "kind": "field",
+   "type": "pulse",
+   "x": 150,
+   "y": 80,
+   "shape": {
+    "r": 90
+   },
+   "layer": 4,
+   "handles": {
+    "hits": 0.08,
+    "length": 0.929
+   }
+  },
+  {
+   "id": "f6",
+   "kind": "field",
+   "type": "pulse",
+   "x": 450,
+   "y": -110,
+   "shape": {
+    "r": 90
+   },
+   "layer": 5,
+   "handles": {
+    "hits": 0.08,
+    "length": 1
+   }
+  },
+  {
+   "id": "s1",
+   "kind": "sound",
+   "type": "fm",
+   "x": -450,
+   "y": 50,
+   "size": 40,
+   "layer": 10,
+   "params": {
+    "ratio": 1,
+    "index": 0.9,
+    "indexDecay": 0.8,
+    "sustainIndex": 0.1,
+    "a": 0.01,
+    "d": 5,
+    "s": 0.2,
+    "r": 6
+   }
+  },
+  {
+   "id": "s2",
+   "kind": "sound",
+   "type": "subtractive",
+   "x": -150,
+   "y": 90,
+   "size": 38,
+   "layer": 11,
+   "params": {
+    "shape": 0.05,
+    "detune": 8,
+    "wobble": 5,
+    "cutoff": 700,
+    "res": 0.1,
+    "envAmt": 1.2,
+    "fa": 0.3,
+    "fd": 3,
+    "fs": 0.4,
+    "fr": 6,
+    "a": 0.25,
+    "d": 3,
+    "s": 0.6,
+    "r": 7
+   }
+  },
+  {
+   "id": "s3",
+   "kind": "sound",
+   "type": "fm",
+   "x": 150,
+   "y": 120,
+   "size": 34,
+   "layer": 12,
+   "params": {
+    "ratio": 1,
+    "index": 0.9,
+    "indexDecay": 0.8,
+    "sustainIndex": 0.1,
+    "a": 0.01,
+    "d": 5,
+    "s": 0.2,
+    "r": 6
+   }
+  },
+  {
+   "id": "s4",
+   "kind": "sound",
+   "type": "subtractive",
+   "x": 450,
+   "y": -70,
+   "size": 44,
+   "layer": 13,
+   "params": {
+    "shape": 0.05,
+    "detune": 8,
+    "wobble": 5,
+    "cutoff": 700,
+    "res": 0.1,
+    "envAmt": 1.2,
+    "fa": 0.3,
+    "fd": 3,
+    "fs": 0.4,
+    "fr": 6,
+    "a": 0.25,
+    "d": 3,
+    "s": 0.6,
+    "r": 7
+   }
+  },
+  {
+   "id": "s5",
+   "kind": "sound",
+   "type": "additive",
+   "x": 0,
+   "y": -190,
+   "size": 36,
+   "layer": 14,
+   "params": {
+    "partials": 8,
+    "tilt": 2,
+    "hollow": 0.4,
+    "shimmer": 0.5
+   }
+  }
+ ]
+}

@@ -24,9 +24,10 @@ import {
 import { BG, FONT, FONT_SMALL, INK, rgba } from './theme.ts'
 import { soundDetail, soundPath } from './glyphs.ts'
 import { drawPalette } from './palette.ts'
-import { drawTimeline, STRIP_H } from './timeline.ts'
+import { drawTimeline } from './timeline.ts'
 import { drawPanel } from './panel.ts'
 import { drawMotionBar } from './motionbar.ts'
+import { drawMixer } from './mixer.ts'
 
 const TAU = Math.PI * 2
 
@@ -67,10 +68,11 @@ export function draw(app: App): void {
   drawLogo(app)
   drawPalette(app)
   drawTimeline(app)
+  drawMixer(app)
   if (app.scrub && !app.scrub.cancelled) {
     g.strokeStyle = rgba('transformer', 0.5)
     g.lineWidth = 2
-    g.strokeRect(1, 1, app.W - 2, app.H - STRIP_H - 2)
+    g.strokeRect(1, 1, app.W - 2, app.H - app.barH - 2)
     g.font = FONT
     g.fillStyle = rgba('transformer', 0.8)
     g.textAlign = 'right'
@@ -108,7 +110,7 @@ function drawTabStack(app: App): void {
   const x = Math.min(app.mouse.x + 16, app.W - w - 8)
   const y = Math.min(
     app.mouse.y + 14,
-    app.H - STRIP_H - rows.length * 17 - 14,
+    app.H - app.barH - rows.length * 17 - 14,
   )
   g.fillStyle = `rgba(11,11,14,${0.9 * a})`
   g.beginPath()
@@ -128,13 +130,42 @@ function drawTabStack(app: App): void {
   )
 }
 
+const SUBTITLE = 'A GENERATIVE MUSIC INSTRUMENT'
+const SANS =
+  'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif'
+
+/** Bottom edge of the logo block, for laying out what sits under it. */
+export let logoBottom = 0
+
 function drawLogo(app: App): void {
   const g = app.g
-  g.font = "50px 'gener8-logo', ui-monospace, Menlo, monospace"
+  const x = 10
+  const y = 4
+  g.font = app.mobile
+    ? "32px 'gener8-logo', ui-monospace, Menlo, monospace"
+    : "50px 'gener8-logo', ui-monospace, Menlo, monospace"
   g.textAlign = 'left'
   g.textBaseline = 'top'
   g.fillStyle = 'rgba(233,228,218,0.7)'
-  g.fillText('GENER8', 10, 4)
+  g.fillText('GENER8', x, y)
+
+  // Subtitle in a plain sans, sized so its ink spans exactly the logo's ink.
+  const m = g.measureText('GENER8')
+  const left = x - m.actualBoundingBoxLeft
+  const width = m.actualBoundingBoxLeft + m.actualBoundingBoxRight
+  const inkW = (size: number) => {
+    g.font = `600 ${size}px ${SANS}`
+    const t = g.measureText(SUBTITLE)
+    return t.actualBoundingBoxLeft + t.actualBoundingBoxRight
+  }
+  let size = (10 * width) / inkW(10)
+  size *= width / inkW(size) // one correction pass: glyph widths don't scale perfectly linearly
+  g.font = `600 ${size}px ${SANS}`
+  const t = g.measureText(SUBTITLE)
+  const top = y + m.actualBoundingBoxDescent + Math.max(4, size * 0.5)
+  g.fillStyle = 'rgba(233,228,218,0.5)'
+  g.fillText(SUBTITLE, left + t.actualBoundingBoxLeft, top)
+  logoBottom = top + t.actualBoundingBoxDescent
 }
 
 function dim(app: App, sx: number, sy: number, id: string): number {
@@ -158,7 +189,7 @@ function drawGuides(app: App): void {
   for (let m = MIDI_MIN; m <= MIDI_MAX; m++) {
     if ((((m - root) % 12) + 12) % 12 !== 0) continue
     const [, sy] = app.w2s(0, midiToY(m))
-    if (sy < 0 || sy > app.H - STRIP_H) continue
+    if (sy < 0 || sy > app.H - app.barH) continue
     g.fillStyle = 'rgba(233,228,218,0.035)'
     g.fillRect(0, sy, app.W, 1)
     if (z >= 0.3) {
@@ -173,7 +204,7 @@ function drawGuides(app: App): void {
     const [sx] = app.w2s(x, 0)
     g.beginPath()
     g.moveTo(sx, 0)
-    g.lineTo(sx, app.H - STRIP_H)
+    g.lineTo(sx, app.H - app.barH)
     g.stroke()
     g.fillStyle = 'rgba(233,228,218,0.2)'
     g.textBaseline = 'top'
@@ -416,7 +447,8 @@ function drawSound(app: App, o: SoundObj): void {
   const p = app.poseOf(o)
   const [sx, sy] = app.w2s(p.x, p.y)
   const r = app.soundRadius(o)
-  const a = dim(app, sx, sy, o.id)
+  const silenced = o.mute || (app.anySolo() && !o.solo)
+  const a = dim(app, sx, sy, o.id) * (silenced ? 0.3 : 1)
   const pulse = app.pulses.get(o.id)
   const dur = pulse?.accent ? 700 : 320
   const age = pulse ? app.now - pulse.t : 1e9
@@ -639,6 +671,7 @@ const HELP = [
   '↑ ↓ ← →          nudge a semitone (shift: an octave)',
   'delete           remove selection',
   'c                capture last 30 s (WAV + patch/seed/edit log)',
+  'mixer / vol      levels, mute, solo, FX returns · master level (drag/scroll)',
   't                tap tempo · wheel over bpm / root / scale / seed',
   'timeline strip   drag to preview the past · release to branch',
   '⌘S / ⌘O / drop   save / open patch JSON',
@@ -679,5 +712,5 @@ function drawToast(app: App): void {
   g.textAlign = 'center'
   g.textBaseline = 'bottom'
   g.fillStyle = `rgba(233,228,218,${0.85 * a})`
-  g.fillText(app.toastMsg, app.W / 2, app.H - STRIP_H - 12)
+  g.fillText(app.toastMsg, app.W / 2, app.H - app.barH - 12)
 }

@@ -1,0 +1,140 @@
+{
+ "format": "gener8.patch",
+ "version": 1,
+ "seed": 4417,
+ "tempo": 70,
+ "key": {
+  "root": 4,
+  "scale": "minor"
+ },
+ "objects": [
+  {
+   "id": "f1",
+   "kind": "field",
+   "type": "reverb",
+   "x": 0,
+   "y": 0,
+   "shape": {
+    "r": 700
+   },
+   "layer": 0,
+   "handles": {
+    "size": 0.9,
+    "damping": 0.5
+   }
+  },
+  {
+   "id": "f2",
+   "kind": "field",
+   "type": "delay",
+   "x": 150,
+   "y": 150,
+   "shape": {
+    "r": 300
+   },
+   "layer": 1,
+   "handles": {
+    "time": 0.66,
+    "feedback": 0.55
+   }
+  },
+  {
+   "id": "f3",
+   "kind": "field",
+   "type": "rain",
+   "x": 150,
+   "y": 150,
+   "shape": {
+    "r": 220
+   },
+   "layer": 2,
+   "handles": {
+    "density": 0.35,
+    "range": 0.6
+   }
+  },
+  {
+   "id": "f4",
+   "kind": "field",
+   "type": "chorus",
+   "x": 150,
+   "y": 150,
+   "shape": {
+    "r": 200
+   },
+   "layer": 3,
+   "handles": {
+    "rate": 0.25,
+    "depth": 0.5
+   }
+  },
+  {
+   "id": "s1",
+   "kind": "sound",
+   "type": "fm",
+   "x": 150,
+   "y": 160,
+   "size": 34,
+   "layer": 10,
+   "params": {
+    "ratio": 3.5,
+    "index": 2.4,
+    "indexDecay": 0.5,
+    "sustainIndex": 0.02,
+    "a": 0.002,
+    "d": 3.5,
+    "s": 0,
+    "r": 4
+   }
+  },
+  {
+   "id": "s2",
+   "kind": "sound",
+   "type": "fm",
+   "x": 60,
+   "y": 80,
+   "size": 34,
+   "layer": 11,
+   "params": {
+    "ratio": 2,
+    "index": 1.6,
+    "indexDecay": 0.7,
+    "sustainIndex": 0.05,
+    "a": 0.003,
+    "d": 4,
+    "s": 0,
+    "r": 4
+   }
+  },
+  {
+   "id": "s3",
+   "kind": "sound",
+   "type": "noise",
+   "x": -300,
+   "y": -80,
+   "size": 40,
+   "layer": 12,
+   "params": {
+    "focus": 0.2,
+    "motion": 1.5,
+    "floor": 0.3,
+    "crackle": 0
+   }
+  },
+  {
+   "id": "s4",
+   "kind": "sound",
+   "type": "drone",
+   "x": -50,
+   "y": -200,
+   "size": 42,
+   "layer": 13,
+   "params": {
+    "tone": 350,
+    "spread": 6,
+    "drift": 12,
+    "sub": 0.6
+   }
+  }
+ ]
+}

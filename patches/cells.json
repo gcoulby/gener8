@@ -1,0 +1,203 @@
+{
+ "format": "gener8.patch",
+ "version": 1,
+ "seed": 31415,
+ "tempo": 84,
+ "key": {
+  "root": 0,
+  "scale": "lydian"
+ },
+ "objects": [
+  {
+   "id": "f1",
+   "kind": "field",
+   "type": "reverb",
+   "x": 0,
+   "y": 0,
+   "shape": {
+    "r": 600
+   },
+   "layer": 0,
+   "handles": {
+    "size": 0.6,
+    "damping": 0.45
+   }
+  },
+  {
+   "id": "f2",
+   "kind": "field",
+   "type": "delay",
+   "x": 150,
+   "y": 80,
+   "shape": {
+    "r": 200
+   },
+   "layer": 1,
+   "handles": {
+    "time": 0.33,
+    "feedback": 0.4
+   }
+  },
+  {
+   "id": "f3",
+   "kind": "field",
+   "type": "grid",
+   "x": 0,
+   "y": 40,
+   "shape": {
+    "w": 360,
+    "h": 240
+   },
+   "layer": 2,
+   "handles": {
+    "rate": 0.66,
+    "entropy": 0.3
+   }
+  },
+  {
+   "id": "f4",
+   "kind": "field",
+   "type": "probability",
+   "x": -100,
+   "y": 60,
+   "shape": {
+    "r": 100
+   },
+   "layer": 3,
+   "handles": {
+    "bias": 0.5
+   }
+  },
+  {
+   "id": "f5",
+   "kind": "field",
+   "type": "pulse",
+   "x": -350,
+   "y": -120,
+   "shape": {
+    "r": 90
+   },
+   "layer": 4,
+   "handles": {
+    "hits": 0.06,
+    "length": 1
+   }
+  },
+  {
+   "id": "s1",
+   "kind": "sound",
+   "type": "subtractive",
+   "x": -120,
+   "y": 100,
+   "size": 34,
+   "layer": 10,
+   "params": {
+    "shape": 0.3,
+    "cutoff": 1500,
+    "res": 0.25,
+    "envAmt": 2,
+    "fa": 0.002,
+    "fd": 0.3,
+    "fs": 0,
+    "fr": 0.6,
+    "a": 0.003,
+    "d": 0.4,
+    "s": 0,
+    "r": 0.8
+   }
+  },
+  {
+   "id": "s2",
+   "kind": "sound",
+   "type": "fm",
+   "x": 60,
+   "y": 0,
+   "size": 34,
+   "layer": 11,
+   "params": {
+    "ratio": 2,
+    "index": 2,
+    "indexDecay": 0.3,
+    "a": 0.002,
+    "d": 1.2,
+    "s": 0,
+    "r": 1.5
+   }
+  },
+  {
+   "id": "s3",
+   "kind": "sound",
+   "type": "subtractive",
+   "x": 130,
+   "y": 120,
+   "size": 30,
+   "layer": 12,
+   "params": {
+    "shape": 0.6,
+    "cutoff": 2200,
+    "res": 0.2,
+    "envAmt": 1.5,
+    "fa": 0.002,
+    "fd": 0.25,
+    "fs": 0,
+    "fr": 0.5,
+    "a": 0.002,
+    "d": 0.3,
+    "s": 0,
+    "r": 0.6
+   }
+  },
+  {
+   "id": "s4",
+   "kind": "sound",
+   "type": "fm",
+   "x": -60,
+   "y": -40,
+   "size": 36,
+   "layer": 13,
+   "params": {
+    "ratio": 3.5,
+    "index": 2.4,
+    "indexDecay": 0.5,
+    "sustainIndex": 0.02,
+    "a": 0.002,
+    "d": 3.5,
+    "s": 0,
+    "r": 4
+   }
+  },
+  {
+   "id": "s5",
+   "kind": "sound",
+   "type": "fm",
+   "x": 300,
+   "y": 220,
+   "size": 26,
+   "layer": 14,
+   "params": {
+    "ratio": 4,
+    "index": 1.5,
+    "indexDecay": 0.3,
+    "a": 0.002,
+    "d": 2,
+    "s": 0,
+    "r": 2
+   }
+  },
+  {
+   "id": "s6",
+   "kind": "sound",
+   "type": "pad",
+   "x": -350,
+   "y": -120,
+   "size": 46,
+   "layer": 15,
+   "params": {
+    "tone": 800,
+    "floor": 0.3,
+    "attack": 2,
+    "release": 6
+   }
+  }
+ ]
+}
