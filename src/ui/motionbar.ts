@@ -100,7 +100,7 @@ export function drawMotionBar(app: App): void {
   const totalH = rs.length * ROW;
   let [cx, top] = anchor(app, o);
   top = Math.min(Math.max(top, 40), app.H - STRIP_H - totalH - 10);
-  const left = Math.min(Math.max(cx - maxW / 2, 56), app.W - maxW - 12);
+  const left = Math.min(Math.max(cx - maxW / 2, 84), app.W - maxW - 12);
   g.fillStyle = 'rgba(11,11,14,0.82)';
   g.beginPath();
   g.roundRect(left - 6, top - 5, maxW + 12, totalH + 4, 6);

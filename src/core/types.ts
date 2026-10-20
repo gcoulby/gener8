@@ -176,6 +176,9 @@ export interface FieldContext {
   /** Dimensions from the patch, without breathing. */
   readonly baseW: number;
   readonly baseH: number;
+  /** Current key: root pitch class and scale steps. */
+  readonly keyRoot: number;
+  readonly steps: number[];
   /** Per-field private state, created by the type. Plain data only. */
   state: any;
   rand(stream: number, index: number): number;

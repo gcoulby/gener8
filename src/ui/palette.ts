@@ -19,24 +19,31 @@ interface Slot {
 }
 
 const SIZE = 30;
+const COLS = 2;
 const X = 10;
-const Y0 = 14;
+export const PALETTE_TOP = 64;
 const GROUP_GAP = 12;
 
+/** Two columns, one block per role. */
 function slots(): Slot[] {
   const out: Slot[] = [];
-  let y = Y0;
-  for (const t of Object.values(soundTypes)) {
-    out.push({ item: { kind: 'sound', type: t.id }, role: 'sound', label: t.label, x: X, y });
-    y += SIZE;
-  }
+  let y = PALETTE_TOP;
+  const groups: [Role | 'sound', { item: PaletteItem; label: string }[]][] = [
+    ['sound', Object.values(soundTypes).map((t) => ({ item: { kind: 'sound', type: t.id }, label: t.label }))],
+  ];
   for (const role of ['generator', 'transformer', 'fx'] as const) {
-    y += GROUP_GAP;
-    for (const t of Object.values(fieldTypes)) {
-      if (t.role !== role) continue;
-      out.push({ item: { kind: 'field', type: t.id }, role, label: t.label, x: X, y });
-      y += SIZE;
-    }
+    groups.push([
+      role,
+      Object.values(fieldTypes)
+        .filter((t) => t.role === role)
+        .map((t) => ({ item: { kind: 'field', type: t.id }, label: t.label })),
+    ]);
+  }
+  for (const [role, items] of groups) {
+    items.forEach((it, i) => {
+      out.push({ ...it, role, x: X + (i % COLS) * SIZE, y: y + Math.floor(i / COLS) * SIZE });
+    });
+    y += Math.ceil(items.length / COLS) * SIZE + GROUP_GAP;
   }
   return out;
 }
@@ -88,7 +95,7 @@ export function drawPalette(app: App): void {
       g.textAlign = 'left';
       g.textBaseline = 'middle';
       g.fillStyle = rgba(s.role, 0.9);
-      g.fillText(s.label, s.x + SIZE + 6, s.y + SIZE / 2);
+      g.fillText(s.label, X + COLS * SIZE + 6, s.y + SIZE / 2);
     }
   }
   if (app.drag?.kind === 'palette') {

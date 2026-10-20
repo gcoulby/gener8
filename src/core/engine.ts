@@ -53,6 +53,8 @@ class FieldCtx implements FieldContext {
   h = 0;
   baseW = 0;
   baseH = 0;
+  keyRoot = 0;
+  steps: number[] = [];
   state: any = null;
   constructor(idHash: number) {
     this.idHash = idHash;
@@ -383,6 +385,8 @@ export class Engine {
       f.ctx.h = d.h;
       f.ctx.seed = seed;
       f.ctx.tempo = patch.tempo;
+      f.ctx.keyRoot = keyRoot;
+      f.ctx.steps = this.steps;
       f.members.length = 0;
     }
     for (const s of this.soundList) {

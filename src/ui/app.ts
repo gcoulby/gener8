@@ -17,6 +17,7 @@ import { motionHitAt, readValue, stepValue, toggleEdit, valueEdit, type MotionHi
 import demoPatch from '../../patches/demo.json';
 import stressPatch from '../../patches/stress-24x12.json';
 import rhythmicPatch from '../../patches/rhythmic.json';
+import tapePatch from '../../patches/tape.json';
 
 export interface Pulse {
   t: number;
@@ -892,6 +893,9 @@ export class App {
         return;
       case 'R':
         this.load(rhythmicPatch, 'loaded rhythmic demo');
+        return;
+      case 'T':
+        this.load(tapePatch, 'loaded tape demo');
         return;
       case 'ArrowUp':
       case 'ArrowDown':

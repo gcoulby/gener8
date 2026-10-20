@@ -31,6 +31,16 @@ export class Svf {
     this.a3 = o.a3;
   }
 
+  /** Bandpass output (same state update as lp; use one or the other per instance). */
+  bp(x: number): number {
+    const v3 = x - this.ic2;
+    const v1 = this.a1 * this.ic1 + this.a2 * v3;
+    const v2 = this.ic2 + this.a2 * this.ic1 + this.a3 * v3;
+    this.ic1 = 2 * v1 - this.ic1;
+    this.ic2 = 2 * v2 - this.ic2;
+    return v1;
+  }
+
   lp(x: number): number {
     const v3 = x - this.ic2;
     const v1 = this.a1 * this.ic1 + this.a2 * v3;

@@ -1,0 +1,27 @@
+{
+  "format": "gener8.patch",
+  "version": 1,
+  "seed": 77,
+  "tempo": 72,
+  "key": { "root": 9, "scale": "dorian" },
+  "objects": [
+    { "id": "f1", "kind": "field", "type": "shimmer", "x": 0, "y": 0, "shape": { "r": 650 }, "layer": 0, "handles": { "size": 0.7, "shimmer": 0.35 } },
+    { "id": "f2", "kind": "field", "type": "tape", "x": -40, "y": -20, "shape": { "r": 520 }, "layer": 1, "handles": { "age": 0.55, "wobble": 0.5 } },
+    { "id": "f3", "kind": "field", "type": "chorus", "x": -200, "y": -80, "shape": { "r": 210 }, "layer": 2, "handles": { "rate": 0.3, "depth": 0.6 } },
+    { "id": "f4", "kind": "field", "type": "strum", "x": -210, "y": -60, "shape": { "r": 150 }, "layer": 3, "handles": { "every": 0.5, "spread": 0.45 } },
+    { "id": "f5", "kind": "field", "type": "humanise", "x": -210, "y": -40, "shape": { "r": 110 }, "layer": 4, "handles": { "timing": 0.6, "dynamics": 0.5 } },
+    { "id": "f6", "kind": "field", "type": "rain", "x": 260, "y": 150, "shape": { "r": 190 }, "layer": 5, "handles": { "density": 0.3, "range": 0.5 } },
+    { "id": "f7", "kind": "field", "type": "harmony", "x": 330, "y": 210, "shape": { "r": 110 }, "layer": 6, "handles": { "interval": 0, "level": 0.5 } },
+    { "id": "f8", "kind": "field", "type": "delay", "x": 260, "y": 150, "shape": { "r": 240 }, "layer": 7, "handles": { "time": 0.66, "feedback": 0.6 } },
+    { "id": "s1", "kind": "sound", "type": "fm", "x": -220, "y": -40, "size": 42, "layer": 10,
+      "params": { "ratio": 1, "index": 1.8, "indexDecay": 0.35, "sustainIndex": 0.15, "a": 0.004, "d": 3, "s": 0.25, "r": 3.5 } },
+    { "id": "s2", "kind": "sound", "type": "fm", "x": 270, "y": 170, "size": 32, "layer": 11,
+      "params": { "ratio": 3.5, "index": 2.5, "indexDecay": 0.5, "sustainIndex": 0.02, "a": 0.002, "d": 3.5, "s": 0, "r": 4 } },
+    { "id": "s3", "kind": "sound", "type": "pad", "x": -170, "y": -110, "size": 46, "layer": 12,
+      "params": { "tone": 800, "motion": 0.7, "spread": 16, "attack": 3, "release": 10, "floor": 0.25 } },
+    { "id": "s4", "kind": "sound", "type": "noise", "x": 380, "y": -200, "size": 36, "layer": 13,
+      "params": { "focus": 0.35, "motion": 1.2, "floor": 0.4, "crackle": 0.45 } },
+    { "id": "s5", "kind": "sound", "type": "additive", "x": 20, "y": -210, "size": 44, "layer": 14,
+      "params": { "partials": 10, "tilt": 1.6, "hollow": 0.5, "shimmer": 0.7 } }
+  ]
+}
