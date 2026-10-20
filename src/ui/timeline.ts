@@ -1,13 +1,67 @@
-import { fmtTime, type App } from './app.ts';
+import { EXAMPLES, fmtTime, type App } from './app.ts';
 import { CAPTURE_SECONDS, HISTORY_SECONDS, SR } from '../core/constants.ts';
 import { NOTE_NAMES, SCALE_LABELS } from '../core/music.ts';
 import { FONT, INK, rgba } from './theme.ts';
 
 export const STRIP_H = 30;
 const READOUT_W = 420;
+const IO_W = 250;
 
 function stripBounds(app: App): { x0: number; x1: number; y: number } {
-  return { x0: 12, x1: Math.max(120, app.W - READOUT_W), y: app.H - STRIP_H };
+  return { x0: IO_W, x1: Math.max(IO_W + 120, app.W - READOUT_W), y: app.H - STRIP_H };
+}
+
+/** Text buttons; records hit boxes. Returns the x after the last item. */
+function buttons(app: App, items: [string, string][], x: number, y: number, h: number): number {
+  const g = app.g;
+  g.font = FONT;
+  g.textBaseline = 'middle';
+  g.textAlign = 'left';
+  for (const [id, label] of items) {
+    const w = g.measureText(label).width;
+    const hov = app.hover?.kind === 'ui' && app.hover.id === id;
+    const on = id === 'examples' && app.examplesOpen;
+    g.fillStyle =
+      id === 'capture'
+        ? `rgba(240,90,90,${hov ? 1 : 0.7})`
+        : `rgba(233,228,218,${hov || on ? 1 : id === 'voices' ? 0.3 : 0.6})`;
+    g.fillText(label, x, y + h / 2);
+    if (id !== 'voices') app.uiHits.push({ id, x: x - 4, y, w: w + 8, h });
+    x += w + 14;
+  }
+  return x;
+}
+
+function drawExamplesMenu(app: App, ax: number, y: number): void {
+  const g = app.g;
+  const itemH = 24;
+  const w = 180;
+  const h = EXAMPLES.length * itemH + 8;
+  const top = y - h - 6;
+  g.fillStyle = 'rgba(14,14,18,0.96)';
+  g.strokeStyle = 'rgba(233,228,218,0.18)';
+  g.beginPath();
+  g.roundRect(ax - 8, top, w, h, 6);
+  g.fill();
+  g.stroke();
+  g.font = FONT;
+  g.textBaseline = 'middle';
+  EXAMPLES.forEach((ex, i) => {
+    const iy = top + 4 + i * itemH;
+    const id = 'example:' + ex.id;
+    const hov = app.hover?.kind === 'ui' && app.hover.id === id;
+    if (hov) {
+      g.fillStyle = 'rgba(233,228,218,0.08)';
+      g.fillRect(ax - 4, iy, w - 8, itemH);
+    }
+    g.textAlign = 'left';
+    g.fillStyle = `rgba(233,228,218,${hov ? 1 : 0.75})`;
+    g.fillText(ex.label, ax, iy + itemH / 2);
+    g.textAlign = 'right';
+    g.fillStyle = 'rgba(233,228,218,0.3)';
+    g.fillText('⇧' + ex.key, ax + w - 18, iy + itemH / 2);
+    app.uiHits.push({ id, x: ax - 4, y: iy, w: w - 8, h: itemH });
+  });
 }
 
 function range(app: App): { from: number; to: number } {
@@ -29,6 +83,16 @@ export function drawTimeline(app: App): void {
   const h = STRIP_H;
   g.fillStyle = 'rgba(255,255,255,0.025)';
   g.fillRect(0, y, app.W, h);
+  app.uiHits = [];
+  const io: [string, string][] = [
+    ['new', 'new'],
+    ['open', 'open'],
+    ['save', 'save'],
+    ['examples', app.examplesOpen ? 'examples ▴' : 'examples ▾'],
+  ];
+  buttons(app, io, 14, y, h);
+  g.fillStyle = 'rgba(233,228,218,0.1)';
+  g.fillRect(x0 - 10, y + 7, 1, h - 14);
   const { from, to } = range(app);
   const xs = (s: number) => x0 + ((s - from) / (to - from)) * (x1 - x0);
   const hist = app.history;
@@ -92,17 +156,9 @@ export function drawTimeline(app: App): void {
     ['capture', '● capture'],
     ['help', '?'],
   ];
-  g.font = FONT;
-  g.textBaseline = 'middle';
-  g.textAlign = 'left';
-  let x = x1 + 16;
-  app.uiHits = [];
-  for (const [id, label] of items) {
-    const w = g.measureText(label).width;
-    const hov = app.hover?.kind === 'ui' && app.hover.id === id;
-    g.fillStyle = id === 'capture' ? `rgba(240,90,90,${hov ? 1 : 0.7})` : `rgba(233,228,218,${hov ? 1 : id === 'voices' ? 0.3 : 0.6})`;
-    g.fillText(label, x, y + h / 2);
-    if (id !== 'voices') app.uiHits.push({ id, x: x - 4, y, w: w + 8, h });
-    x += w + 14;
+  buttons(app, items, x1 + 16, y, h);
+  if (app.examplesOpen) {
+    const ex = app.uiHits.find((u) => u.id === 'examples');
+    if (ex) drawExamplesMenu(app, ex.x + 4, y);
   }
 }

@@ -83,7 +83,7 @@ export function draw(app: App): void {
 
 function drawLogo(app: App): void {
   const g = app.g
-  g.font = "60px 'gener8-logo', ui-monospace, Menlo, monospace"
+  g.font = "50px 'gener8-logo', ui-monospace, Menlo, monospace"
   g.textAlign = 'left'
   g.textBaseline = 'top'
   g.fillStyle = 'rgba(233,228,218,0.7)'

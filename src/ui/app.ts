@@ -1,6 +1,6 @@
 import type { Edit, EventRecord, FieldObj, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
 import { PPQ, SR, CAPTURE_SECONDS } from '../core/constants.ts';
-import { applyEdit, byLayer, clone, nextId, normalizePatch } from '../core/patch.ts';
+import { applyEdit, byLayer, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
 import { pose, type Pose } from '../core/motion.ts';
 import { depthAt, isCircle } from '../core/geometry.ts';
 import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
@@ -18,6 +18,14 @@ import demoPatch from '../../patches/demo.json';
 import stressPatch from '../../patches/stress-24x12.json';
 import rhythmicPatch from '../../patches/rhythmic.json';
 import tapePatch from '../../patches/tape.json';
+
+/** Bundled patches, in menu order; `key` is the shift-shortcut. */
+export const EXAMPLES: { id: string; label: string; key: string; patch: unknown }[] = [
+  { id: 'ambient', label: 'ambient', key: 'D', patch: demoPatch },
+  { id: 'tape', label: 'tape', key: 'T', patch: tapePatch },
+  { id: 'rhythmic', label: 'rhythmic', key: 'R', patch: rhythmicPatch },
+  { id: 'stress', label: 'stress 24×12', key: 'X', patch: stressPatch },
+];
 
 export interface Pulse {
   t: number;
@@ -106,6 +114,7 @@ export class App {
   now = 0;
   uiHits: { id: string; x: number; y: number; w: number; h: number }[] = [];
   motionHits: MotionHit[] = [];
+  examplesOpen = false;
   private drawFailed = false;
   showHelp = false;
   toastMsg = '';
@@ -375,6 +384,7 @@ export class App {
   }
 
   hitTest(mx: number, my: number): Hit | null {
+    for (const u of this.uiHits) if (mx >= u.x && mx <= u.x + u.w && my >= u.y && my <= u.y + u.h) return { kind: 'ui', id: u.id };
     const mh = motionHitAt(this, mx, my);
     if (mh) return { kind: 'motion', hit: mh };
     const pi = paletteHit(this, mx, my);
@@ -538,6 +548,9 @@ export class App {
     }
 
     const hit = this.hitTest(mx, my);
+    if (this.examplesOpen && !(hit?.kind === 'ui' && (hit.id === 'examples' || hit.id.startsWith('example:')))) {
+      this.examplesOpen = false;
+    }
     if (!hit) {
       this.sel = null;
       this.drag = { kind: 'pan', sx: mx, sy: my, cx: this.cam.x, cy: this.cam.y };
@@ -792,7 +805,41 @@ export class App {
       case 'help':
         this.showHelp = !this.showHelp;
         return;
+      case 'new':
+        this.load({ ...emptyPatch(), tempo: p.tempo, key: p.key, seed: p.seed }, 'new patch · scrub the timeline to go back');
+        return;
+      case 'open':
+        this.openPatch();
+        return;
+      case 'save':
+        this.savePatch();
+        return;
+      case 'examples':
+        this.examplesOpen = !this.examplesOpen;
+        return;
     }
+    if (id.startsWith('example:')) {
+      const ex = EXAMPLES.find((x) => 'example:' + x.id === id);
+      this.examplesOpen = false;
+      if (ex) this.load(ex.patch, `loaded ${ex.label}`);
+    }
+  }
+
+  savePatch(): void {
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    download(new Blob([JSON.stringify(this.patch, null, 2)], { type: 'application/json' }), `gener8-${stamp}.json`);
+    this.toast('patch saved');
+  }
+
+  openPatch(): void {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json,application/json';
+    inp.onchange = () => {
+      const f = inp.files?.[0];
+      if (f) f.text().then((t) => this.load(JSON.parse(t), `loaded ${f.name}`));
+    };
+    inp.click();
   }
 
   private wheelUi(id: string, dir: number): void {
@@ -809,16 +856,12 @@ export class App {
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key === 's') {
       e.preventDefault();
-      download(new Blob([JSON.stringify(this.patch, null, 2)], { type: 'application/json' }), 'gener8-patch.json');
+      this.savePatch();
       return;
     }
     if (mod && e.key === 'o') {
       e.preventDefault();
-      const inp = document.createElement('input');
-      inp.type = 'file';
-      inp.accept = '.json,application/json';
-      inp.onchange = () => inp.files?.[0]?.text().then((t) => this.load(JSON.parse(t), `loaded ${inp.files![0].name}`));
-      inp.click();
+      this.openPatch();
       return;
     }
     if (mod && e.key === 'd' && this.sel) {
@@ -840,7 +883,8 @@ export class App {
     const sel = this.sel;
     switch (e.key) {
       case 'Escape':
-        if (this.scrub) this.scrub.cancelled = true;
+        if (this.examplesOpen) this.examplesOpen = false;
+        else if (this.scrub) this.scrub.cancelled = true;
         else if (this.panel) this.panel = null;
         else if (this.showHelp) this.showHelp = false;
         else this.sel = null;
@@ -886,17 +930,13 @@ export class App {
         this.cam = { x: 0, y: 0, zoom: 1 };
         return;
       case 'D':
-        this.load(demoPatch, 'loaded demo');
-        return;
-      case 'X':
-        this.load(stressPatch, 'loaded stress 24×12');
-        return;
-      case 'R':
-        this.load(rhythmicPatch, 'loaded rhythmic demo');
-        return;
       case 'T':
-        this.load(tapePatch, 'loaded tape demo');
+      case 'R':
+      case 'X': {
+        const ex = EXAMPLES.find((x) => x.key === e.key)!;
+        this.load(ex.patch, `loaded ${ex.label}`);
         return;
+      }
       case 'ArrowUp':
       case 'ArrowDown':
       case 'ArrowLeft':
