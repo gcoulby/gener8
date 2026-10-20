@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-concurrency=1 test/*.test.ts",
+    "test:ci": "node --test --test-concurrency=1 $(ls test/*.test.ts | grep -v stress)",
     "stress": "node --test test/stress.test.ts",
     "golden": "node scripts/golden.ts",
     "make-stress": "node scripts/make-stress.ts",
