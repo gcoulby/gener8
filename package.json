@@ -1,0 +1,23 @@
+{
+  "name": "gener8",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "stress": "node --test test/stress.test.ts",
+    "golden": "node scripts/golden.ts",
+    "make-stress": "node scripts/make-stress.ts",
+    "render": "node scripts/render.ts",
+    "render-capture": "node scripts/render-capture.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}

@@ -1,0 +1,733 @@
+{
+  "format": "gener8.patch",
+  "version": 1,
+  "seed": 424242,
+  "tempo": 128,
+  "key": {
+    "root": 2,
+    "scale": "dorian"
+  },
+  "objects": [
+    {
+      "id": "f1",
+      "kind": "field",
+      "type": "reverb",
+      "x": -350,
+      "y": 0,
+      "shape": {
+        "r": 400
+      },
+      "layer": 0,
+      "handles": {
+        "size": 0.7,
+        "damping": 0.4
+      }
+    },
+    {
+      "id": "f2",
+      "kind": "field",
+      "type": "reverb",
+      "x": 350,
+      "y": 0,
+      "shape": {
+        "r": 400
+      },
+      "layer": 1,
+      "handles": {
+        "size": 0.4,
+        "damping": 0.4
+      }
+    },
+    {
+      "id": "f3",
+      "kind": "field",
+      "type": "pulse",
+      "x": -450,
+      "y": -80,
+      "shape": {
+        "r": 200
+      },
+      "layer": 2,
+      "handles": {
+        "hits": 0.4,
+        "length": 1
+      }
+    },
+    {
+      "id": "f4",
+      "kind": "field",
+      "type": "pulse",
+      "x": -150,
+      "y": 150,
+      "shape": {
+        "r": 180
+      },
+      "layer": 3,
+      "handles": {
+        "hits": 0.6,
+        "length": 0.5
+      }
+    },
+    {
+      "id": "f5",
+      "kind": "field",
+      "type": "pulse",
+      "x": 150,
+      "y": -200,
+      "shape": {
+        "r": 200
+      },
+      "layer": 4,
+      "handles": {
+        "hits": 0.25,
+        "length": 1
+      }
+    },
+    {
+      "id": "f6",
+      "kind": "field",
+      "type": "drift",
+      "x": 450,
+      "y": 120,
+      "shape": {
+        "r": 200
+      },
+      "layer": 5,
+      "handles": {
+        "rate": 0.6,
+        "entropy": 0.5
+      }
+    },
+    {
+      "id": "f7",
+      "kind": "field",
+      "type": "grid",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "w": 300,
+        "h": 220
+      },
+      "layer": 6,
+      "handles": {
+        "rate": 0.66,
+        "entropy": 0.5
+      }
+    },
+    {
+      "id": "f8",
+      "kind": "field",
+      "type": "ratchet",
+      "x": -450,
+      "y": -80,
+      "shape": {
+        "r": 120
+      },
+      "layer": 7,
+      "handles": {
+        "rate": 0
+      },
+      "motion": {
+        "breathe": {
+          "amount": 0.5,
+          "periodBeats": 8
+        }
+      }
+    },
+    {
+      "id": "f9",
+      "kind": "field",
+      "type": "probability",
+      "x": -150,
+      "y": 150,
+      "shape": {
+        "r": 120
+      },
+      "layer": 8,
+      "handles": {
+        "bias": 0.4
+      }
+    },
+    {
+      "id": "f10",
+      "kind": "field",
+      "type": "transpose",
+      "x": 450,
+      "y": 120,
+      "shape": {
+        "r": 90
+      },
+      "layer": 9,
+      "handles": {
+        "interval": 0.75
+      }
+    },
+    {
+      "id": "f11",
+      "kind": "field",
+      "type": "filter",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "r": 150
+      },
+      "layer": 10,
+      "handles": {
+        "cutoff": 0.3,
+        "res": 0.6
+      },
+      "motion": {
+        "pos": {
+          "type": "orbit",
+          "radius": 250,
+          "periodBeats": 16,
+          "phase": 0
+        }
+      }
+    },
+    {
+      "id": "f12",
+      "kind": "field",
+      "type": "delay",
+      "x": 150,
+      "y": -200,
+      "shape": {
+        "r": 220
+      },
+      "layer": 11,
+      "handles": {
+        "time": 0.5,
+        "feedback": 0.6
+      }
+    },
+    {
+      "id": "s13",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": -424,
+      "y": 21,
+      "size": 40,
+      "layer": 12,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      },
+      "motion": {
+        "pos": {
+          "type": "orbit",
+          "radius": 40,
+          "periodBeats": 8,
+          "phase": 0
+        }
+      }
+    },
+    {
+      "id": "s14",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": -149,
+      "y": 116,
+      "size": 48,
+      "layer": 13,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    },
+    {
+      "id": "s15",
+      "kind": "sound",
+      "type": "percussion",
+      "x": 153,
+      "y": -254,
+      "size": 56,
+      "layer": 14,
+      "params": {
+        "tone": 0.65,
+        "decay": 0.3,
+        "sweep": 1.5,
+        "color": 0.5
+      }
+    },
+    {
+      "id": "s16",
+      "kind": "sound",
+      "type": "pluck",
+      "x": 377,
+      "y": 29,
+      "size": 64,
+      "layer": 15,
+      "params": {
+        "decay": 2,
+        "bright": 0.6,
+        "damp": 0.3
+      }
+    },
+    {
+      "id": "s17",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": -8,
+      "y": 90,
+      "size": 40,
+      "layer": 16,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    },
+    {
+      "id": "s18",
+      "kind": "sound",
+      "type": "pad",
+      "x": -586,
+      "y": -13,
+      "size": 48,
+      "layer": 17,
+      "params": {
+        "tone": 1400,
+        "spread": 12,
+        "attack": 1.2,
+        "release": 3,
+        "floor": 0.15
+      },
+      "motion": {
+        "pos": {
+          "type": "orbit",
+          "radius": 40,
+          "periodBeats": 13,
+          "phase": 0
+        }
+      }
+    },
+    {
+      "id": "s19",
+      "kind": "sound",
+      "type": "drone",
+      "x": -181,
+      "y": 250,
+      "size": 56,
+      "layer": 18,
+      "params": {
+        "tone": 900,
+        "spread": 8,
+        "drift": 12,
+        "sub": 0.4
+      }
+    },
+    {
+      "id": "s20",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": 105,
+      "y": -226,
+      "size": 64,
+      "layer": 19,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      },
+      "motion": {
+        "pos": {
+          "type": "drift",
+          "amplitude": 60,
+          "rateBeats": 8
+        }
+      }
+    },
+    {
+      "id": "s21",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": 336,
+      "y": 56,
+      "size": 40,
+      "layer": 20,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    },
+    {
+      "id": "s22",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": -37,
+      "y": -53,
+      "size": 48,
+      "layer": 21,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    },
+    {
+      "id": "s23",
+      "kind": "sound",
+      "type": "percussion",
+      "x": -563,
+      "y": -142,
+      "size": 56,
+      "layer": 22,
+      "params": {
+        "tone": 0.65,
+        "decay": 0.3,
+        "sweep": 1.5,
+        "color": 0.5
+      },
+      "motion": {
+        "pos": {
+          "type": "orbit",
+          "radius": 40,
+          "periodBeats": 18,
+          "phase": 0
+        }
+      }
+    },
+    {
+      "id": "s24",
+      "kind": "sound",
+      "type": "pluck",
+      "x": -141,
+      "y": 156,
+      "size": 64,
+      "layer": 23,
+      "params": {
+        "decay": 2,
+        "bright": 0.6,
+        "damp": 0.3
+      }
+    },
+    {
+      "id": "s25",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": 110,
+      "y": -197,
+      "size": 40,
+      "layer": 24,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    },
+    {
+      "id": "s26",
+      "kind": "sound",
+      "type": "pad",
+      "x": 471,
+      "y": 176,
+      "size": 48,
+      "layer": 25,
+      "params": {
+        "tone": 1400,
+        "spread": 12,
+        "attack": 1.2,
+        "release": 3,
+        "floor": 0.15
+      }
+    },
+    {
+      "id": "s27",
+      "kind": "sound",
+      "type": "drone",
+      "x": 3,
+      "y": 23,
+      "size": 56,
+      "layer": 26,
+      "params": {
+        "tone": 900,
+        "spread": 8,
+        "drift": 12,
+        "sub": 0.4
+      },
+      "motion": {
+        "pos": {
+          "type": "drift",
+          "amplitude": 60,
+          "rateBeats": 8
+        }
+      }
+    },
+    {
+      "id": "s28",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": -422,
+      "y": -69,
+      "size": 64,
+      "layer": 27,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      },
+      "motion": {
+        "pos": {
+          "type": "orbit",
+          "radius": 40,
+          "periodBeats": 23,
+          "phase": 0
+        }
+      }
+    },
+    {
+      "id": "s29",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": -64,
+      "y": 181,
+      "size": 40,
+      "layer": 28,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    },
+    {
+      "id": "s30",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": 98,
+      "y": -211,
+      "size": 48,
+      "layer": 29,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    },
+    {
+      "id": "s31",
+      "kind": "sound",
+      "type": "percussion",
+      "x": 299,
+      "y": 107,
+      "size": 56,
+      "layer": 30,
+      "params": {
+        "tone": 0.65,
+        "decay": 0.3,
+        "sweep": 1.5,
+        "color": 0.5
+      }
+    },
+    {
+      "id": "s32",
+      "kind": "sound",
+      "type": "pluck",
+      "x": -29,
+      "y": -1,
+      "size": 64,
+      "layer": 31,
+      "params": {
+        "decay": 2,
+        "bright": 0.6,
+        "damp": 0.3
+      }
+    },
+    {
+      "id": "s33",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": -600,
+      "y": 330,
+      "size": 40,
+      "layer": 32,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      },
+      "motion": {
+        "pos": {
+          "type": "orbit",
+          "radius": 40,
+          "periodBeats": 28,
+          "phase": 0
+        }
+      }
+    },
+    {
+      "id": "s34",
+      "kind": "sound",
+      "type": "pad",
+      "x": -200,
+      "y": -330,
+      "size": 48,
+      "layer": 33,
+      "params": {
+        "tone": 1400,
+        "spread": 12,
+        "attack": 1.2,
+        "release": 3,
+        "floor": 0.15
+      },
+      "motion": {
+        "pos": {
+          "type": "drift",
+          "amplitude": 60,
+          "rateBeats": 8
+        }
+      }
+    },
+    {
+      "id": "s35",
+      "kind": "sound",
+      "type": "drone",
+      "x": 200,
+      "y": 330,
+      "size": 56,
+      "layer": 34,
+      "params": {
+        "tone": 900,
+        "spread": 8,
+        "drift": 12,
+        "sub": 0.4
+      }
+    },
+    {
+      "id": "s36",
+      "kind": "sound",
+      "type": "subtractive",
+      "x": 600,
+      "y": -330,
+      "size": 64,
+      "layer": 35,
+      "params": {
+        "shape": 0,
+        "detune": 7,
+        "cutoff": 900,
+        "res": 0.35,
+        "envAmt": 2.5,
+        "fa": 0.002,
+        "fd": 0.18,
+        "fs": 0.1,
+        "fr": 0.3,
+        "a": 0.004,
+        "d": 0.25,
+        "s": 0.3,
+        "r": 0.3
+      }
+    }
+  ]
+}
