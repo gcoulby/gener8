@@ -13,6 +13,7 @@ import { draw } from './draw.ts';
 import { paletteHit, type PaletteItem } from './palette.ts';
 import { STRIP_H, stripSampleAt } from './timeline.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
+import { motionHitAt, readValue, stepValue, toggleEdit, valueEdit, type MotionHit, type ValueKey } from './motionbar.ts';
 import demoPatch from '../../patches/demo.json';
 import stressPatch from '../../patches/stress-24x12.json';
 import rhythmicPatch from '../../patches/rhythmic.json';
@@ -60,6 +61,7 @@ export type Hit =
   | { kind: 'handle'; id: string; h: HandlePos }
   | { kind: 'palette'; item: PaletteItem }
   | { kind: 'ui'; id: string }
+  | { kind: 'motion'; hit: MotionHit }
   | { kind: 'strip' };
 
 type Drag =
@@ -68,6 +70,7 @@ type Drag =
   | { kind: 'handle'; id: string; h: HandlePos; startVal: number; startY: number }
   | { kind: 'palette'; item: PaletteItem }
   | { kind: 'scrub' }
+  | { kind: 'mvalue'; id: string; key: ValueKey; start: number; sx: number }
   | { kind: 'panel'; key: string; data: any };
 
 const STORE_KEY = 'gener8.patch.v2';
@@ -101,6 +104,8 @@ export class App {
   beat = 0;
   now = 0;
   uiHits: { id: string; x: number; y: number; w: number; h: number }[] = [];
+  motionHits: MotionHit[] = [];
+  private drawFailed = false;
   showHelp = false;
   toastMsg = '';
   toastT = 0;
@@ -255,14 +260,20 @@ export class App {
     this.flushSends();
     if (this.audio.started) {
       const a = this.audio.audibleSample();
-      this.tickNow = this.audio.tickAt(a);
+      this.tickNow = Math.max(0, this.audio.tickAt(a));
       this.activate(a, now);
     }
     this.beat = this.tickNow / PPQ;
+    requestAnimationFrame(this.frame);
     this.computePoses();
     this.autoPanel();
-    draw(this);
-    requestAnimationFrame(this.frame);
+    try {
+      draw(this);
+    } catch (err) {
+      // Never let one bad frame freeze the instrument.
+      if (!this.drawFailed) console.error('draw failed', err);
+      this.drawFailed = true;
+    }
   };
 
   private activate(audible: number, now: number): void {
@@ -363,6 +374,8 @@ export class App {
   }
 
   hitTest(mx: number, my: number): Hit | null {
+    const mh = motionHitAt(this, mx, my);
+    if (mh) return { kind: 'motion', hit: mh };
     const pi = paletteHit(this, mx, my);
     if (pi) return { kind: 'palette', item: pi };
     if (my > this.H - STRIP_H) {
@@ -536,6 +549,18 @@ export class App {
       case 'ui':
         this.onUi(hit.id);
         return;
+      case 'motion': {
+        const o = this.patch.objects.find((q) => q.id === this.sel);
+        if (!o) return;
+        const a = hit.hit.action;
+        if (a.kind === 'value') {
+          this.drag = { kind: 'mvalue', id: o.id, key: a.key, start: readValue(o, a.key), sx: mx };
+        } else {
+          const ed = toggleEdit(o, a);
+          if (ed) this.commit(ed);
+        }
+        return;
+      }
       case 'strip':
         if (!this.history) return;
         this.drag = { kind: 'scrub' };
@@ -592,6 +617,14 @@ export class App {
       case 'panel':
         panelPointerMove(this, d.data, mx, my);
         return;
+      case 'mvalue': {
+        const o = this.patch.objects.find((q) => q.id === d.id);
+        if (!o) return;
+        const dx = mx - d.sx;
+        const v = stepValue(d.key, d.start, Math.round(dx / 12), dx);
+        this.commitCoalesced(`mv:${d.id}:${d.key}`, valueEdit(o, d.key, v));
+        return;
+      }
       case 'palette':
         return;
     }
@@ -686,6 +719,16 @@ export class App {
     if (my > this.H - STRIP_H) {
       const u = this.uiHits.find((q) => mx >= q.x && mx <= q.x + q.w);
       if (u) this.wheelUi(u.id, e.deltaY < 0 ? 1 : -1);
+      return;
+    }
+    const mh = motionHitAt(this, mx, my);
+    if (mh && mh.action.kind === 'value') {
+      const o = this.patch.objects.find((q) => q.id === this.sel);
+      if (o) {
+        const dir = e.deltaY < 0 ? 1 : -1;
+        const key = mh.action.key;
+        this.commit(valueEdit(o, key, stepValue(key, readValue(o, key), dir, dir * 10)));
+      }
       return;
     }
     const sel = this.obj(this.sel);

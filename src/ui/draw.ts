@@ -13,6 +13,7 @@ import { soundDetail, soundPath } from './glyphs.ts';
 import { drawPalette } from './palette.ts';
 import { drawTimeline, STRIP_H } from './timeline.ts';
 import { drawPanel } from './panel.ts';
+import { drawMotionBar } from './motionbar.ts';
 
 const TAU = Math.PI * 2;
 
@@ -43,6 +44,7 @@ export function draw(app: App): void {
     if (o?.kind === 'sound') drawPitchLadder(app, o);
   }
 
+  drawMotionBar(app);
   drawPalette(app);
   drawTimeline(app);
   if (app.scrub && !app.scrub.cancelled) {
@@ -392,7 +394,7 @@ function drawMotionGuide(app: App, o: PatchObject): void {
   const parts: string[] = [];
   if (m.pos) parts.push(`${m.pos.type} ${'periodBeats' in m.pos ? m.pos.periodBeats : m.pos.rateBeats} beats`);
   if (m.breathe) parts.push(`breathe ${m.breathe.periodBeats} beats`);
-  g.fillText(parts.join(' · ') + '  (alt+wheel: period)', hx + 8, hy - 8);
+  g.fillText(parts.join(' · '), hx + 8, hy - 8);
 }
 
 function drawHandles(app: App, o: PatchObject): void {
@@ -487,8 +489,9 @@ const HELP = [
   'character ◔      drag up/down',
   'pinch / ⌘-wheel  zoom · two-finger / right-drag / space-drag: pan',
   'zoom in on sound or double-click   open its internals',
-  'm / b            cycle motion (orbit → drift → path → none) / breathe',
-  'alt + wheel      motion period on the selection',
+  'select anything  motion bar below it: breathe / orbit / drift / path',
+  '                 drag or scroll its values (depth, period, radius…)',
+  'm / b            shortcuts: cycle motion / toggle breathe',
   '[ ]              layer down / up (order within a role)',
   '↑ ↓ ← →          nudge a semitone (shift: an octave)',
   'delete           remove selection',

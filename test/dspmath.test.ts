@@ -13,6 +13,12 @@ test('sinTurns tracks Math.sin', () => {
   }
 });
 
+test('sinTurns is finite at the wrap edge (tiny negative phases)', () => {
+  for (const t of [-1e-19, -3e-19, -1e-17, -Number.MIN_VALUE, 1 - 1e-17, -1, 0]) {
+    assert.ok(Number.isFinite(sinTurns(t)), String(t));
+  }
+});
+
 test('exp2 / log2 track the built-ins', () => {
   for (let x = -40; x <= 40; x += 0.37) assert.ok(Math.abs(exp2(x) / 2 ** x - 1) < 1e-12);
   for (let x = 0.001; x < 1e5; x *= 1.7) assert.ok(Math.abs(log2(x) - Math.log2(x)) < 1e-12);

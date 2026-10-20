@@ -34,6 +34,8 @@ for (let i = 0; i <= SIN_N; i++) {
 /** sin(2π·t), t in turns. */
 export function sinTurns(t: number): number {
   t -= Math.floor(t);
+  // A tiny negative t reduces to 1 - ε, which rounds to exactly 1.0.
+  if (t >= 1) t = 0;
   const f = t * SIN_N;
   const i = f | 0;
   const a = SIN_TABLE[i];
