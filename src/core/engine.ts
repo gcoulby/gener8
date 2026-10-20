@@ -36,7 +36,7 @@ import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
 import { hash32, rand, strHash } from './rand.ts';
 import { angleTurns, depthAt, shapeDims } from './geometry.ts';
-import { indexToMidi, nearestIndex, scaleSteps, yToMidi } from './music.ts';
+import { indexToMidi, nearestIndex, scaleSteps, snapToScale, yToMidi } from './music.ts';
 import { cosTurns, sinTurns, tanh } from './dspmath.ts';
 
 const MASTER_GAIN = 0.9;
@@ -96,12 +96,13 @@ interface SoundRT {
   trans: Membership[];
   inserts: Membership[];
   buses: Membership[];
-  insertProcs: Map<string, FxProcessor>;
+  insertProcs: Map<string, FxProcessor[]>;
   sendPrev: Map<string, number>;
   gL: number;
   gR: number;
   lastRipple: number;
   buf: Float64Array;
+  bufR: Float64Array | null;
   mod: ModFrame;
   events: NoteEvent[];
 }
@@ -341,7 +342,8 @@ export class Engine {
       gR: 0,
       lastRipple: -Infinity,
       buf: new Float64Array(BLOCK),
-      mod: { pitch: 60, chord: [0, 0, 0] },
+      bufR: t.stereo ? new Float64Array(BLOCK) : null,
+      mod: { pitch: 60, chord: [0, 0, 0, 0] },
       events: [],
     };
   }
@@ -423,7 +425,8 @@ export class Engine {
       }
       // Sustained pitch through pitch-aware transformers
       if (s.type.mode === 'sustained') {
-        let p = yToMidi(s.pose.y);
+        // Sustained voices sit on the scale too; moving them glides between notes.
+        let p = snapToScale(yToMidi(s.pose.y), keyRoot, this.steps);
         for (const m of s.trans) {
           const t = m.f.type;
           if (t.role === 'transformer' && t.transformPitch) p = t.transformPitch(p, m.depth, m.f.ctx);
@@ -432,8 +435,9 @@ export class Engine {
         const base = indexToMidi(idx, keyRoot, this.steps);
         s.mod.pitch = p;
         s.mod.chord[0] = 0;
-        s.mod.chord[1] = indexToMidi(idx + 2, keyRoot, this.steps) - base;
-        s.mod.chord[2] = indexToMidi(idx + 4, keyRoot, this.steps) - base;
+        s.mod.chord[1] = snapToScale(base + 7, keyRoot, this.steps) - base;
+        s.mod.chord[2] = snapToScale(base + 14, keyRoot, this.steps) - base;
+        s.mod.chord[3] = snapToScale(base + 15.5, keyRoot, this.steps) - base;
       }
     }
 
@@ -598,6 +602,8 @@ export class Engine {
   private renderSound(s: SoundRT, s0: number, t0: number, tps: number): void {
     const buf = s.buf;
     buf.fill(0);
+    const bufR = s.bufR ?? buf;
+    if (s.bufR) s.bufR.fill(0);
     const actions = this.actions;
     actions.length = 0;
     const isEvent = s.type.mode === 'event';
@@ -652,10 +658,11 @@ export class Engine {
       if (!p) {
         const t = m.f.type;
         if (t.role !== 'fx') continue;
-        p = t.createProcessor(m.f.ctx);
+        p = s.bufR ? [t.createProcessor(m.f.ctx), t.createProcessor(m.f.ctx)] : [t.createProcessor(m.f.ctx)];
         s.insertProcs.set(m.f.id, p);
       }
-      p.mono?.(buf, BLOCK, m.depth);
+      p[0].mono?.(buf, BLOCK, m.depth);
+      if (s.bufR) p[1].mono?.(s.bufR, BLOCK, m.depth);
     }
     if (s.insertProcs.size > s.inserts.length) {
       for (const id of s.insertProcs.keys()) if (!s.inserts.some((m) => m.f.id === id)) s.insertProcs.delete(id);
@@ -677,7 +684,7 @@ export class Engine {
       l += dL;
       r += dR;
       outL[i] += buf[i] * l;
-      outR[i] += buf[i] * r;
+      outR[i] += bufR[i] * r;
     }
 
     // Sends (parallel, send level = depth, ramped)
@@ -694,7 +701,7 @@ export class Engine {
         ll += dL;
         rr += dR;
         f.busL[i] += buf[i] * ll * sv;
-        f.busR[i] += buf[i] * rr * sv;
+        f.busR[i] += bufR[i] * rr * sv;
       }
       s.sendPrev.set(f.id, m.depth);
     }
@@ -713,7 +720,7 @@ export class Engine {
             ll += dL;
             rr += dR;
             f.busL[i] += buf[i] * ll * sv;
-            f.busR[i] += buf[i] * rr * sv;
+            f.busR[i] += bufR[i] * rr * sv;
           }
         }
         s.sendPrev.delete(id);
@@ -760,7 +767,8 @@ export class Engine {
 
   private renderVoices(s: SoundRT, start: number, end: number): void {
     if (end <= start) return;
-    for (const v of s.voices) if (v.active) v.render(s.buf, start, end, s.mod);
+    const r = s.bufR ?? undefined;
+    for (const v of s.voices) if (v.active) v.render(s.buf, start, end, s.mod, r);
   }
 }
 

@@ -15,6 +15,7 @@ import { STRIP_H, stripSampleAt } from './timeline.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import demoPatch from '../../patches/demo.json';
 import stressPatch from '../../patches/stress-24x12.json';
+import rhythmicPatch from '../../patches/rhythmic.json';
 
 export interface Pulse {
   t: number;
@@ -69,7 +70,7 @@ type Drag =
   | { kind: 'scrub' }
   | { kind: 'panel'; key: string; data: any };
 
-const STORE_KEY = 'gener8.patch';
+const STORE_KEY = 'gener8.patch.v2';
 export const HANDLE_ZOOM = 0.6;
 
 export class App {
@@ -845,6 +846,9 @@ export class App {
         return;
       case 'X':
         this.load(stressPatch, 'loaded stress 24×12');
+        return;
+      case 'R':
+        this.load(rhythmicPatch, 'loaded rhythmic demo');
         return;
       case 'ArrowUp':
       case 'ArrowDown':

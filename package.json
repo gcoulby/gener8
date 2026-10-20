@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/*.test.ts",
+    "test": "node --test --test-concurrency=1 test/*.test.ts",
     "stress": "node --test test/stress.test.ts",
     "golden": "node scripts/golden.ts",
     "make-stress": "node scripts/make-stress.ts",

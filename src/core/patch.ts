@@ -9,8 +9,8 @@ export function emptyPatch(): Patch {
     format: 'gener8.patch',
     version: 1,
     seed: 1,
-    tempo: 96,
-    key: { root: 0, scale: 'minorPentatonic' },
+    tempo: 64,
+    key: { root: 2, scale: 'major' },
     objects: [],
   };
 }

@@ -12,10 +12,11 @@ function vnoise(ctx: VoiceContext, stream: number, t: number): number {
   return (a + (b - a) * f * f * (3 - 2 * f)) * 2 - 1;
 }
 
-/** Sustained oscillators with slow seeded drift. Events become accents. */
+/** Sustained saws (one per side) over a sine sub, with slow seeded drift. Events become accents. */
 class DroneVoice implements Voice {
   private ctx: VoiceContext;
-  private svf = new Svf();
+  private svfL = new Svf();
+  private svfR = new Svf();
   private ph = new Float64Array(3);
   private pitch = -1;
   private t = 0;
@@ -37,18 +38,21 @@ class DroneVoice implements Voice {
     if (velocity > this.accPeak) this.accPeak = velocity;
   }
 
-  render(out: Float64Array, start: number, end: number, mod: ModFrame): void {
+  render(out: Float64Array, start: number, end: number, mod: ModFrame, outR?: Float64Array): void {
     const p = this.ctx.params;
+    const oR = outR ?? out;
     if (this.pitch < 0) this.pitch = mod.pitch;
-    this.pitch += (mod.pitch - this.pitch) * 0.05;
+    this.pitch += (mod.pitch - this.pitch) * 0.02;
     const secs = this.t / SR;
-    const d1 = vnoise(this.ctx, 1, secs * 0.13) * p.drift;
-    const d2 = vnoise(this.ctx, 2, secs * 0.11) * p.drift;
+    const d1 = vnoise(this.ctx, 1, secs * 0.09) * p.drift;
+    const d2 = vnoise(this.ctx, 2, secs * 0.07) * p.drift;
     const hz = midiToHz(this.pitch);
     const dt0 = Math.min(0.45, (hz * exp2((d1 - p.spread * 0.5) / 1200)) / SR);
     const dt1 = Math.min(0.45, (hz * exp2((d2 + p.spread * 0.5) / 1200)) / SR);
     const dt2 = hz / 2 / SR;
-    this.svf.set(p.tone * exp2(this.acc * 2), 0.15);
+    const cut = p.tone * exp2(this.acc * 1.5 + vnoise(this.ctx, 3, secs * 0.04) * 0.5);
+    this.svfL.set(cut, 0.2);
+    this.svfR.copyCoefs(this.svfL);
     const sub = p.sub;
     const sawGain = 1 - sub * 0.5;
     const ph = this.ph;
@@ -59,17 +63,21 @@ class DroneVoice implements Voice {
     let acc = this.acc;
     let accPeak = this.accPeak;
     for (let i = start; i < end; i++) {
-      const x = (blepSaw(p0, dt0) + blepSaw(p1, dt1)) * 0.5 * sawGain + sinTurns(p2) * sub;
+      const a = blepSaw(p0, dt0) * sawGain;
+      const b = blepSaw(p1, dt1) * sawGain;
+      const s = sinTurns(p2) * sub;
       p0 += dt0;
       if (p0 >= 1) p0 -= 1;
       p1 += dt1;
       if (p1 >= 1) p1 -= 1;
       p2 += dt2;
       if (p2 >= 1) p2 -= 1;
-      if (fade < 1) fade += 1 / (3 * SR);
-      acc += (accPeak - acc) * 0.002;
-      accPeak *= 0.99996;
-      out[i] += this.svf.lp(x) * 0.16 * fade * (1 + acc * 0.8);
+      if (fade < 1) fade += 1 / (6 * SR);
+      acc += (accPeak - acc) * 0.0005;
+      accPeak *= 0.99998;
+      const g = 0.13 * fade * (1 + acc * 0.6);
+      out[i] += this.svfL.lp(a * 0.8 + b * 0.25 + s) * g;
+      oR[i] += this.svfR.lp(b * 0.8 + a * 0.25 + s) * g;
     }
     ph[0] = p0;
     ph[1] = p1;
@@ -85,13 +93,14 @@ export const drone: SoundType = {
   id: 'drone',
   label: 'drone',
   mode: 'sustained',
+  stereo: true,
   glyph: 'ring',
   maxVoices: 1,
   params: [
-    { key: 'tone', label: 'tone', min: 80, max: 6000, default: 900, curve: 'exp', unit: 'Hz' },
+    { key: 'tone', label: 'tone', min: 80, max: 6000, default: 600, curve: 'exp', unit: 'Hz' },
     { key: 'spread', label: 'spread', min: 0, max: 30, default: 8, curve: 'lin', unit: 'ct' },
-    { key: 'drift', label: 'drift', min: 0, max: 60, default: 12, curve: 'lin', unit: 'ct' },
-    { key: 'sub', label: 'sub', min: 0, max: 1, default: 0.4, curve: 'lin' },
+    { key: 'drift', label: 'drift', min: 0, max: 60, default: 10, curve: 'lin', unit: 'ct' },
+    { key: 'sub', label: 'sub', min: 0, max: 1, default: 0.5, curve: 'lin' },
   ],
   panel: [
     { kind: 'knobs', title: 'oscillators', keys: ['spread', 'drift', 'sub'] },

@@ -209,19 +209,20 @@
       "size": 40,
       "layer": 12,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       },
       "motion": {
         "pos": {
@@ -241,19 +242,20 @@
       "size": 48,
       "layer": 13,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     },
     {
@@ -294,19 +296,20 @@
       "size": 40,
       "layer": 16,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     },
     {
@@ -318,11 +321,12 @@
       "size": 48,
       "layer": 17,
       "params": {
-        "tone": 1400,
-        "spread": 12,
-        "attack": 1.2,
-        "release": 3,
-        "floor": 0.15
+        "tone": 1100,
+        "motion": 0.6,
+        "spread": 14,
+        "attack": 3,
+        "release": 8,
+        "floor": 0.35
       },
       "motion": {
         "pos": {
@@ -342,10 +346,10 @@
       "size": 56,
       "layer": 18,
       "params": {
-        "tone": 900,
+        "tone": 600,
         "spread": 8,
-        "drift": 12,
-        "sub": 0.4
+        "drift": 10,
+        "sub": 0.5
       }
     },
     {
@@ -357,19 +361,20 @@
       "size": 64,
       "layer": 19,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       },
       "motion": {
         "pos": {
@@ -388,19 +393,20 @@
       "size": 40,
       "layer": 20,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     },
     {
@@ -412,19 +418,20 @@
       "size": 48,
       "layer": 21,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     },
     {
@@ -473,19 +480,20 @@
       "size": 40,
       "layer": 24,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     },
     {
@@ -497,11 +505,12 @@
       "size": 48,
       "layer": 25,
       "params": {
-        "tone": 1400,
-        "spread": 12,
-        "attack": 1.2,
-        "release": 3,
-        "floor": 0.15
+        "tone": 1100,
+        "motion": 0.6,
+        "spread": 14,
+        "attack": 3,
+        "release": 8,
+        "floor": 0.35
       }
     },
     {
@@ -513,10 +522,10 @@
       "size": 56,
       "layer": 26,
       "params": {
-        "tone": 900,
+        "tone": 600,
         "spread": 8,
-        "drift": 12,
-        "sub": 0.4
+        "drift": 10,
+        "sub": 0.5
       },
       "motion": {
         "pos": {
@@ -535,19 +544,20 @@
       "size": 64,
       "layer": 27,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       },
       "motion": {
         "pos": {
@@ -567,19 +577,20 @@
       "size": 40,
       "layer": 28,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     },
     {
@@ -591,19 +602,20 @@
       "size": 48,
       "layer": 29,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     },
     {
@@ -644,19 +656,20 @@
       "size": 40,
       "layer": 32,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       },
       "motion": {
         "pos": {
@@ -676,11 +689,12 @@
       "size": 48,
       "layer": 33,
       "params": {
-        "tone": 1400,
-        "spread": 12,
-        "attack": 1.2,
-        "release": 3,
-        "floor": 0.15
+        "tone": 1100,
+        "motion": 0.6,
+        "spread": 14,
+        "attack": 3,
+        "release": 8,
+        "floor": 0.35
       },
       "motion": {
         "pos": {
@@ -699,10 +713,10 @@
       "size": 56,
       "layer": 34,
       "params": {
-        "tone": 900,
+        "tone": 600,
         "spread": 8,
-        "drift": 12,
-        "sub": 0.4
+        "drift": 10,
+        "sub": 0.5
       }
     },
     {
@@ -714,19 +728,20 @@
       "size": 64,
       "layer": 35,
       "params": {
-        "shape": 0,
-        "detune": 7,
-        "cutoff": 900,
-        "res": 0.35,
-        "envAmt": 2.5,
-        "fa": 0.002,
-        "fd": 0.18,
-        "fs": 0.1,
-        "fr": 0.3,
-        "a": 0.004,
-        "d": 0.25,
-        "s": 0.3,
-        "r": 0.3
+        "shape": 0.2,
+        "detune": 9,
+        "wobble": 5,
+        "cutoff": 1200,
+        "res": 0.2,
+        "envAmt": 1.5,
+        "fa": 0.02,
+        "fd": 1.2,
+        "fs": 0.25,
+        "fr": 2.5,
+        "a": 0.03,
+        "d": 1.5,
+        "s": 0.5,
+        "r": 3
       }
     }
   ]

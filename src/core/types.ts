@@ -122,7 +122,7 @@ export type PanelSection =
 export interface ModFrame {
   /** Continuous pitch for sustained voices (after transformers). */
   pitch: number;
-  /** Chord offsets in semitones from pitch, for voices that want them. */
+  /** Open-voiced chord offsets in semitones from pitch (root, 5th, 9th, 10th), snapped to the scale. */
   chord: number[];
 }
 
@@ -136,8 +136,8 @@ export interface Voice {
   noteOn(pitch: number, velocity: number): void;
   noteOff(): void;
   accent?(velocity: number): void;
-  /** Add mono output into out[start..end). */
-  render(out: Float64Array, start: number, end: number, mod: ModFrame): void;
+  /** Add output into out[start..end). Stereo types also receive outR; mono types ignore it. */
+  render(out: Float64Array, start: number, end: number, mod: ModFrame, outR?: Float64Array): void;
   readonly active: boolean;
 }
 
@@ -145,6 +145,8 @@ export interface SoundType {
   id: string;
   label: string;
   mode: 'event' | 'sustained';
+  /** Voices render two channels (out = left, outR = right). */
+  stereo?: boolean;
   glyph: string;
   maxVoices: number;
   params: ParamSpec[];

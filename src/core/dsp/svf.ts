@@ -24,6 +24,13 @@ export class Svf {
     this.a3 = g * this.a2;
   }
 
+  /** Share another filter's coefficients (stereo pairs), keeping this filter's own state. */
+  copyCoefs(o: Svf): void {
+    this.a1 = o.a1;
+    this.a2 = o.a2;
+    this.a3 = o.a3;
+  }
+
   lp(x: number): number {
     const v3 = x - this.ic2;
     const v1 = this.a1 * this.ic1 + this.a2 * v3;

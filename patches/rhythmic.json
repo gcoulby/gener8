@@ -1,0 +1,24 @@
+{
+  "format": "gener8.patch",
+  "version": 1,
+  "seed": 1234,
+  "tempo": 96,
+  "key": { "root": 0, "scale": "minorPentatonic" },
+  "objects": [
+    { "id": "f1", "kind": "field", "type": "reverb", "x": 60, "y": 0, "shape": { "r": 420 }, "layer": 0, "handles": { "size": 0.6, "damping": 0.45 } },
+    { "id": "f2", "kind": "field", "type": "pulse", "x": -300, "y": -40, "shape": { "r": 210 }, "layer": 1, "handles": { "hits": 0.3125, "length": 1 } },
+    { "id": "f3", "kind": "field", "type": "drift", "x": 260, "y": 60, "shape": { "r": 190 }, "layer": 2, "handles": { "rate": 0.4, "entropy": 0.35 } },
+    { "id": "f4", "kind": "field", "type": "filter", "x": -300, "y": -40, "shape": { "r": 120 }, "layer": 3, "handles": { "cutoff": 0.25, "res": 0.55 },
+      "motion": { "pos": { "type": "orbit", "radius": 130, "periodBeats": 32, "phase": 0 } } },
+    { "id": "f5", "kind": "field", "type": "probability", "x": -170, "y": 90, "shape": { "r": 70 }, "layer": 4, "handles": { "bias": 0.6 } },
+    { "id": "f6", "kind": "field", "type": "delay", "x": 60, "y": 220, "shape": { "r": 150 }, "layer": 5, "handles": { "time": 0.4, "feedback": 0.45 } },
+    { "id": "s1", "kind": "sound", "type": "percussion", "x": -330, "y": -200, "size": 60, "layer": 10, "params": { "tone": 0.85, "decay": 0.35, "sweep": 2.2, "color": 0.3 } },
+    { "id": "s2", "kind": "sound", "type": "percussion", "x": -170, "y": 90, "size": 34, "layer": 11, "params": { "tone": 0.1, "decay": 0.06, "sweep": 0, "color": 0.95 } },
+    { "id": "s3", "kind": "sound", "type": "subtractive", "x": -400, "y": 10, "size": 46, "layer": 12, "params": {} },
+    { "id": "s4", "kind": "sound", "type": "pluck", "x": 260, "y": 120, "size": 46, "layer": 13, "params": { "decay": 2.5, "bright": 0.55, "damp": 0.25 } },
+    { "id": "s5", "kind": "sound", "type": "pluck", "x": 100, "y": 220, "size": 38, "layer": 14, "params": { "decay": 1.5, "bright": 0.7, "damp": 0.2 } },
+    { "id": "s6", "kind": "sound", "type": "drone", "x": 40, "y": -240, "size": 60, "layer": 15, "params": {},
+      "motion": { "pos": { "type": "drift", "amplitude": 50, "rateBeats": 16 } } },
+    { "id": "s7", "kind": "sound", "type": "pad", "x": 280, "y": -40, "size": 50, "layer": 16, "params": {} }
+  ]
+}

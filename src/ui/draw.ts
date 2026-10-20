@@ -291,7 +291,6 @@ function drawCauses(app: App): void {
 function soundPitch(app: App, o: SoundObj): number {
   const p = app.poseOf(o);
   const m = yToMidi(p.y);
-  if (soundTypes[o.type]?.mode === 'sustained') return m;
   const k = app.view.key;
   const steps = scaleSteps(k.scale);
   return indexToMidi(nearestIndex(m, k.root, steps), k.root, steps);
@@ -497,7 +496,7 @@ const HELP = [
   't                tap tempo · wheel over bpm / root / scale / seed',
   'timeline strip   drag to preview the past · release to branch',
   '⌘S / ⌘O / drop   save / open patch JSON',
-  'shift-D / shift-X  load demo / stress patch',
+  'shift-D / shift-R / shift-X  load ambient demo / rhythmic demo / stress patch',
   '',
   'colour = role: warm white sound · amber generator · teal transformer · violet fx',
   'filled sounds are driven by a generator · hollow sounds listen for ripples',

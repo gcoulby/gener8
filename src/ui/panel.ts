@@ -132,7 +132,7 @@ export function drawPanel(app: App): void {
   const k = app.view.key;
   const steps = scaleSteps(k.scale);
   const m = yToMidi(app.poseOf(o).y);
-  const pitch = noteName(t?.mode === 'sustained' ? m : indexToMidi(nearestIndex(m, k.root, steps), k.root, steps));
+  const pitch = noteName(indexToMidi(nearestIndex(m, k.root, steps), k.root, steps));
   g.fillText(`${o.id} · ${t?.label ?? o.type} · ${t?.mode ?? ''} · ${pitch} · size ${o.size}`, r.x + PAD, r.y + HEAD / 2 + 4);
   g.textAlign = 'right';
   g.fillStyle = 'rgba(233,228,218,0.4)';

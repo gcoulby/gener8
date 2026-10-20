@@ -1,13 +1,14 @@
 import { MIDI_MAX, MIDI_MIN, UNITS_PER_SEMITONE, Y0_MIDI } from './constants.ts';
 
 export const SCALES: Record<string, number[]> = {
-  minorPentatonic: [0, 3, 5, 7, 10],
-  majorPentatonic: [0, 2, 4, 7, 9],
+  major: [0, 2, 4, 5, 7, 9, 11],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
   dorian: [0, 2, 3, 5, 7, 9, 10],
   minor: [0, 2, 3, 5, 7, 8, 10],
-  major: [0, 2, 4, 5, 7, 9, 11],
   phrygian: [0, 1, 3, 5, 7, 8, 10],
-  lydian: [0, 2, 4, 6, 7, 9, 11],
+  majorPentatonic: [0, 2, 4, 7, 9],
+  minorPentatonic: [0, 3, 5, 7, 10],
   wholeTone: [0, 2, 4, 6, 8, 10],
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
 };
@@ -22,6 +23,7 @@ export const SCALE_LABELS: Record<string, string> = {
   major: 'major',
   phrygian: 'phrygian',
   lydian: 'lydian',
+  mixolydian: 'mixolydian',
   wholeTone: 'whole tone',
   chromatic: 'chromatic',
 };
@@ -29,7 +31,7 @@ export const SCALE_LABELS: Record<string, string> = {
 export const NOTE_NAMES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
 
 export function scaleSteps(name: string): number[] {
-  return SCALES[name] ?? SCALES.minorPentatonic;
+  return SCALES[name] ?? SCALES.major;
 }
 
 /** Vertical position → continuous MIDI pitch. Up is higher. */

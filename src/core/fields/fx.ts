@@ -2,7 +2,7 @@ import type { FxType } from '../types.ts';
 import { exp2, log2 } from '../dspmath.ts';
 import { Svf } from '../dsp/svf.ts';
 import { Fdn } from '../dsp/reverb.ts';
-import { PingPong } from '../dsp/delay.ts';
+import { TapeDelay } from '../dsp/delay.ts';
 
 const pct = (v: number) => Math.round(v * 100) + '%';
 
@@ -43,8 +43,8 @@ export const filter: FxType = {
   },
 };
 
-const DELAY_BEATS = [0.25, 0.5, 0.75, 1, 1.5, 2];
-const DELAY_LABELS = ['1/16', '1/8', '3/16', '1/4', '3/8', '1/2'];
+const DELAY_BEATS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
+const DELAY_LABELS = ['1/8', '3/16', '1/4', '3/8', '1/2', '3/4', '1 bar'];
 
 export function delayIndex(h: Record<string, number>): number {
   return Math.round((h.time ?? 0.5) * (DELAY_BEATS.length - 1));
@@ -52,7 +52,7 @@ export function delayIndex(h: Record<string, number>): number {
 
 export const delay: FxType = {
   id: 'delay',
-  label: 'delay',
+  label: 'tape delay',
   role: 'fx',
   kind: 'bus',
   shape: 'circle',
@@ -60,14 +60,14 @@ export const delay: FxType = {
   defaultShape: { r: 160 },
   handles: [
     { key: 'time', label: 'time', default: 0.5, format: (_v, h) => DELAY_LABELS[delayIndex(h)] },
-    { key: 'feedback', label: 'feedback', default: 0.45, format: pct },
+    { key: 'feedback', label: 'feedback', default: 0.55, format: pct },
   ],
   createProcessor(ctx) {
-    const pp = new PingPong();
+    const tape = new TapeDelay();
     return {
       stereo(l, r, n) {
         const beats = DELAY_BEATS[delayIndex(ctx.handles)];
-        pp.process(l, r, n, (beats * 60 * ctx.sr) / ctx.tempo, (ctx.handles.feedback ?? 0.45) * 0.9);
+        tape.process(l, r, n, (beats * 60 * ctx.sr) / ctx.tempo, (ctx.handles.feedback ?? 0.55) * 0.97, 0.35);
       },
     };
   },
@@ -82,14 +82,14 @@ export const reverb: FxType = {
   glyph: '◌',
   defaultShape: { r: 220 },
   handles: [
-    { key: 'size', label: 'size', default: 0.55, format: pct },
+    { key: 'size', label: 'size', default: 0.7, format: (v) => `${(1 + v * v * 24).toFixed(1)} s` },
     { key: 'damping', label: 'damping', default: 0.4, format: pct },
   ],
   createProcessor(ctx) {
     const fdn = new Fdn();
     return {
       stereo(l, r, n) {
-        fdn.set(ctx.handles.size ?? 0.55, ctx.handles.damping ?? 0.4);
+        fdn.set(ctx.handles.size ?? 0.7, ctx.handles.damping ?? 0.4);
         fdn.process(l, r, n);
       },
     };

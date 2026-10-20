@@ -64,7 +64,7 @@ export class Adsr {
         break;
       case RELEASE:
         this.level *= this.rc;
-        if (this.level < 1e-4) {
+        if (this.level < 1e-3) {
           this.level = 0;
           this.stage = IDLE;
         }
