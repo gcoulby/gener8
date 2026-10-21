@@ -12,6 +12,7 @@ import type {
   LoggedEdit,
   ModFrame,
   NoteEvent,
+  ParamSpec,
   Patch,
   SoundObj,
   SoundType,
@@ -23,10 +24,8 @@ import {
   MAX_RIPPLES,
   PPQ,
   REFRACTORY_BEATS,
-  RIPPLE_REACH,
   RIPPLE_SPEED,
   SR,
-  STAGE_HALF,
   UNITY_SIZE,
   VOICE_BUDGET,
 } from './constants.ts';
@@ -36,8 +35,9 @@ import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
 import { hash32, rand, strHash } from './rand.ts';
 import { angleTurns, depthAt, shapeDims } from './geometry.ts';
-import { indexToMidi, nearestIndex, scaleSteps, snapToScale, yToMidi } from './music.ts';
-import { cosTurns, dbToGain, sinTurns, tanh } from './dspmath.ts';
+import { indexToMidi, nearestIndex, scaleSteps, snapToScale } from './music.ts';
+import { cosTurns, dbToGain, exp2, log2, sinTurns, tanh } from './dspmath.ts';
+import { newPlacement, placeSound, rippleOf, traceTurns, type MapPose, type Placement } from './placement.ts';
 
 const MASTER_GAIN = 0.9;
 const NO_SOUNDED: { e: NoteEvent; off: number }[] = [];
@@ -110,6 +110,9 @@ interface SoundRT {
   bufR: Float64Array | null;
   mod: ModFrame;
   events: NoteEvent[];
+  place: Placement;
+  /** Params an XY field set last block, restored before placement runs again. */
+  xyKeys: string[];
 }
 
 interface Ripple {
@@ -121,7 +124,13 @@ interface Ripple {
   chain: number;
   emitter: string;
   hit: Set<string>;
+  /** Traces as unit vectors [x0, y0, x1, y1, …]; null for a ring. */
+  dirs: Float64Array | null;
+  /** Per trace (or [0] for a ring): still travelling. Only kept when stop is on. */
+  alive: Uint8Array | null;
 }
+
+const MIN_TRACE_WIDTH = 8;
 
 interface Action {
   off: number;
@@ -148,6 +157,7 @@ export class Engine {
   private fields = new Map<string, FieldRT>();
   private soundList: SoundRT[] = [];
   private fieldList: FieldRT[] = [];
+  private maps: MapPose[] = [];
   private ripples: Ripple[] = [];
   private future: NoteEvent[] = [];
   private fresh: NoteEvent[] = [];
@@ -334,6 +344,7 @@ export class Engine {
     }
     this.soundList = sl;
     this.fieldList = fl;
+    this.maps = fl.filter((f) => f.type.role === 'map').map((f) => ({ obj: f.obj, pose: f.pose }));
   }
 
   private makeSound(o: SoundObj, t: SoundType): SoundRT {
@@ -372,6 +383,8 @@ export class Engine {
       bufR: t.stereo ? new Float64Array(BLOCK) : null,
       mod: { pitch: 60, chord: [0, 0, 0, 0] },
       events: [],
+      place: newPlacement(),
+      xyKeys: [],
     };
   }
 
@@ -416,7 +429,9 @@ export class Engine {
     }
     for (const s of this.soundList) {
       pose(s.obj, beat, seed, s.pose);
-      s.rootIndex = nearestIndex(yToMidi(s.pose.y), keyRoot, this.steps);
+      placeSound(s.pose.x, s.pose.y, this.maps, s.obj.ripple, s.place);
+      if (s.xyKeys.length || s.place.pk.length) this.applyXYParams(s);
+      s.rootIndex = nearestIndex(s.place.pitch, keyRoot, this.steps);
       s.events.length = 0;
     }
 
@@ -429,10 +444,11 @@ export class Engine {
       const px = s.pose.x;
       const py = s.pose.y;
       for (const f of this.fieldList) {
+        const t = f.type;
+        if (t.role === 'map') continue;
         const fp = f.pose;
         const depth = depthAt(f.obj.shape, fp.x, fp.y, fp.scale, px, py);
         if (depth <= 0) continue;
-        const t = f.type;
         if (t.role === 'generator') {
           s.genCount++;
           f.members.push({
@@ -455,7 +471,7 @@ export class Engine {
       // Sustained pitch through pitch-aware transformers
       if (s.type.mode === 'sustained') {
         // Sustained voices sit on the scale too; moving them glides between notes.
-        let p = snapToScale(yToMidi(s.pose.y), keyRoot, this.steps);
+        let p = snapToScale(s.place.pitch, keyRoot, this.steps);
         for (const m of s.trans) {
           const t = m.f.type;
           if (t.role === 'transformer' && t.transformPitch) p = t.transformPitch(p, m.depth, m.f.ctx);
@@ -602,40 +618,124 @@ export class Engine {
     for (const r of rs) {
       const rNow = ((t0 - r.tick0) / PPQ) * RIPPLE_SPEED;
       if (rNow > r.maxR) continue;
+      if (r.alive && !r.alive.includes(1)) continue;
       keep.push(r);
       const rEnd = ((t1 - r.tick0) / PPQ) * RIPPLE_SPEED;
-      for (const s of this.soundList) {
-        if (s.id === r.emitter || r.hit.has(s.id)) continue;
-        if (s.type.mode === 'event' && s.genCount > 0) continue; // driven sounds don't listen
-        const dx = s.pose.x - r.x;
-        const dy = s.pose.y - r.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d > rEnd) continue;
-        r.hit.add(s.id);
-        if (d > r.maxR) continue;
-        let tick = r.tick0 + (d / RIPPLE_SPEED) * PPQ;
-        if (tick < t0) tick = t0;
-        if (tick - s.lastRipple < refractory) continue;
-        const vel = r.vel * (1 - d / r.maxR) * 0.9;
-        if (vel < 0.05) continue;
-        s.lastRipple = tick;
-        this.fresh.push({
-          tick,
-          soundId: s.id,
-          pitch:
-            s.type.mode === 'event'
-              ? indexToMidi(s.rootIndex, this.patch.key.root, this.steps)
-              : s.mod.pitch,
-          velocity: vel,
-          durTicks: PPQ / 8,
-          sourceKind: 'ripple',
-          sourceId: r.emitter,
-          chain: r.chain + 1,
-          serial: this.serial++,
-        });
+      if (r.dirs) this.traceArrivals(r, rEnd, t0, refractory);
+      else if (r.alive) this.ringStop(r, rEnd, t0, refractory);
+      else {
+        for (const s of this.soundList) {
+          if (!this.listens(r, s)) continue;
+          const dx = s.pose.x - r.x;
+          const dy = s.pose.y - r.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d > rEnd) continue;
+          r.hit.add(s.id);
+          if (d > r.maxR) continue;
+          this.rippleHit(r, s, d, t0, refractory);
+        }
       }
     }
     this.ripples = keep;
+  }
+
+  private listens(r: Ripple, s: SoundRT): boolean {
+    if (s.id === r.emitter || r.hit.has(s.id)) return false;
+    return !(s.type.mode === 'event' && s.genCount > 0); // driven sounds don't listen
+  }
+
+  /** A ring with stop on: only the nearest listener it has reached answers, then it's gone. */
+  private ringStop(r: Ripple, rEnd: number, t0: number, refractory: number): void {
+    let best: SoundRT | null = null;
+    let bestD = Infinity;
+    for (const s of this.soundList) {
+      if (!this.listens(r, s)) continue;
+      const dx = s.pose.x - r.x;
+      const dy = s.pose.y - r.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > rEnd || d > r.maxR) continue;
+      if (d < bestD) {
+        best = s;
+        bestD = d;
+      }
+    }
+    if (!best) return;
+    r.hit.add(best.id);
+    r.alive![0] = 0;
+    this.rippleHit(r, best, bestD, t0, refractory);
+  }
+
+  /** Traces travel out along their direction and hit listeners whose body they pass through. */
+  private traceArrivals(r: Ripple, rEnd: number, t0: number, refractory: number): void {
+    const dirs = r.dirs!;
+    const n = dirs.length / 2;
+    for (let i = 0; i < n; i++) {
+      if (r.alive && !r.alive[i]) continue;
+      const ux = dirs[i * 2];
+      const uy = dirs[i * 2 + 1];
+      let best: SoundRT | null = null;
+      let bestD = Infinity;
+      for (const s of this.soundList) {
+        if (!this.listens(r, s)) continue;
+        const dx = s.pose.x - r.x;
+        const dy = s.pose.y - r.y;
+        const along = dx * ux + dy * uy;
+        if (along <= 0 || along > rEnd || along > r.maxR) continue;
+        const perp = dx * uy - dy * ux;
+        const w = (s.obj.size * s.pose.scale) / 2;
+        if ((perp < 0 ? -perp : perp) > (w > MIN_TRACE_WIDTH ? w : MIN_TRACE_WIDTH)) continue;
+        if (!r.alive) {
+          r.hit.add(s.id);
+          this.rippleHit(r, s, along, t0, refractory);
+        } else if (along < bestD) {
+          best = s;
+          bestD = along;
+        }
+      }
+      if (best) {
+        r.hit.add(best.id);
+        r.alive![i] = 0;
+        this.rippleHit(r, best, bestD, t0, refractory);
+      }
+    }
+  }
+
+  /** A ripple or trace reached sound s at distance d. */
+  private rippleHit(r: Ripple, s: SoundRT, d: number, t0: number, refractory: number): void {
+    let tick = r.tick0 + (d / RIPPLE_SPEED) * PPQ;
+    if (tick < t0) tick = t0;
+    if (tick - s.lastRipple < refractory) return;
+    const vel = r.vel * (1 - d / r.maxR) * 0.9;
+    if (vel < 0.05) return;
+    s.lastRipple = tick;
+    this.fresh.push({
+      tick,
+      soundId: s.id,
+      pitch: s.type.mode === 'event' ? indexToMidi(s.rootIndex, this.patch.key.root, this.steps) : s.mod.pitch,
+      velocity: vel,
+      durTicks: PPQ / 8,
+      sourceKind: 'ripple',
+      sourceId: r.emitter,
+      chain: r.chain + 1,
+      serial: this.serial++,
+    });
+  }
+
+  /** XY param: axes: restore last block's, then set this block's. */
+  private applyXYParams(s: SoundRT): void {
+    const specs = s.type.params;
+    for (const k of s.xyKeys) {
+      const spec = specs.find((p) => p.key === k);
+      if (spec) s.params[k] = typeof s.obj.params?.[k] === 'number' ? s.obj.params[k] : spec.default;
+    }
+    s.xyKeys.length = 0;
+    const pl = s.place;
+    for (let i = 0; i < pl.pk.length; i++) {
+      const spec = specs.find((p) => p.key === pl.pk[i]);
+      if (!spec) continue;
+      s.params[spec.key] = denorm(spec, pl.pv[i]);
+      s.xyKeys.push(spec.key);
+    }
   }
 
   private allocate(s: SoundRT): number {
@@ -728,8 +828,9 @@ export class Engine {
     // Gain and equal-power pan, ramped across the block
     const o = s.obj;
     const silenced = o.mute || (this.anySolo && !o.solo);
-    const gain = silenced ? 0 : ((o.size * s.pose.scale) / UNITY_SIZE) * (o.trim ? dbToGain(o.trim) : 1);
-    let p = s.pose.x / STAGE_HALF;
+    let gain = silenced ? 0 : ((o.size * s.pose.scale) / UNITY_SIZE) * (o.trim ? dbToGain(o.trim) : 1);
+    if (s.place.level) gain *= dbToGain(s.place.level);
+    let p = s.place.pan;
     p = p < -1 ? -1 : p > 1 ? 1 : p;
     const gL = gain * cosTurns((p + 1) / 8);
     const gR = gain * sinTurns((p + 1) / 8);
@@ -797,10 +898,20 @@ export class Engine {
     s.gR = gR;
 
     // Telemetry and ripples
+    const rip = sounded.length ? rippleOf(s.obj.ripple) : null;
+    const turns = rip ? traceTurns(rip.mode, s.place.angle, rip.count, s.place.spread) : null;
     for (const { e, off } of sounded) {
-      const emits = isEvent && e.chain < MAX_CHAIN;
-      const reach = emits ? RIPPLE_REACH * s.obj.size * s.pose.scale : 0;
+      const emits = isEvent && e.chain < MAX_CHAIN && s.place.reach > 0;
+      const reach = emits ? s.place.reach * s.obj.size * s.pose.scale : 0;
       if (emits) {
+        let dirs: Float64Array | null = null;
+        if (turns) {
+          dirs = new Float64Array(turns.length * 2);
+          for (let i = 0; i < turns.length; i++) {
+            dirs[i * 2] = sinTurns(turns[i]);
+            dirs[i * 2 + 1] = cosTurns(turns[i]);
+          }
+        }
         this.ripples.push({
           x: s.pose.x,
           y: s.pose.y,
@@ -810,6 +921,8 @@ export class Engine {
           chain: e.chain,
           emitter: s.id,
           hit: new Set(),
+          dirs,
+          alive: rip!.stop ? new Uint8Array(turns ? turns.length : 1).fill(1) : null,
         });
         if (this.ripples.length > MAX_RIPPLES) this.ripples.shift();
       }
@@ -826,6 +939,8 @@ export class Engine {
           x: s.pose.x,
           y: s.pose.y,
           rippleR: reach,
+          ...(emits && turns ? { rippleDirs: turns } : null),
+          ...(emits && rip!.stop ? { rippleStop: true } : null),
           accent: !isEvent,
         });
       }
@@ -837,6 +952,11 @@ export class Engine {
     const r = s.bufR ?? undefined;
     for (const v of s.voices) if (v.active) v.render(s.buf, start, end, s.mod, r);
   }
+}
+
+function denorm(spec: ParamSpec, u: number): number {
+  if (spec.curve === 'exp' && spec.min > 0) return spec.min * exp2(u * log2(spec.max / spec.min));
+  return spec.min + u * (spec.max - spec.min);
 }
 
 function countActive(vs: Voice[]): number {

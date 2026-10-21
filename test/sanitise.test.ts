@@ -51,7 +51,13 @@ const rejects: [string, () => unknown][] = [
   ['bad id', () => ({ ...base(), objects: [sound('<img onerror=x>')] })],
   ['long id', () => ({ ...base(), objects: [sound('s'.repeat(25))] })],
   ['wrong format', () => ({ ...base(), format: 'other' })],
-  ['wrong version', () => ({ ...base(), version: 2 })],
+  ['wrong version', () => ({ ...base(), version: 3 })],
+  ['9 xy fields', () => ({ ...base(), objects: Array.from({ length: 9 }, (_, i) => ({ id: 'xy' + i, kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: i, handles: {} })) })],
+  ['unknown axis target', () => ({ ...base(), objects: [{ id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { x: { to: 'warp', min: 0, max: 1 } } }] })],
+  ['unknown param target', () => ({ ...base(), objects: [{ id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { y: { to: 'param:nope', min: 0, max: 1 } } }] })],
+  ['axis end not a number', () => ({ ...base(), objects: [{ id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { y: { to: 'pitch', min: '0', max: 1 } } }] })],
+  ['bad ripple mode', () => ({ ...base(), objects: [sound('s1', { ripple: { mode: 'laser' } })] })],
+  ['ripple stop not boolean', () => ({ ...base(), objects: [sound('s1', { ripple: { stop: 1 } })] })],
   ['seed out of range', () => ({ ...base(), seed: 4294967296 })],
   ['fractional seed', () => ({ ...base(), seed: 1.5 })],
   ['path with 100k points', () => ({ ...base(), objects: [sound('s1', { motion: { pos: { type: 'path', points: Array.from({ length: 100000 }, () => [0, 0]), periodBeats: 8, mode: 'loop' } } })] })],
@@ -101,13 +107,37 @@ test('clamps out-of-range numbers', () => {
   assert.equal(p.tempo, 300);
   assert.equal(p.master, 12);
   const [s1, s2, s3, f1] = p.objects as any[];
-  assert.deepEqual([s1.x, s1.y, s1.size, s1.layer, s1.trim], [2000, -2000, 200, 999, -40]);
+  assert.deepEqual([s1.x, s1.y, s1.size, s1.layer, s1.trim], [8000, -8000, 200, 999, -40]);
   assert.deepEqual(s1.params, { decay: 10, bright: 0 });
-  assert.deepEqual(s1.motion, { pos: { type: 'orbit', radius: 1000, periodBeats: 0.25, phase: 0 }, breathe: { amount: 0.9, periodBeats: 0.25 } });
+  assert.deepEqual(s1.motion, { pos: { type: 'orbit', radius: 4000, periodBeats: 0.25, phase: 0 }, breathe: { amount: 0.9, periodBeats: 0.25 } });
   assert.deepEqual(s2.motion.pos, { type: 'drift', amplitude: 0, rateBeats: 0.25 });
-  assert.deepEqual(s3.motion.pos, { type: 'path', points: [[2000, -2000]], periodBeats: 0.25, mode: 'pingpong' });
+  assert.deepEqual(s3.motion.pos, { type: 'path', points: [[8000, -8000]], periodBeats: 0.25, mode: 'pingpong' });
   assert.deepEqual(f1.shape, { w: 48, h: 2000 });
   assert.deepEqual(f1.handles, { hits: 1, length: 0 });
+});
+
+test('clamps ripple settings and keeps axes', () => {
+  const p = sanitisePatch({
+    ...base(),
+    objects: [
+      sound('s1', { ripple: { mode: 'multi', angle: 900, count: 99.4, spread: -5, reach: 1e3, stop: true, junk: 1 } }),
+      sound('s2', { ripple: {} }),
+      { id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { x: { to: 'param:cutoff', min: 1e9, max: 0, junk: 1 }, z: {} } },
+      { id: 'f1', kind: 'field', type: 'reverb', x: 0, y: 0, shape: { r: 100 }, layer: 0, handles: {}, axes: { x: { to: 'pan', min: 0, max: 1 } } },
+    ],
+  }) as any;
+  assert.deepEqual(p.objects[0].ripple, { mode: 'multi', angle: 360, count: 16, spread: 0, reach: 24, stop: true });
+  assert.equal(p.objects[1].ripple, undefined);
+  assert.deepEqual(p.objects[2].axes, { x: { to: 'param:cutoff', min: 10000, max: 0 } });
+  assert.equal(p.objects[3].axes, undefined, 'axes only on xy fields');
+});
+
+test('a version 1 link migrates: the stage XY field is added', () => {
+  const v1 = { ...base(), version: 1, objects: base().objects.filter((o) => o.type !== 'xy') };
+  const p = sanitisePatch(v1);
+  assert.equal(p.version, 2);
+  const byId = (q: Patch) => ({ ...q, objects: q.objects.slice().sort((a, b) => (a.id < b.id ? -1 : 1)) });
+  assert.equal(canonicalJson(byId(p)), canonicalJson(byId(base())));
 });
 
 test('drops unknown keys everywhere', () => {

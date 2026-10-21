@@ -6,6 +6,7 @@ import type { FieldObj, Patch, SoundObj } from '../src/core/types.ts';
 import { soundTypes, defaultParams } from '../src/core/sounds/registry.ts';
 import { fieldTypes, defaultHandles } from '../src/core/fields/registry.ts';
 import { rand } from '../src/core/rand.ts';
+import { normalizePatch } from '../src/core/patch.ts';
 
 const objects: (SoundObj | FieldObj)[] = [];
 let layer = 0;
@@ -61,17 +62,18 @@ for (let i = 0; i < 24; i++) {
   sound(type, x, y, 40 + (i % 4) * 8, motion);
 }
 
-const patch: Patch = {
+// Laid out for the v1 fixed mapping; migrating adds the XY field that keeps it.
+const patch: Patch = normalizePatch({
   format: 'gener8.patch',
   version: 1,
   seed: 424242,
   tempo: 128,
   key: { root: 2, scale: 'dorian' },
   objects,
-};
+});
 
 const s = objects.filter((o) => o.kind === 'sound').length;
-const f = objects.filter((o) => o.kind === 'field').length;
+const f = objects.filter((o) => o.kind === 'field' && o.type !== 'xy').length;
 if (s !== 24 || f !== 12) throw new Error(`expected 24×12, got ${s}×${f}`);
 writeFileSync(new URL('../patches/stress-24x12.json', import.meta.url), JSON.stringify(patch, null, 2) + '\n');
 console.log(`wrote patches/stress-24x12.json (${s} sounds, ${f} fields)`);

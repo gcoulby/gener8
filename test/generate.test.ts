@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { FieldObj, Patch } from '../src/core/types.ts';
 import { generatePatch, GENERATOR_VERSION } from '../src/core/generate.ts';
-import { fieldTypes } from '../src/core/fields/registry.ts';
+import { fieldTypes, isMap } from '../src/core/fields/registry.ts';
 import { soundTypes } from '../src/core/sounds/registry.ts';
 import { depthAt } from '../src/core/geometry.ts';
 import { renderOffline } from '../src/core/render.ts';
 import { generatorHashes } from './util.ts';
 
-const fields = (p: Patch) => p.objects.filter((o) => o.kind === 'field') as FieldObj[];
+const fields = (p: Patch) => p.objects.filter((o) => o.kind === 'field' && !isMap(o)) as FieldObj[];
 const sounds = (p: Patch) => p.objects.filter((o) => o.kind === 'sound');
 
 test('same seed gives deep-equal patches', () => {
@@ -48,6 +48,8 @@ test('seeds 1–200: shape, counts and ranges', () => {
     for (const o of s) assert.ok(Math.abs(o.y) <= 200, `${msg}: ${o.id} y=${o.y}`);
     const ids = p.objects.map((o) => o.id);
     assert.equal(new Set(ids).size, ids.length, msg);
+    assert.equal(p.version, 2, msg);
+    assert.equal(p.objects.filter(isMap).length, 1, `${msg}: one stage XY field`);
   }
 });
 

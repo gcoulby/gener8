@@ -17,6 +17,24 @@ export interface Motion {
   breathe?: Breathe;
 }
 
+/**
+ * How a sound retriggers others. Every key is optional; missing keys take the
+ * defaults in xy.ts (a ring reaching 6 × size, no stop).
+ */
+export interface RippleSpec {
+  /** ring: an expanding circle · point: one trace at `angle` · multi: `count` traces fanned over `spread`. */
+  mode?: 'ripple' | 'point' | 'multi';
+  /** Degrees clockwise from straight up. */
+  angle?: number;
+  count?: number;
+  /** Degrees; 360 spaces the traces evenly all the way round. */
+  spread?: number;
+  /** How far it travels, as a multiple of the sound's size. 0 never retriggers. */
+  reach?: number;
+  /** The ring or each trace ends at the first listener it reaches. */
+  stop?: boolean;
+}
+
 export interface SoundObj {
   id: string;
   kind: 'sound';
@@ -27,6 +45,7 @@ export interface SoundObj {
   layer: number;
   params: Record<string, number>;
   motion?: Motion;
+  ripple?: RippleSpec;
   /** Mixer: level trim in dB (default 0), mute, solo. */
   trim?: number;
   mute?: boolean;
@@ -34,6 +53,22 @@ export interface SoundObj {
 }
 
 export type FieldShape = { r: number } | { w: number; h: number };
+
+/**
+ * One axis of an XY field: the value at the left/bottom edge (min) and the
+ * right/top edge (max). `to` is a built-in target (xy.ts XY_TARGETS) or
+ * `param:<key>` for a sound parameter, normalised 0..1 over its range.
+ */
+export interface Axis {
+  to: string;
+  min: number;
+  max: number;
+}
+
+export interface Axes {
+  x?: Axis;
+  y?: Axis;
+}
 
 export interface FieldObj {
   id: string;
@@ -45,6 +80,8 @@ export interface FieldObj {
   layer: number;
   handles: Record<string, number>;
   motion?: Motion;
+  /** XY fields only: what position inside the field controls. */
+  axes?: Axes;
   /** Mixer: FX bus return level in dB (default 0). */
   trim?: number;
 }
@@ -58,7 +95,8 @@ export interface Key {
 
 export interface Patch {
   format: 'gener8.patch';
-  version: 1;
+  /** 2 since XY fields. Version 1 (fixed y = pitch, x = pan) is migrated on load. */
+  version: 1 | 2;
   seed: number;
   tempo: number;
   key: Key;
@@ -108,6 +146,9 @@ export interface EventRecord {
   x: number;
   y: number;
   rippleR: number;
+  /** Trace directions in turns clockwise from up; absent for a ring. */
+  rippleDirs?: number[];
+  rippleStop?: boolean;
   accent: boolean;
 }
 
@@ -243,5 +284,11 @@ export interface FxType extends FieldTypeBase {
   createProcessor(ctx: FieldContext): FxProcessor;
 }
 
-export type FieldType = GeneratorType | TransformerType | FxType;
+/** Maps position to placement (pitch, pan…). Read by the engine directly, no hooks. */
+export interface MapType extends FieldTypeBase {
+  role: 'map';
+  defaultAxes: Axes;
+}
+
+export type FieldType = GeneratorType | TransformerType | FxType | MapType;
 export type Role = FieldType['role'];

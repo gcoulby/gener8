@@ -1,10 +1,11 @@
 import type { Edit, EventRecord, FieldObj, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
-import { PPQ, SR, CAPTURE_SECONDS } from '../core/constants.ts';
-import { applyEdit, byLayer, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
+import { PPQ, SR, CAPTURE_SECONDS, RIPPLE_SPEED } from '../core/constants.ts';
+import { applyEdit, byLayer, classicStage, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
 import { pose, type Pose } from '../core/motion.ts';
-import { depthAt, isCircle } from '../core/geometry.ts';
+import { angleTurns, depthAt, isCircle } from '../core/geometry.ts';
 import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
-import { fieldTypes, defaultHandles } from '../core/fields/registry.ts';
+import { fieldTypes, defaultHandles, isMap } from '../core/fields/registry.ts';
+import { governingAxis, newPlacement, placeSound, rippleOf, type MapPose, type Placement } from '../core/placement.ts';
 import { SCALE_ORDER } from '../core/music.ts';
 import { generatePatch, generators } from '../core/generate.ts';
 import { strHash } from '../core/rand.ts';
@@ -33,6 +34,11 @@ export interface RippleVis {
   tick: number;
   maxR: number;
   vel: number;
+  /** Traces: directions in turns and how far each one gets (stop on impact). */
+  dirs?: number[];
+  lens?: number[];
+  /** Ring with stop on: where it ends. */
+  stopR?: number;
 }
 
 export interface Cause {
@@ -49,7 +55,7 @@ export interface GridVis {
   t: number;
 }
 
-export type HandleKind = 'size' | 'char' | 'mradius' | 'mamp' | 'mpoint';
+export type HandleKind = 'size' | 'char' | 'mradius' | 'mamp' | 'mpoint' | 'rangle';
 
 export interface HandlePos {
   kind: HandleKind;
@@ -87,6 +93,8 @@ const STORE_KEY = 'gener8.patch.v2';
 /** Where the stored patch goes when a link replaces it. */
 const PREV_KEY = 'gener8.patch.prev';
 export const HANDLE_ZOOM = 0.6;
+/** Far enough out to see the whole canvas (±8000, see sanitise.ts XY). */
+const MIN_ZOOM = 0.05;
 
 export class App {
   readonly canvas: HTMLCanvasElement;
@@ -111,6 +119,9 @@ export class App {
   fieldFlash = new Map<string, number>();
   grids = new Map<string, GridVis>();
   poses = new Map<string, Pose>();
+  /** XY fields in layer order, with their current poses, and what they make of each sound. */
+  maps: MapPose[] = [];
+  places = new Map<string, Placement>();
   driven = new Set<string>();
   tickNow = 0;
   beat = 0;
@@ -379,14 +390,46 @@ export class App {
     while (i < p.length && p[i].sample <= audible) {
       const e = p[i++];
       this.pulses.set(e.soundId, { t: now, vel: e.velocity, accent: e.accent });
-      if (e.rippleR > 0) this.ripples.push({ x: e.x, y: e.y, tick: e.tick, maxR: e.rippleR, vel: e.velocity });
+      if (e.rippleR > 0) this.ripples.push(this.rippleVis(e));
       if (e.sourceKind === 'generator') this.fieldFlash.set(e.sourceId, now);
       else this.causes.push({ from: e.sourceId, to: e.soundId, t: now });
     }
     if (i) p.splice(0, i);
-    this.ripples = this.ripples.filter((r) => ((this.tickNow - r.tick) / PPQ) * 240 < r.maxR);
+    this.ripples = this.ripples.filter((r) => ((this.tickNow - r.tick) / PPQ) * RIPPLE_SPEED < visReach(r));
     if (this.ripples.length > 80) this.ripples.splice(0, this.ripples.length - 80);
     this.causes = this.causes.filter((c) => now - c.t < 500);
+  }
+
+  /**
+   * What to draw for a ripple. With stop on impact the end is worked out here
+   * from where listeners are now: close to, but not exactly, what the engine hears.
+   */
+  private rippleVis(e: EventRecord): RippleVis {
+    const r: RippleVis = { x: e.x, y: e.y, tick: e.tick, maxR: e.rippleR, vel: e.velocity, dirs: e.rippleDirs };
+    if (!e.rippleStop && !e.rippleDirs) return r;
+    const listeners: { x: number; y: number; w: number }[] = [];
+    for (const o of this.view.objects) {
+      if (o.kind !== 'sound' || o.id === e.soundId) continue;
+      if (soundTypes[o.type]?.mode === 'event' && this.driven.has(o.id)) continue;
+      const p = this.poseOf(o);
+      listeners.push({ x: p.x - e.x, y: p.y - e.y, w: Math.max(8, (o.size * p.scale) / 2) });
+    }
+    if (e.rippleDirs) {
+      r.lens = e.rippleDirs.map((t) => {
+        if (!e.rippleStop) return e.rippleR;
+        const ux = Math.sin(t * Math.PI * 2);
+        const uy = Math.cos(t * Math.PI * 2);
+        let best = e.rippleR;
+        for (const l of listeners) {
+          const along = l.x * ux + l.y * uy;
+          if (along > 0 && along < best && Math.abs(l.x * uy - l.y * ux) <= l.w) best = along;
+        }
+        return best;
+      });
+    } else {
+      r.stopR = Math.min(e.rippleR, ...listeners.map((l) => Math.hypot(l.x, l.y)));
+    }
+    return r;
   }
 
   private computePoses(): void {
@@ -402,6 +445,21 @@ export class App {
       seen.add(o.id);
     }
     for (const k of this.poses.keys()) if (!seen.has(k)) this.poses.delete(k);
+    this.maps = v.objects
+      .filter((o): o is FieldObj => isMap(o))
+      .sort(byLayer)
+      .map((o) => ({ obj: o, pose: this.poseOf(o) }));
+    for (const k of this.places.keys()) if (!seen.has(k)) this.places.delete(k);
+    for (const o of v.objects) {
+      if (o.kind !== 'sound') continue;
+      let pl = this.places.get(o.id);
+      if (!pl) {
+        pl = newPlacement();
+        this.places.set(o.id, pl);
+      }
+      const p = this.poseOf(o);
+      placeSound(p.x, p.y, this.maps, o.ripple, pl);
+    }
     this.driven.clear();
     const gens = v.objects.filter((o): o is FieldObj => o.kind === 'field' && fieldTypes[o.type]?.role === 'generator');
     for (const s of v.objects) {
@@ -434,6 +492,12 @@ export class App {
     const z = this.cam.zoom;
     if (o.kind === 'sound') {
       out.push({ kind: 'size', x: sx + this.soundRadius(o), y: sy });
+      const r = rippleOf(o.ripple);
+      if (o.id === this.sel && r.mode !== 'ripple' && soundTypes[o.type]?.mode === 'event') {
+        const a = ((this.places.get(o.id)?.angle ?? r.angle) / 360) * Math.PI * 2;
+        const R = this.soundRadius(o) + 32;
+        out.push({ kind: 'rangle', x: sx + Math.sin(a) * R, y: sy - Math.cos(a) * R });
+      }
     } else {
       const t = fieldTypes[o.type];
       const keys = t ? t.handles.map((h) => h.key) : [];
@@ -520,9 +584,23 @@ export class App {
     }
     const [wx, wy] = this.s2w(mx, my);
     const z = this.cam.zoom;
+    const mapsHit: string[] = [];
     for (const o of sorted) {
       if (o.kind !== 'field') continue;
       const p = this.poseOf(o);
+      if (isMap(o) && !isCircle(o.shape)) {
+        // XY fields are the ground everything sits on: pick them by their edge or corner label only.
+        const hw = (o.shape.w * p.scale) / 2;
+        const hh = (o.shape.h * p.scale) / 2;
+        const dx = Math.abs(wx - p.x);
+        const dy = Math.abs(wy - p.y);
+        const inside = dx <= hw && dy <= hh;
+        const edgePx = (inside ? Math.min(hw - dx, hh - dy) : Math.hypot(Math.max(dx - hw, 0), Math.max(dy - hh, 0))) * z;
+        const [lx, ly] = this.w2s(p.x - hw, p.y + hh);
+        const onLabel = mx >= lx && mx <= lx + 64 && my >= ly && my <= ly + 20;
+        if (edgePx < EDGE || onLabel) mapsHit.push(o.id);
+        continue;
+      }
       let edgePx: number;
       if (isCircle(o.shape)) {
         edgePx = Math.abs(Math.hypot(wx - p.x, wy - p.y) - o.shape.r * p.scale) * z;
@@ -536,7 +614,7 @@ export class App {
       }
       if (edgePx < EDGE || depthAt(o.shape, p.x, p.y, p.scale, wx, wy) > 0) out.push(o.id);
     }
-    return out;
+    return out.concat(mapsHit);
   }
 
   /** Is (mx, my) within reach of where the current pin was made? */
@@ -575,14 +653,16 @@ export class App {
     }
     const t = fieldTypes[item.type];
     if (!t) return null;
-    return { id: nextId(this.patch, 'f'), kind: 'field', type: t.id, x: Math.round(x), y: Math.round(y), shape: clone(t.defaultShape), layer, handles: defaultHandles(t) };
+    const f: FieldObj = { id: nextId(this.patch, t.role === 'map' ? 'xy' : 'f'), kind: 'field', type: t.id, x: Math.round(x), y: Math.round(y), shape: clone(t.defaultShape), layer, handles: defaultHandles(t) };
+    if (t.role === 'map') f.axes = clone(t.defaultAxes);
+    return f;
   }
 
   private duplicate(id: string): string | null {
     const o = this.patch.objects.find((q) => q.id === id);
     if (!o) return null;
     const c = clone(o);
-    c.id = nextId(this.patch, o.kind === 'sound' ? 's' : 'f');
+    c.id = nextId(this.patch, o.kind === 'sound' ? 's' : isMap(o) ? 'xy' : 'f');
     c.layer = this.maxLayer() + 1;
     this.commit({ op: 'add', obj: c });
     return c.id;
@@ -754,7 +834,7 @@ export class App {
         if (a.kind === 'value') {
           this.drag = { kind: 'mvalue', id: o.id, key: a.key, start: readValue(o, a.key), sx: mx };
         } else {
-          const ed = toggleEdit(o, a);
+          const ed = toggleEdit(this, o, a);
           if (ed) this.commit(ed);
         }
         return;
@@ -797,7 +877,7 @@ export class App {
     if (d?.kind === 'pinch') {
       if (this.pointers.size < 2) return;
       const [a, b] = [...this.pointers.values()];
-      this.cam.zoom = Math.min(8, Math.max(0.15, d.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / d.d0)));
+      this.cam.zoom = Math.min(8, Math.max(MIN_ZOOM, d.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / d.d0)));
       // keep the world point that started under the fingers' midpoint under it
       const [wx, wy] = this.s2w((a.x + b.x) / 2, (a.y + b.y) / 2);
       this.cam.x += d.wx - wx;
@@ -846,7 +926,7 @@ export class App {
         const o = this.patch.objects.find((q) => q.id === d.id);
         if (!o) return;
         const dx = mx - d.sx;
-        const v = stepValue(d.key, d.start, Math.round(dx / 12), dx);
+        const v = stepValue(o, d.key, d.start, Math.round(dx / 12), dx);
         this.commitCoalesced(`mv:${d.id}:${d.key}`, valueEdit(o, d.key, v));
         return;
       }
@@ -864,6 +944,16 @@ export class App {
       case 'size': {
         const dx = wx - p.x;
         const dy = wy - p.y;
+        if (isMap(o) && !isCircle(o.shape)) {
+          // XY fields resize from the corner: the opposite (top-left) corner stays put.
+          const left = o.x - o.shape.w / 2;
+          const top = o.y + o.shape.h / 2;
+          const w = Math.round(Math.max(48, wx - left));
+          const h = Math.round(Math.max(48, top - wy));
+          this.commitCoalesced(key, { op: 'set', id: o.id, path: ['shape'], value: { w, h } });
+          this.commitCoalesced(key + ':pos', { op: 'move', id: o.id, x: Math.round(left + w / 2), y: Math.round(top - h / 2) });
+          return;
+        }
         if (o.kind === 'sound') {
           const size = Math.round(Math.min(200, Math.max(12, (2 * Math.hypot(dx, dy)) / p.scale)));
           this.commitCoalesced(key, { op: 'set', id: o.id, path: ['size'], value: size });
@@ -886,6 +976,11 @@ export class App {
       case 'mamp': {
         const r = Math.round(Math.max(5, Math.hypot(wx - o.x, wy - o.y)));
         this.commitCoalesced(key, { op: 'set', id: o.id, path: ['motion', 'pos', d.h.kind === 'mradius' ? 'radius' : 'amplitude'], value: r });
+        return;
+      }
+      case 'rangle': {
+        const a = Math.round((angleTurns(p.x, p.y, wx, wy) * 360) / 5) * 5;
+        this.commitCoalesced(key, { op: 'set', id: o.id, path: ['ripple', 'angle'], value: a % 360 });
         return;
       }
       case 'mpoint': {
@@ -988,12 +1083,17 @@ export class App {
       }
     }
     const mh = motionHitAt(this, mx, my);
-    if (mh && mh.action.kind === 'value') {
+    if (mh && (mh.action.kind === 'value' || mh.action.kind === 'axis')) {
       const o = this.patch.objects.find((q) => q.id === this.sel);
       if (o) {
         const dir = e.deltaY < 0 ? 1 : -1;
-        const key = mh.action.key;
-        this.commit(valueEdit(o, key, stepValue(key, readValue(o, key), dir, dir * 10)));
+        if (mh.action.kind === 'axis') {
+          const ed = toggleEdit(this, o, mh.action, -dir);
+          if (ed) this.commit(ed);
+        } else {
+          const key = mh.action.key;
+          this.commit(valueEdit(o, key, stepValue(o, key, readValue(o, key), dir, dir * 10)));
+        }
       }
       return;
     }
@@ -1027,7 +1127,7 @@ export class App {
 
   zoomAt(mx: number, my: number, k: number): void {
     const [wx, wy] = this.s2w(mx, my);
-    this.cam.zoom = Math.min(8, Math.max(0.15, this.cam.zoom * k));
+    this.cam.zoom = Math.min(8, Math.max(MIN_ZOOM, this.cam.zoom * k));
     const [wx2, wy2] = this.s2w(mx, my);
     this.cam.x += wx - wx2;
     this.cam.y += wy - wy2;
@@ -1058,7 +1158,7 @@ export class App {
         this.showHelp = !this.showHelp;
         return;
       case 'new':
-        this.load({ ...emptyPatch(), tempo: p.tempo, key: p.key, seed: p.seed }, 'new patch · scrub the timeline to go back');
+        this.load({ ...emptyPatch(), tempo: p.tempo, key: p.key, seed: p.seed, objects: [classicStage()] }, 'new patch · scrub the timeline to go back');
         return;
       case 'open':
         this.openPatch();
@@ -1118,7 +1218,9 @@ export class App {
 
   /** Centre the camera on the patch, zooming out if needed but never in past 1. */
   fitView(): void {
-    const objs = this.patch.objects;
+    // XY fields are background: fit to what sits on them, unless they're all there is
+    const all = this.patch.objects;
+    const objs = all.some((o) => !isMap(o)) ? all.filter((o) => !isMap(o)) : all;
     if (!objs.length) return;
     let x0 = Infinity;
     let y0 = Infinity;
@@ -1134,7 +1236,8 @@ export class App {
     }
     const margin = 60;
     const z = Math.min(this.W / (x1 - x0 + 2 * margin), (this.H - this.barH) / (y1 - y0 + 2 * margin));
-    this.cam = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 - this.barH / 2 / Math.min(1, Math.max(0.15, z)), zoom: Math.min(1, Math.max(0.15, z)) };
+    const zoom = Math.min(1, Math.max(MIN_ZOOM, z));
+    this.cam = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 - this.barH / 2 / zoom, zoom };
   }
 
   /** Seed text → uint32: digits within range are used as is, anything else is hashed. */
@@ -1345,7 +1448,11 @@ export class App {
         const o = this.obj(sel);
         if (!o) return;
         e.preventDefault();
-        const step = e.shiftKey ? 120 : 10;
+        // a semitone (shift: an octave) along whichever axis carries pitch here, else 10 units
+        const p = this.poseOf(o);
+        const g = o.kind === 'sound' ? governingAxis(p.x, p.y, this.maps, 'pitch') : null;
+        const semi = g ? Math.abs(g.half / ((g.a.max - g.a.min) / 2)) || 10 : 10;
+        const step = Math.max(1, Math.round(semi * (e.shiftKey ? 12 : 1)));
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? step : e.key === 'ArrowDown' ? -step : 0;
         this.commit({ op: 'move', id: o.id, x: o.x + dx, y: o.y + dy });
@@ -1379,6 +1486,12 @@ async function copyText(text: string): Promise<boolean> {
   }
   ta.remove();
   return ok;
+}
+
+/** How far a ripple's visuals travel. */
+export function visReach(r: RippleVis): number {
+  if (r.lens) return Math.max(0, ...r.lens);
+  return r.stopR ?? r.maxR;
 }
 
 export function fmtTime(sec: number): string {

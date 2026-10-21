@@ -4,6 +4,8 @@
 //
 // Versions are frozen once shipped. Any change to the output is a new version
 // in `generators`, and the old one keeps working so old links stay valid.
+// v1 builds a version 1 patch; generatePatch migrates it (normalizePatch adds
+// the stage XY field), so what the generator itself emits never changes.
 
 import type { FieldObj, FieldShape, Motion, Patch, PatchObject, SoundObj } from './types.ts';
 import { RIPPLE_REACH } from './constants.ts';
@@ -13,6 +15,7 @@ import { SCALE_ORDER } from './music.ts';
 import { rand, strHash } from './rand.ts';
 import { soundTypes, defaultParams } from './sounds/registry.ts';
 import { fieldTypes, defaultHandles } from './fields/registry.ts';
+import { normalizePatch } from './patch.ts';
 
 export const GENERATOR_VERSION = 1;
 
@@ -228,5 +231,5 @@ export const generators: Record<number, (seed: number) => Patch> = { 1: v1 };
 export function generatePatch(seed: number, version = GENERATOR_VERSION): Patch {
   const g = generators[version];
   if (!g) throw new Error(`unknown generator version ${version}`);
-  return g(seed);
+  return normalizePatch(g(seed));
 }

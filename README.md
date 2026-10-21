@@ -2,7 +2,7 @@
 
 # GENER8
 
-A generative music instrument on an infinite canvas. You place **sounds**, overlap them with **fields**, and let proximity, motion and ripples do the rest. There are no cables, tracks or patterns. Where things sit *is* the patch.
+A generative music instrument on an infinite canvas. You place **sounds**, overlap them with **fields**, and let proximity, motion and ripples do the rest. There are no cables, tracks or patterns. Where things sit *is* the patch, and **XY fields** decide what position means.
 
 It runs in the browser on custom DSP (no samples, no native Web Audio nodes), and every render is **bit-identical from a single seed**.
 
@@ -26,7 +26,7 @@ Press **space** to start audio. The ambient demo loads first. **examples ▾** i
 
 Opening a link loads the patch but never starts audio. Press space or ▶ to hear it. Pasting a new link into an open tab works too. The patch you had before is kept in `localStorage` under `gener8.patch.prev`.
 
-Links are treated as untrusted. A patch from a link is size-capped, decompressed with a hard byte limit, and rebuilt from a whitelist with every number checked and clamped (`src/core/sanitise.ts`). Links are limited to 24 sounds and 12 fields, the tested scale target. A link with an unknown sound or field type is refused with a message rather than half-loaded, and a bad link never replaces your current patch.
+Links are treated as untrusted. A patch from a link is size-capped, decompressed with a hard byte limit, and rebuilt from a whitelist with every number checked and clamped (`src/core/sanitise.ts`). Links are limited to 24 sounds and 12 fields, the tested scale target, plus up to 8 XY fields. A link with an unknown sound or field type is refused with a message rather than half-loaded, and a bad link never replaces your current patch.
 
 ## How it works
 
@@ -38,17 +38,32 @@ Links are treated as untrusted. A patch from a link is size-capped, decompressed
 | amber | **generator** | Triggers notes on the sounds inside it. |
 | teal | **transformer** | Changes those notes (thins, transposes, harmonises, stretches…). |
 | violet | **fx** | Processes the audio (filter, tape, delay, chorus, reverb, shimmer). |
+| steel | **xy** | Maps position inside it to pitch, pan, level, ripple reach/angle/spread, or a sound parameter. |
 
-**The canvas has fixed meanings:**
-- Height is pitch (up is higher, snapped to the key).
-- Left/right is stereo position.
-- A sound's size is its loudness and how far its ripples reach.
+**XY fields give the canvas its meaning.** An XY field is a resizable rectangle with an x and a y axis. Each axis has a target and a value at each edge, and a sound inside the field takes the value at its position. Typical uses:
+- The usual stage: y is pitch (up is higher, snapped to the key) and x is pan. Every bundled example has one, and **new** starts with one.
+- A wide, gentle pan field (say 4000 units wide, L50 to R50), so sounds can sit far apart without ripples reaching each other or being panned hard.
+- A small field over a few sounds that maps x to filter cutoff and y to level.
+
+Fields can overlap. For each target, the highest layer wins, so a small field can override part of a big one. A sound outside every XY field plays middle C, centred. XY fields can move and breathe like anything else, which modulates whatever they map. They sit under everything, so you select one by its edge or its label (or with Tab), and its axes are set in the bar below it.
+
+A sound's size is its loudness and, with its reach, how far its retriggers travel.
 
 **Processing order** is fixed by role: generators → transformers → sound → fx. Within a role, the layer order (`[` `]`) decides.
 
 **Motion is modulation.** Any object can breathe, orbit, drift or follow a path, so a sound sliding through a filter field gets a sweep and a breathing field changes intensity. There is no separate modulation matrix.
 
-**Ripples:** every note sends out a ring that expands at a tempo-synced speed. Hollow sounds it reaches answer, delayed by distance, so layout alone gives you call-and-response. Chain depth and per-sound refractory periods keep feedback in check.
+**Ripples:** every note sends out a retrigger that travels at a tempo-synced speed. Hollow sounds it reaches answer, delayed by distance, so layout alone gives you call-and-response. Chain depth and per-sound refractory periods keep feedback in check. Each sound sets its own retrigger in the bar below it:
+
+| | |
+|---|---|
+| **ripple** | an expanding ring (the default) |
+| **point** | one trace fired at **angle** (0° is up, 90° is right). Drag the ● handle to aim it. |
+| **multi** | **count** traces fanned across **spread** around the angle. At 360° they're spaced evenly all the way round. |
+| **reach** | how far it travels, as a multiple of the sound's size (default ×6). 0 never retriggers. |
+| **stop on impact** | the ring, or each trace, ends at the first listener it reaches |
+
+A trace hits a listener when it passes through the listener's body.
 
 ## Elements
 
@@ -58,6 +73,7 @@ Links are treated as untrusted. A patch from a link is size-capped, decompressed
 | **Generators** | pulse (Euclidean) · drift (random walk) · arp · rain · strum · grid (cellular automaton) |
 | **Transformers** | probability · transpose · quantise · harmony · humanise · hold · ratchet · every Nth |
 | **FX** | filter · tape · tape delay · chorus · reverb · shimmer |
+| **Maps** | xy |
 
 ## Controls
 
@@ -67,11 +83,11 @@ Links are treated as untrusted. A patch from a link is size-capped, decompressed
 | drag from palette | place a sound or field |
 | drag object | move it (alt-drag duplicates) |
 | handles | ▪ size · ◔ character (drag up/down) |
-| select anything | the motion bar appears: breathe / orbit / drift / path, with drag-or-scroll values |
+| select anything | the motion bar appears: breathe / orbit / drift / path, with drag-or-scroll values; sounds add a retrigger row, XY fields an x and a y row (click or scroll the target to change it) |
 | tab / shift-tab | cycle through everything under the cursor, including field edges |
 | double-click or zoom into a sound | open its internals (oscillators, filter, ADSR) |
 | pinch / ⌘-scroll | zoom · two-finger / right-drag / space-drag: pan |
-| ↑ ↓ ← → | nudge a semitone (shift: an octave) |
+| ↑ ↓ ← → | nudge a semitone along the pitch axis under the sound (shift: an octave) |
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |
@@ -122,7 +138,9 @@ docs/          patch metamodel (Ecore) and its diagram
 
 ## Patch metamodel
 
-Patches are plain JSON, and their structure is also described as an Eclipse Ecore metamodel: [`docs/gener8.ecore`](docs/gener8.ecore). It covers the patch, key and scale, shapes, the four motion kinds, and every sound and field type. The diagram below was generated from it with the [Model Viewer](https://gcoulby.github.io/model-viewer/).
+Patches are plain JSON, and their structure is also described as an Eclipse Ecore metamodel: [`docs/gener8.ecore`](docs/gener8.ecore). It covers the patch, key and scale, shapes, the four motion kinds, XY fields and their axes, ripple settings, and every sound and field type.
+
+The current format is version 2. Version 1 patches, which had a fixed y = pitch and x = pan, still load: old files, share links, seed links and captures all get a stage XY field that reproduces the old mapping bit for bit, so they sound exactly as they did. The diagram below was generated from it with the [Model Viewer](https://gcoulby.github.io/model-viewer/).
 
 [![GENER8 patch metamodel](docs/gener8-model.svg)](docs/gener8-model.svg)
 

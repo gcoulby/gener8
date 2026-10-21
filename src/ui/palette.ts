@@ -31,7 +31,7 @@ function slots(top: number): Slot[] {
   const groups: [Role | 'sound', { item: PaletteItem; label: string }[]][] = [
     ['sound', Object.values(soundTypes).map((t) => ({ item: { kind: 'sound', type: t.id }, label: t.label }))],
   ];
-  for (const role of ['generator', 'transformer', 'fx'] as const) {
+  for (const role of ['generator', 'transformer', 'fx', 'map'] as const) {
     groups.push([
       role,
       Object.values(fieldTypes)
@@ -81,7 +81,7 @@ export function drawPaletteIcon(g: CanvasRenderingContext2D, item: PaletteItem, 
   if (t.shape === 'rect') g.rect(cx - r * 0.9, cy - r * 0.65, r * 1.8, r * 1.3);
   else g.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
   g.fill();
-  if (t.role === 'transformer') g.setLineDash([3, 2]);
+  if (t.role === 'transformer' || t.role === 'map') g.setLineDash([3, 2]);
   g.stroke();
   g.setLineDash([]);
   g.fillStyle = rgba(t.role, 0.95 * a);

@@ -1,4 +1,5 @@
-import type { Edit, Patch, PatchObject } from './types.ts';
+import type { Edit, FieldObj, Patch, PatchObject } from './types.ts';
+import { MIDI_MAX, MIDI_MIN, STAGE_HALF, UNITS_PER_SEMITONE } from './constants.ts';
 
 export function clone<T>(v: T): T {
   return v === undefined ? v : JSON.parse(JSON.stringify(v));
@@ -7,7 +8,7 @@ export function clone<T>(v: T): T {
 export function emptyPatch(): Patch {
   return {
     format: 'gener8.patch',
-    version: 1,
+    version: 2,
     seed: 1,
     tempo: 64,
     key: { root: 2, scale: 'major' },
@@ -15,21 +16,82 @@ export function emptyPatch(): Patch {
   };
 }
 
-/** Fill missing top-level fields. Unknown fields are preserved. */
+/** Fill missing top-level fields and migrate version 1. Unknown fields are preserved. */
 export function normalizePatch(input: unknown): Patch {
   const p = clone(input) as Partial<Patch> & Record<string, unknown>;
   if (!p || typeof p !== 'object') throw new Error('patch: not an object');
   if (p.format !== undefined && p.format !== 'gener8.patch') throw new Error('patch: unknown format');
   const d = emptyPatch();
-  return {
+  const out = {
     ...p,
     format: 'gener8.patch',
-    version: 1,
+    version: 2,
     seed: typeof p.seed === 'number' ? p.seed >>> 0 : d.seed,
     tempo: typeof p.tempo === 'number' ? p.tempo : d.tempo,
     key: p.key && typeof p.key === 'object' ? p.key : d.key,
     objects: Array.isArray(p.objects) ? p.objects : [],
   } as Patch;
+  if (p.version !== 2) out.objects.push(stageField(out.objects));
+  return out;
+}
+
+/** The classic 1600 × 720 stage: pan L to R across x = ±800, pitch C1 to C7 up y = ±360. */
+export function classicStage(id = 'xy1'): FieldObj {
+  return stageField([], id);
+}
+
+/**
+ * Version 1 had fixed meanings: y = pitch (10 units a semitone, clamped C1..C7)
+ * and x = pan (±800, clamped). This builds the XY field that reproduces them bit
+ * for bit. It grows past the classic stage, keeping the same slope, until it
+ * covers every sound and the ground its motion covers; values past the old
+ * range are clamped by the engine, exactly as v1 clamped them. Half extents
+ * step by 100 (x) and 10 (y) so axisValue's divisions stay exact.
+ */
+function stageField(objs: PatchObject[], id?: string): FieldObj {
+  let ax = 0;
+  let ay = 0;
+  for (const o of objs) {
+    if (o.kind !== 'sound') continue;
+    const m = o.motion?.pos;
+    let ex = 0;
+    let ey = 0;
+    if (m?.type === 'orbit') ex = ey = Math.abs(m.radius);
+    else if (m?.type === 'drift') ex = ey = Math.abs(m.amplitude);
+    else if (m?.type === 'path')
+      for (const pt of m.points) {
+        // a Catmull-Rom curve can overshoot its points a little
+        ex = Math.max(ex, Math.abs(pt[0]) * 1.25 + 10);
+        ey = Math.max(ey, Math.abs(pt[1]) * 1.25 + 10);
+      }
+    ax = Math.max(ax, Math.abs(o.x) + ex);
+    ay = Math.max(ay, Math.abs(o.y) + ey);
+  }
+  const mid = (MIDI_MIN + MIDI_MAX) / 2;
+  const hw = Math.max(STAGE_HALF, Math.ceil(ax / 100) * 100);
+  const hh = Math.max(((MIDI_MAX - MIDI_MIN) / 2) * UNITS_PER_SEMITONE, Math.ceil(ay / 10) * 10);
+  const pan = hw / STAGE_HALF;
+  const semis = hh / UNITS_PER_SEMITONE;
+  return {
+    id: id ?? freeId(objs, 'xy'),
+    kind: 'field',
+    type: 'xy',
+    x: 0,
+    y: 0,
+    shape: { w: 2 * hw, h: 2 * hh },
+    layer: 0,
+    handles: {},
+    axes: {
+      x: { to: 'pan', min: -pan, max: pan },
+      y: { to: 'pitch', min: mid - semis, max: mid + semis },
+    },
+  };
+}
+
+function freeId(objs: PatchObject[], prefix: string): string {
+  let n = 1;
+  while (objs.some((o) => o.id === prefix + n)) n++;
+  return prefix + n;
 }
 
 export function findObj(p: Patch, id: string): PatchObject | undefined {

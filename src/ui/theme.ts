@@ -11,6 +11,7 @@ export const ROLE_RGB: Record<Role | 'sound', [number, number, number]> = {
   generator: [240, 168, 48],
   transformer: [60, 200, 180],
   fx: [154, 124, 240],
+  map: [150, 176, 204],
 };
 
 export function rgba(role: Role | 'sound', a: number): string {

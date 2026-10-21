@@ -1,10 +1,14 @@
 // Motion bar: appears under the selected object. Toggle breathe / orbit / drift /
 // path and drag (or scroll) the values. Motion is the only modulation, so this
-// is where any sound or field gets modulated.
+// is where any sound or field gets modulated. Event sounds also get a retrigger
+// row (ripple / point / multi), and XY fields a row per axis.
 
 import type { App } from './app.ts';
-import type { Edit, PatchObject, PosMotion } from '../core/types.ts';
+import type { Axes, Axis, Edit, PatchObject, PosMotion, RippleSpec } from '../core/types.ts';
 import { isCircle } from '../core/geometry.ts';
+import { soundTypes } from '../core/sounds/registry.ts';
+import { isMap } from '../core/fields/registry.ts';
+import { DEFAULT_AXES, mapContains, PARAM_PREFIX, RIPPLE_LIMITS, rippleOf, targetOf, XY_TARGETS } from '../core/placement.ts';
 import { FONT_SMALL, INK } from './theme.ts';
 
 export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256];
@@ -12,9 +16,27 @@ export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 
 export type MotionAction =
   | { kind: 'toggle'; what: 'breathe' | 'orbit' | 'drift' | 'path' }
   | { kind: 'value'; key: ValueKey }
-  | { kind: 'mode' };
+  | { kind: 'mode' }
+  | { kind: 'rmode'; mode: NonNullable<RippleSpec['mode']> }
+  | { kind: 'rstop' }
+  | { kind: 'axis'; axis: 'x' | 'y' }
+  | { kind: 'label' };
 
-export type ValueKey = 'breathe.amount' | 'breathe.period' | 'pos.radius' | 'pos.amplitude' | 'pos.period' | 'pos.rate';
+export type ValueKey =
+  | 'breathe.amount'
+  | 'breathe.period'
+  | 'pos.radius'
+  | 'pos.amplitude'
+  | 'pos.period'
+  | 'pos.rate'
+  | 'ripple.reach'
+  | 'ripple.angle'
+  | 'ripple.count'
+  | 'ripple.spread'
+  | 'axis.x.min'
+  | 'axis.x.max'
+  | 'axis.y.min'
+  | 'axis.y.max';
 
 export interface MotionHit {
   action: MotionAction;
@@ -33,6 +55,57 @@ interface Item {
   action: MotionAction;
   active?: boolean;
   value?: boolean;
+}
+
+/** Display name for an axis target; param targets use the first sound type's label for that key. */
+export function targetLabel(to: string): string {
+  if (to.startsWith(PARAM_PREFIX)) {
+    const key = to.slice(PARAM_PREFIX.length);
+    for (const t of Object.values(soundTypes)) {
+      const p = t.params.find((q) => q.key === key);
+      if (p) return p.label;
+    }
+    return key;
+  }
+  return targetOf(to)?.label ?? to;
+}
+
+export function axesOf(o: PatchObject): Axes {
+  return (o.kind === 'field' && o.axes) || DEFAULT_AXES;
+}
+
+function retriggerRow(o: PatchObject): Item[] {
+  const r = rippleOf(o.kind === 'sound' ? o.ripple : undefined);
+  const row: Item[] = [
+    { text: 'retrigger', action: { kind: 'label' } },
+    { text: '◎ ripple', action: { kind: 'rmode', mode: 'ripple' }, active: r.mode === 'ripple' },
+    { text: '→ point', action: { kind: 'rmode', mode: 'point' }, active: r.mode === 'point' },
+    { text: '⋔ multi', action: { kind: 'rmode', mode: 'multi' }, active: r.mode === 'multi' },
+    { text: `reach ×${r.reach}`, action: { kind: 'value', key: 'ripple.reach' }, value: true },
+  ];
+  if (r.mode !== 'ripple') row.push({ text: `angle ${Math.round(r.angle)}°`, action: { kind: 'value', key: 'ripple.angle' }, value: true });
+  if (r.mode === 'multi') {
+    row.push({ text: `count ${r.count}`, action: { kind: 'value', key: 'ripple.count' }, value: true });
+    row.push({ text: `spread ${Math.round(r.spread)}°`, action: { kind: 'value', key: 'ripple.spread' }, value: true });
+  }
+  row.push({ text: '⊣ stop on impact', action: { kind: 'rstop' }, active: r.stop });
+  return row;
+}
+
+function axisRow(o: PatchObject, ax: 'x' | 'y'): Item[] {
+  const a = axesOf(o)[ax];
+  const row: Item[] = [
+    { text: ax === 'x' ? 'x ↔' : 'y ↕', action: { kind: 'label' } },
+    { text: `${a ? targetLabel(a.to) : 'none'} ▾`, action: { kind: 'axis', axis: ax }, value: true },
+  ];
+  const t = a && targetOf(a.to);
+  if (a && t) {
+    const lo = ax === 'x' ? 'left' : 'bottom';
+    const hi = ax === 'x' ? 'right' : 'top';
+    row.push({ text: `${lo} ${t.fmt(a.min)}`, action: { kind: 'value', key: `axis.${ax}.min` }, value: true });
+    row.push({ text: `${hi} ${t.fmt(a.max)}`, action: { kind: 'value', key: `axis.${ax}.max` }, value: true });
+  }
+  return row;
 }
 
 function rows(o: PatchObject): Item[][] {
@@ -73,6 +146,8 @@ function rows(o: PatchObject): Item[][] {
       { text: p.mode, action: { kind: 'mode' }, value: true },
     ]);
   }
+  if (o.kind === 'sound' && soundTypes[o.type]?.mode === 'event') out.push(retriggerRow(o));
+  if (isMap(o)) out.push(axisRow(o, 'x'), axisRow(o, 'y'));
   return out;
 }
 
@@ -129,7 +204,7 @@ export function drawMotionBar(app: App): void {
         g.fillStyle = it.active ? '#0b0b0e' : `rgba(233,228,218,${hov ? 0.95 : 0.65})`;
       }
       g.fillText(it.text, x + 6, y + CH / 2 + 0.5);
-      if (!(ri > 0 && i === 0)) app.motionHits.push({ action: it.action, x, y, w, h: CH });
+      if (it.action.kind !== 'label' && !(ri > 0 && i === 0)) app.motionHits.push({ action: it.action, x, y, w, h: CH });
       x += w + GAP;
     });
   });
@@ -144,6 +219,8 @@ export function sameAction(a: MotionAction, b: MotionAction): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'toggle' && b.kind === 'toggle') return a.what === b.what;
   if (a.kind === 'value' && b.kind === 'value') return a.key === b.key;
+  if (a.kind === 'rmode' && b.kind === 'rmode') return a.mode === b.mode;
+  if (a.kind === 'axis' && b.kind === 'axis') return a.axis === b.axis;
   return true;
 }
 
@@ -158,8 +235,38 @@ const DEFAULTS: Record<'orbit' | 'drift' | 'path', PosMotion> = {
   path: { type: 'path', points: [[0, 0], [120, 60], [0, 120], [-120, 60]], periodBeats: 32, mode: 'loop' },
 };
 
-/** The edit for a click on a toggle or mode chip. */
-export function toggleEdit(o: PatchObject, a: MotionAction): Edit | null {
+/** Axis targets to cycle through: the built-ins, then params of the sounds inside the field, then none. */
+function axisTargets(app: App, o: PatchObject): (string | null)[] {
+  const keys = new Set<string>();
+  const m = { obj: o as Extract<PatchObject, { kind: 'field' }>, pose: app.poseOf(o) };
+  for (const s of app.view.objects) {
+    if (s.kind !== 'sound') continue;
+    const p = app.poseOf(s);
+    if (!mapContains(m, p.x, p.y)) continue;
+    for (const q of soundTypes[s.type]?.params ?? []) keys.add(q.key);
+  }
+  return [...Object.keys(XY_TARGETS), ...[...keys].sort().map((k) => PARAM_PREFIX + k), null];
+}
+
+/** The edit for a click on a toggle or mode chip (dir: -1 steps an axis target backwards). */
+export function toggleEdit(app: App, o: PatchObject, a: MotionAction, dir = 1): Edit | null {
+  if (a.kind === 'rmode' && o.kind === 'sound') {
+    return { op: 'set', id: o.id, path: ['ripple', 'mode'], value: a.mode === 'ripple' ? null : a.mode };
+  }
+  if (a.kind === 'rstop' && o.kind === 'sound') {
+    return { op: 'set', id: o.id, path: ['ripple', 'stop'], value: o.ripple?.stop ? null : true };
+  }
+  if (a.kind === 'axis') {
+    const list = axisTargets(app, o);
+    const cur = axesOf(o)[a.axis]?.to ?? null;
+    const i = list.indexOf(cur);
+    const to = list[(((i < 0 ? 0 : i + dir) % list.length) + list.length) % list.length];
+    const t = to && targetOf(to);
+    const axes: Axes = { ...axesOf(o) };
+    if (to && t) axes[a.axis] = { to, min: t.min, max: t.max };
+    else delete axes[a.axis];
+    return { op: 'set', id: o.id, path: ['axes'], value: axes };
+  }
   if (a.kind === 'mode') {
     const p = o.motion?.pos;
     if (p?.type !== 'path') return null;
@@ -190,6 +297,12 @@ export function readValue(o: PatchObject, key: ValueKey): number {
     case 'pos.rate':
       return p?.rateBeats ?? 8;
   }
+  if (key.startsWith('ripple.')) {
+    const r = rippleOf(o.kind === 'sound' ? o.ripple : undefined);
+    return r[key.slice(7) as 'reach' | 'angle' | 'count' | 'spread'];
+  }
+  const [, ax, end] = key.split('.') as [string, 'x' | 'y', 'min' | 'max'];
+  return axesOf(o)[ax]?.[end] ?? 0;
 }
 
 function stepPeriod(v: number, steps: number): number {
@@ -198,21 +311,46 @@ function stepPeriod(v: number, steps: number): number {
   return PERIODS[Math.min(PERIODS.length - 1, Math.max(0, i + steps))];
 }
 
+const clampTo = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
 /** New value for a value chip: `steps` is signed (drag pixels / 12, or ±1 per scroll notch). */
-export function stepValue(key: ValueKey, start: number, steps: number, fine: number): number {
+export function stepValue(o: PatchObject, key: ValueKey, start: number, steps: number, fine: number): number {
   switch (key) {
     case 'breathe.amount':
       return Math.round(Math.min(0.9, Math.max(0, start + fine * 0.005)) * 100) / 100;
     case 'pos.radius':
     case 'pos.amplitude':
-      return Math.round(Math.min(800, Math.max(5, start + fine)));
-    default:
+      return Math.round(Math.min(4000, Math.max(5, start + fine)));
+    case 'breathe.period':
+    case 'pos.period':
+    case 'pos.rate':
       return stepPeriod(start, steps);
+    case 'ripple.reach':
+      return clampTo(Math.round((start + steps * 0.5) * 2) / 2, RIPPLE_LIMITS.reach[0], RIPPLE_LIMITS.reach[1]);
+    case 'ripple.angle':
+      return ((Math.round((start + steps * 5) / 5) * 5) % 360 + 360) % 360;
+    case 'ripple.count':
+      return clampTo(Math.round(start + steps), RIPPLE_LIMITS.count[0], RIPPLE_LIMITS.count[1]);
+    case 'ripple.spread':
+      return clampTo(Math.round((start + steps * 5) / 5) * 5, RIPPLE_LIMITS.spread[0], RIPPLE_LIMITS.spread[1]);
   }
+  const a = axesOf(o)[key.split('.')[1] as 'x' | 'y'];
+  const t = a && targetOf(a.to);
+  if (!t) return start;
+  const v = Math.round((start + steps * t.step) / t.step) * t.step;
+  return clampTo(Number(v.toPrecision(6)), t.lo, t.hi);
 }
 
 export function valueEdit(o: PatchObject, key: ValueKey, v: number): Edit {
-  const path: Record<ValueKey, string[]> = {
+  if (key.startsWith('axis.')) {
+    const [, ax, end] = key.split('.') as [string, 'x' | 'y', 'min' | 'max'];
+    const axes: Axes = { ...axesOf(o) };
+    const cur = axes[ax];
+    if (cur) axes[ax] = { ...cur, [end]: v } as Axis;
+    return { op: 'set', id: o.id, path: ['axes'], value: axes };
+  }
+  if (key.startsWith('ripple.')) return { op: 'set', id: o.id, path: ['ripple', key.slice(7)], value: v };
+  const path: Record<string, string[]> = {
     'breathe.amount': ['motion', 'breathe', 'amount'],
     'breathe.period': ['motion', 'breathe', 'periodBeats'],
     'pos.radius': ['motion', 'pos', 'radius'],

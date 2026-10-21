@@ -1,26 +1,27 @@
 import { HANDLE_ZOOM, type App, type HandlePos } from './app.ts'
-import type { FieldObj, PatchObject, Role, SoundObj } from '../core/types.ts'
-import {
-  PPQ,
-  RIPPLE_SPEED,
-  STAGE_HALF,
-  MIDI_MAX,
-  MIDI_MIN,
-} from '../core/constants.ts'
+import type { Axis, FieldObj, PatchObject, Role, SoundObj } from '../core/types.ts'
+import { PPQ, RIPPLE_SPEED, MIDI_MAX, MIDI_MIN } from '../core/constants.ts'
 import { byLayer } from '../core/patch.ts'
-import { angleTurns, depthAt, isCircle } from '../core/geometry.ts'
+import { angleTurns, depthAt, isCircle, shapeDims } from '../core/geometry.ts'
 import { pose } from '../core/motion.ts'
 import { soundTypes } from '../core/sounds/registry.ts'
-import { fieldTypes } from '../core/fields/registry.ts'
+import { fieldTypes, isMap } from '../core/fields/registry.ts'
 import { pulseHits, pulseLength, euclid } from '../core/fields/generators.ts'
 import {
   indexToMidi,
-  midiToY,
   nearestIndex,
   noteName,
   scaleSteps,
-  yToMidi,
 } from '../core/music.ts'
+import {
+  axisOffset,
+  DEFAULT_AXES,
+  governingAxis,
+  rippleOf,
+  targetOf,
+  traceTurns,
+} from '../core/placement.ts'
+import { targetLabel } from './motionbar.ts'
 import { BG, FONT, FONT_SMALL, INK, rgba } from './theme.ts'
 import { soundDetail, soundPath } from './glyphs.ts'
 import { drawPalette } from './palette.ts'
@@ -36,10 +37,11 @@ export function draw(app: App): void {
   g.setTransform(app.dpr, 0, 0, app.dpr, 0, 0)
   g.fillStyle = BG
   g.fillRect(0, 0, app.W, app.H)
-  drawGuides(app)
 
   const objs = app.view.objects.slice().sort(byLayer)
-  for (const o of objs) if (o.kind === 'field') drawField(app, o)
+  // XY fields are the ground: drawn first, under every other field
+  for (const o of objs) if (isMap(o)) drawMap(app, o)
+  for (const o of objs) if (o.kind === 'field' && !isMap(o)) drawField(app, o)
   drawRipples(app)
   drawCauses(app)
   for (const o of objs) if (o.kind === 'sound') drawSound(app, o)
@@ -179,38 +181,133 @@ function dim(app: App, sx: number, sy: number, id: string): number {
   return Math.min(1, Math.max(0.35, 1 - (d - 260) / 420))
 }
 
-function drawGuides(app: App): void {
+/** Values worth a guide line on an axis: the key's root in every octave for pitch, centre for pan. */
+function guideValues(a: Axis, root: number): number[] {
+  const lo = Math.min(a.min, a.max)
+  const hi = Math.max(a.min, a.max)
+  if (a.to === 'pitch') {
+    const out: number[] = []
+    for (let m = Math.max(MIDI_MIN, Math.ceil(lo)); m <= Math.min(MIDI_MAX, hi); m++)
+      if ((((m - root) % 12) + 12) % 12 === 0) out.push(m)
+    return out
+  }
+  if (a.to === 'pan' && lo < 0 && hi > 0) return [0]
+  return []
+}
+
+function drawMap(app: App, f: FieldObj): void {
   const g = app.g
+  const p = app.poseOf(f)
   const z = app.cam.zoom
+  const [sx, sy] = app.w2s(p.x, p.y)
+  const d = shapeDims(f.shape, p.scale)
+  const w = d.w * z
+  const h = d.h * z
+  const x0 = sx - w / 2
+  const y0 = sy - h / 2
+  if (x0 > app.W || y0 > app.H || x0 + w < 0 || y0 + h < 0) return
+  const sel = app.sel === f.id
+  const hov =
+    (app.hover?.kind === 'object' || app.hover?.kind === 'handle') &&
+    app.hover.id === f.id
+  const k = sel ? 1 : hov ? 0.7 : 0.45
+  const axes = f.axes ?? DEFAULT_AXES
   const root = app.view.key.root
+  // labels stay on the visible part of the field (clear of the palette and bar)
+  const vx0 = Math.max(x0, 76)
+  const vx1 = Math.min(x0 + w, app.W)
+  const vy0 = Math.max(y0, 0)
+  const vy1 = Math.min(y0 + h, app.H - app.barH)
+
+  g.fillStyle = rgba('map', 0.022)
+  g.fillRect(x0, y0, w, h)
+
+  g.save()
+  g.beginPath()
+  g.rect(x0, y0, w, h)
+  g.clip()
   g.font = FONT_SMALL
-  g.textAlign = 'left'
-  g.textBaseline = 'bottom'
-  for (let m = MIDI_MIN; m <= MIDI_MAX; m++) {
-    if ((((m - root) % 12) + 12) % 12 !== 0) continue
-    const [, sy] = app.w2s(0, midiToY(m))
-    if (sy < 0 || sy > app.H - app.barH) continue
-    g.fillStyle = 'rgba(233,228,218,0.035)'
-    g.fillRect(0, sy, app.W, 1)
-    if (z >= 0.3) {
-      g.fillStyle = 'rgba(233,228,218,0.22)'
-      g.fillText(noteName(m), 82, sy - 2)
+  for (const ax of ['x', 'y'] as const) {
+    const a = axes[ax]
+    if (!a) continue
+    const half = (ax === 'x' ? d.w : d.h) / 2
+    for (const v of guideValues(a, root)) {
+      const off = axisOffset(a, v, half) * z
+      g.fillStyle = rgba('map', 0.07)
+      if (ax === 'y') {
+        const y = sy - off
+        g.fillRect(x0, y, w, 1)
+        if (a.to === 'pitch' && z >= 0.3) {
+          g.fillStyle = rgba('map', 0.3)
+          g.textAlign = 'left'
+          g.textBaseline = 'bottom'
+          g.fillText(noteName(v), vx0 + 6, y - 2)
+        }
+      } else {
+        const x = sx + off
+        g.fillRect(x, y0, 1, h)
+        if (a.to === 'pitch' && z >= 0.3) {
+          g.fillStyle = rgba('map', 0.3)
+          g.textAlign = 'left'
+          g.textBaseline = 'top'
+          g.fillText(noteName(v), x + 3, vy0 + 24)
+        }
+      }
     }
   }
-  g.setLineDash([2, 6])
-  g.strokeStyle = 'rgba(233,228,218,0.06)'
-  g.lineWidth = 1
-  for (const x of [-STAGE_HALF, STAGE_HALF]) {
-    const [sx] = app.w2s(x, 0)
-    g.beginPath()
-    g.moveTo(sx, 0)
-    g.lineTo(sx, app.H - app.barH)
-    g.stroke()
-    g.fillStyle = 'rgba(233,228,218,0.2)'
-    g.textBaseline = 'top'
-    g.fillText(x < 0 ? 'L' : 'R', sx + 4, 6)
-  }
+  g.restore()
+
+  g.strokeStyle = rgba('map', 0.35 * k)
+  g.lineWidth = sel ? 1.4 : 1
+  g.setLineDash([4, 6])
+  g.strokeRect(x0, y0, w, h)
   g.setLineDash([])
+
+  // labels: id top-left (also its pick handle), axis ends along the bottom and right edges
+  g.font = FONT_SMALL
+  g.fillStyle = rgba('map', 0.8 * k)
+  g.textAlign = 'left'
+  g.textBaseline = 'top'
+  g.fillText(`${fieldTypes[f.type]?.glyph ?? '⊹'} ${f.id}  [${f.layer}]`, x0 + 6, y0 + 5)
+  if (vx1 - vx0 < 140 || vy1 - vy0 < 60) return
+  g.fillStyle = rgba('map', 0.6 * k)
+  const ends = (a: Axis | undefined) => {
+    const t = a && targetOf(a.to)
+    return a && t ? { label: targetLabel(a.to), lo: t.fmt(a.min), hi: t.fmt(a.max) } : null
+  }
+  const ex = ends(axes.x)
+  const ey = ends(axes.y)
+  g.textBaseline = 'bottom'
+  // an end label is only shown when that edge is on screen
+  const lOn = x0 >= vx0 - 1
+  const rOn = x0 + w <= vx1 + 1
+  const tOn = y0 >= vy0 - 1
+  const bOn = y0 + h <= vy1 + 1
+  if (ex) {
+    g.textAlign = 'left'
+    g.fillText(lOn ? `← ${ex.lo}` : `x: ${ex.label}`, vx0 + 6, vy1 - 4)
+    if (lOn) {
+      g.textAlign = 'center'
+      g.fillText(`x: ${ex.label}`, (vx0 + vx1) / 2, vy1 - 4)
+    }
+    if (rOn) {
+      g.textAlign = 'right'
+      g.fillText(`${ex.hi} →`, vx1 - 6, vy1 - 4)
+    }
+  }
+  if (ey) {
+    g.textAlign = 'right'
+    if (tOn) {
+      g.textBaseline = 'top'
+      g.fillText(`↑ ${ey.hi}`, vx1 - 6, vy0 + 5)
+    }
+    g.textBaseline = 'middle'
+    g.fillText(`y: ${ey.label}`, vx1 - 6, (vy0 + vy1) / 2)
+    if (bOn) {
+      g.textBaseline = 'bottom'
+      g.fillText(`↓ ${ey.lo}`, vx1 - 6, vy1 - (ex ? 18 : 4))
+    }
+  }
 }
 
 function fieldPath(
@@ -403,6 +500,25 @@ function drawRipples(app: App): void {
     const al = (1 - rad / r.maxR) * 0.4 * (0.4 + 0.6 * r.vel)
     if (al <= 0) continue
     const [sx, sy] = app.w2s(r.x, r.y)
+    if (r.dirs) {
+      // traces: a short comet travelling out along each direction
+      g.strokeStyle = `rgba(233,228,218,${Math.min(1, al * 1.6)})`
+      g.lineWidth = 1.5
+      r.dirs.forEach((t, i) => {
+        const len = r.lens?.[i] ?? r.maxR
+        if (rad > len) return
+        const ux = Math.sin(t * TAU)
+        const uy = Math.cos(t * TAU)
+        const tail = Math.max(0, rad - 36)
+        g.beginPath()
+        g.moveTo(sx + ux * tail * z, sy - uy * tail * z)
+        g.lineTo(sx + ux * rad * z, sy - uy * rad * z)
+        g.stroke()
+      })
+      g.lineWidth = 1
+      continue
+    }
+    if (r.stopR !== undefined && rad > r.stopR) continue
     g.strokeStyle = `rgba(233,228,218,${al})`
     g.beginPath()
     g.arc(sx, sy, rad * z, 0, TAU)
@@ -433,8 +549,7 @@ function drawCauses(app: App): void {
 }
 
 function soundPitch(app: App, o: SoundObj): number {
-  const p = app.poseOf(o)
-  const m = yToMidi(p.y)
+  const m = app.places.get(o.id)?.pitch ?? 60
   const k = app.view.key
   const steps = scaleSteps(k.scale)
   return indexToMidi(nearestIndex(m, k.root, steps), k.root, steps)
@@ -477,6 +592,7 @@ function drawSound(app: App, o: SoundObj): void {
   g.strokeStyle = listener ? rgba('sound', 0.6 * a) : BG
   g.lineWidth = 1.2
   soundDetail(g, glyph, sx, sy, r)
+  if (t?.mode === 'event') drawAim(app, o, sx, sy, r, a)
   if (k > 0) {
     g.strokeStyle = rgba('sound', 0.7 * k)
     g.lineWidth = 1.2
@@ -504,6 +620,36 @@ function drawSound(app: App, o: SoundObj): void {
       sx,
       sy + r + 6,
     )
+  }
+}
+
+/** Point / multi sounds: a tick out from the rim for each trace direction. */
+function drawAim(app: App, o: SoundObj, sx: number, sy: number, r: number, a: number): void {
+  const rip = rippleOf(o.ripple)
+  if (rip.mode === 'ripple') return
+  const pl = app.places.get(o.id)
+  const turns = traceTurns(rip.mode, pl?.angle ?? rip.angle, rip.count, pl?.spread ?? rip.spread)
+  if (!turns) return
+  const g = app.g
+  g.strokeStyle = rgba('sound', 0.55 * a)
+  g.lineWidth = 1.2
+  g.beginPath()
+  for (const t of turns) {
+    const ux = Math.sin(t * TAU)
+    const uy = Math.cos(t * TAU)
+    g.moveTo(sx + ux * (r + 3), sy - uy * (r + 3))
+    g.lineTo(sx + ux * (r + 11), sy - uy * (r + 11))
+  }
+  g.stroke()
+  if (rip.stop) {
+    g.beginPath()
+    for (const t of turns) {
+      const ux = Math.sin(t * TAU)
+      const uy = Math.cos(t * TAU)
+      g.moveTo(sx + ux * (r + 11) - uy * 3, sy - uy * (r + 11) - ux * 3)
+      g.lineTo(sx + ux * (r + 11) + uy * 3, sy - uy * (r + 11) + ux * 3)
+    }
+    g.stroke()
   }
 }
 
@@ -596,9 +742,28 @@ function drawHandles(app: App, o: PatchObject): void {
           h.y,
           o.kind === 'sound'
             ? `size ${o.size} (loudness, reach)`
-            : 'size (intensity)',
+            : isMap(o)
+              ? 'resize (top-left stays put)'
+              : 'size (intensity)',
           role,
         )
+    } else if (h.kind === 'rangle' && o.kind === 'sound') {
+      const [cx, cy] = app.w2s(app.poseOf(o).x, app.poseOf(o).y)
+      g.strokeStyle = rgba('sound', 0.35)
+      g.setLineDash([2, 3])
+      g.beginPath()
+      g.moveTo(cx, cy)
+      g.lineTo(h.x, h.y)
+      g.stroke()
+      g.setLineDash([])
+      g.fillStyle = on ? INK : BG
+      g.strokeStyle = rgba('sound', 0.9)
+      g.beginPath()
+      g.arc(h.x, h.y, 5, 0, TAU)
+      g.fill()
+      g.stroke()
+      if (on)
+        tag(app, h.x + 10, h.y, `angle ${Math.round(rippleOf(o.ripple).angle)}° (drag)`, 'sound')
     } else {
       g.fillStyle = on ? INK : BG
       g.strokeStyle = 'rgba(233,228,218,0.7)'
@@ -619,7 +784,7 @@ function tag(
   x: number,
   y: number,
   text: string,
-  role: 'sound' | 'generator' | 'transformer' | 'fx',
+  role: Role | 'sound',
 ): void {
   const g = app.g
   g.font = FONT_SMALL
@@ -632,24 +797,36 @@ function tag(
   g.fillText(text, x + 5, y)
 }
 
+/** While dragging an event sound: the neighbouring scale notes along whichever axis gives it pitch. */
 function drawPitchLadder(app: App, o: SoundObj): void {
   if (soundTypes[o.type]?.mode !== 'event') return
+  const p = app.poseOf(o)
+  const gov = governingAxis(p.x, p.y, app.maps, 'pitch')
+  if (!gov) return
   const g = app.g
   const k = app.view.key
   const steps = scaleSteps(k.scale)
-  const p = app.poseOf(o)
-  const [sx] = app.w2s(p.x, p.y)
+  const [sx, sy] = app.w2s(p.x, p.y)
   const r = app.soundRadius(o)
-  const idx = nearestIndex(yToMidi(p.y), k.root, steps)
+  const idx = nearestIndex(app.places.get(o.id)?.pitch ?? 60, k.root, steps)
+  const mp = gov.m.pose
   g.font = FONT_SMALL
   g.textAlign = 'left'
   g.textBaseline = 'middle'
   for (let d = -5; d <= 5; d++) {
     const m = indexToMidi(idx + d, k.root, steps)
-    const [, y] = app.w2s(0, midiToY(m))
+    if (m < MIDI_MIN || m > MIDI_MAX) continue
+    const off = axisOffset(gov.a, m, gov.half)
     g.fillStyle = d === 0 ? INK : 'rgba(233,228,218,0.3)'
-    g.fillRect(sx + r + 10, y, d === 0 ? 14 : 8, 1)
-    if (d === 0) g.fillText(noteName(m), sx + r + 28, y)
+    if (gov.axis === 'y') {
+      const [, y] = app.w2s(0, mp.y + off)
+      g.fillRect(sx + r + 10, y, d === 0 ? 14 : 8, 1)
+      if (d === 0) g.fillText(noteName(m), sx + r + 28, y)
+    } else {
+      const [x] = app.w2s(mp.x + off, 0)
+      g.fillRect(x, sy + r + 10, 1, d === 0 ? 14 : 8)
+      if (d === 0) g.fillText(noteName(m), x + 4, sy + r + 30)
+    }
   }
 }
 
@@ -658,17 +835,21 @@ const HELP = [
   '',
   'space            start / pause audio',
   'drag palette     place a sound or field',
-  'drag object      move (y = pitch, x = pan) · alt-drag duplicates',
+  'drag object      move · alt-drag duplicates',
+  'xy field ⊹       maps position to pitch / pan / level / reach / angle / params',
+  '                 select by its edge or label · set each axis in the bar below it',
   'size handle ▪    sound: loudness + ripple reach · field: extent',
   'character ◔      drag up/down',
   'pinch / ⌘-wheel  zoom · two-finger / right-drag / space-drag: pan',
   'zoom in on sound or double-click   open its internals',
   'select anything  motion bar below it: breathe / orbit / drift / path',
   '                 drag or scroll its values (depth, period, radius…)',
+  'retrigger        sounds: ripple ring · point trace · multi traces',
+  '                 reach, angle (or drag the ● handle), count, spread, stop on impact',
   'm / b            shortcuts: cycle motion / toggle breathe',
   'tab / shift-tab  cycle through everything under the cursor (incl. field edges)',
   '[ ]              layer down / up (order within a role)',
-  '↑ ↓ ← →          nudge a semitone (shift: an octave)',
+  '↑ ↓ ← →          nudge a semitone along the pitch axis (shift: an octave)',
   'delete           remove selection',
   'c                capture last 30 s (WAV + patch/seed/edit log)',
   'mixer / vol      levels, mute, solo, FX returns · master level (drag/scroll)',
@@ -680,7 +861,7 @@ const HELP = [
   'share            copy a link to this patch (seed link when unedited)',
   'shift-D / shift-T / shift-R / shift-X  ambient / tape / rhythmic demo / stress patch',
   '',
-  'colour = role: warm white sound · amber generator · teal transformer · violet fx',
+  'colour = role: warm white sound · amber generator · teal transformer · violet fx · steel xy',
   'filled sounds are driven by a generator · hollow sounds listen for ripples',
 ]
 

@@ -3,10 +3,12 @@
 // human message, and clamps numbers to the ranges the UI itself allows.
 // The open-file path and normal editing do not go through this.
 
-import type { Breathe, FieldObj, FieldShape, Motion, Patch, PatchObject, PosMotion, SoundObj, Vec2 } from './types.ts';
+import type { Axes, Axis, Breathe, FieldObj, FieldShape, Motion, Patch, PatchObject, PosMotion, RippleSpec, SoundObj, Vec2 } from './types.ts';
 import { SCALE_ORDER } from './music.ts';
 import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
+import { normalizePatch } from './patch.ts';
+import { PARAM_PREFIX, RIPPLE_LIMITS, targetOf } from './placement.ts';
 
 export class ShareError extends Error {}
 
@@ -14,13 +16,19 @@ export class ShareError extends Error {}
 export const SHARE_LIMITS = {
   MAX_SOUNDS: 24,
   MAX_FIELDS: 12,
+  /** XY fields, counted apart from MAX_FIELDS: they cost a few comparisons per sound. */
+  MAX_MAPS: 8,
   MAX_JSON_CHARS: 262144,
   MAX_PATH_POINTS: 32,
 };
 
 const ID_RE = /^[A-Za-z][A-Za-z0-9_-]{0,23}$/;
 const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-const XY = 2000;
+/** Canvas bound for positions and sizes. */
+export const XY = 8000;
+/** Axis ends may run past a target's legal range (the engine clamps the result). */
+const AXIS_END = 10000;
+const SOUND_PARAM_KEYS = new Set(Object.values(soundTypes).flatMap((t) => t.params.map((p) => p.key)));
 
 // UI clamps (app.ts dragHandle, mixer.ts, motionbar.ts, patch.ts applyEdit).
 const SOUND_SIZE = [12, 200];
@@ -29,7 +37,7 @@ const MIN_WH = 48;
 const TRIM = [-40, 12];
 const MASTER = [-60, 12];
 const BREATHE_AMOUNT = [0, 0.9];
-const MOTION_DIST = [0, 1000];
+const MOTION_DIST = [0, 4000];
 const MIN_BEATS = 0.25;
 
 type Obj = Record<string, unknown>;
@@ -132,6 +140,38 @@ function shape(input: unknown): FieldShape {
   return { w: positive(s.w, 'shape', MIN_WH), h: positive(s.h, 'shape', MIN_WH) };
 }
 
+function axis(input: unknown, what: string): Axis | undefined {
+  if (input === undefined) return undefined;
+  const a = obj(input, what);
+  const to = typeof a.to === 'string' ? a.to : fail(`bad ${what}`);
+  if (!targetOf(to) || (to.startsWith(PARAM_PREFIX) && !SOUND_PARAM_KEYS.has(to.slice(PARAM_PREFIX.length)))) fail(`unknown ${what} target · needs a newer GENER8`);
+  return { to, min: clamp(num(a.min, what), -AXIS_END, AXIS_END), max: clamp(num(a.max, what), -AXIS_END, AXIS_END) };
+}
+
+function axes(input: unknown): Axes | undefined {
+  if (input === undefined) return undefined;
+  const a = obj(input, 'axes');
+  const out: Axes = {};
+  const x = axis(a.x, 'x axis');
+  const y = axis(a.y, 'y axis');
+  if (x) out.x = x;
+  if (y) out.y = y;
+  return out;
+}
+
+function ripple(input: unknown): RippleSpec | undefined {
+  if (input === undefined) return undefined;
+  const r = obj(input, 'ripple');
+  const out: RippleSpec = {};
+  if (r.mode !== undefined) out.mode = r.mode === 'ripple' || r.mode === 'point' || r.mode === 'multi' ? r.mode : fail('bad ripple mode');
+  if (r.angle !== undefined) out.angle = clamp(num(r.angle, 'ripple'), RIPPLE_LIMITS.angle[0], RIPPLE_LIMITS.angle[1]);
+  if (r.count !== undefined) out.count = Math.round(clamp(num(r.count, 'ripple'), RIPPLE_LIMITS.count[0], RIPPLE_LIMITS.count[1]));
+  if (r.spread !== undefined) out.spread = clamp(num(r.spread, 'ripple'), RIPPLE_LIMITS.spread[0], RIPPLE_LIMITS.spread[1]);
+  if (r.reach !== undefined) out.reach = clamp(num(r.reach, 'ripple'), RIPPLE_LIMITS.reach[0], RIPPLE_LIMITS.reach[1]);
+  if (flag(r.stop, 'ripple stop')) out.stop = true;
+  return Object.keys(out).length ? out : undefined;
+}
+
 function flag(x: unknown, what: string): boolean | undefined {
   if (x === undefined || x === false) return undefined;
   return x === true ? true : fail(`bad ${what}`);
@@ -151,6 +191,8 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
     const t = soundTypes[type] ?? fail(`unknown sound "${type.slice(0, 24)}" · needs a newer GENER8`);
     const s: SoundObj = { id, kind: 'sound', type, x, y, size: clamp(num(o.size, id), SOUND_SIZE[0], SOUND_SIZE[1]), layer, params: values(o.params, t.params, `${id} params`) };
     if (mo) s.motion = mo;
+    const rp = ripple(o.ripple);
+    if (rp) s.ripple = rp;
     if (trim !== undefined) s.trim = trim;
     if (flag(o.mute, 'mute')) s.mute = true;
     if (flag(o.solo, 'solo')) s.solo = true;
@@ -161,6 +203,10 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
     const handles = values(o.handles, t.handles.map((h) => ({ key: h.key, min: 0, max: 1 })), `${id} handles`);
     const f: FieldObj = { id, kind: 'field', type, x, y, shape: shape(o.shape), layer, handles };
     if (mo) f.motion = mo;
+    if (t.role === 'map') {
+      const ax = axes(o.axes);
+      if (ax) f.axes = ax;
+    }
     if (trim !== undefined) f.trim = trim;
     return f;
   }
@@ -171,7 +217,7 @@ export function sanitisePatch(input: unknown, limits = SHARE_LIMITS): Patch {
   const p = obj(input, 'patch');
   scanKeys(p);
   if (p.format !== 'gener8.patch') fail('not a GENER8 patch');
-  if (p.version !== 1) fail('patch version not supported · needs a newer GENER8');
+  if (p.version !== 1 && p.version !== 2) fail('patch version not supported · needs a newer GENER8');
 
   const seed = int(p.seed, 'seed', 0, 4294967295);
   const tempo = clamp(num(p.tempo, 'tempo'), 20, 300);
@@ -184,12 +230,15 @@ export function sanitisePatch(input: unknown, limits = SHARE_LIMITS): Patch {
   // Count before building anything, so a huge list is rejected cheaply.
   let nSounds = 0;
   let nFields = 0;
+  let nMaps = 0;
   for (const o of list) {
     const kind = isPlain(o) ? o.kind : undefined;
     if (kind === 'sound') nSounds++;
+    else if (kind === 'field' && isPlain(o) && o.type === 'xy') nMaps++;
     else if (kind === 'field') nFields++;
     if (nSounds > limits.MAX_SOUNDS) fail(`too many sounds (max ${limits.MAX_SOUNDS})`);
     if (nFields > limits.MAX_FIELDS) fail(`too many fields (max ${limits.MAX_FIELDS})`);
+    if (nMaps > limits.MAX_MAPS) fail(`too many xy fields (max ${limits.MAX_MAPS})`);
   }
   const objects = list.map((o) => object(o, limits));
   const ids = new Set<string>();
@@ -198,8 +247,10 @@ export function sanitisePatch(input: unknown, limits = SHARE_LIMITS): Patch {
     ids.add(o.id);
   }
 
-  const out: Patch = { format: 'gener8.patch', version: 1, seed, tempo, key: { root, scale }, objects };
-  if (p.master !== undefined) out.master = clamp(num(p.master, 'master'), MASTER[0], MASTER[1]);
+  const built: Patch = { format: 'gener8.patch', version: p.version as 1 | 2, seed, tempo, key: { root, scale }, objects };
+  if (p.master !== undefined) built.master = clamp(num(p.master, 'master'), MASTER[0], MASTER[1]);
+  // Version 1 gets the stage XY field that reproduces its fixed mapping.
+  const out = p.version === 2 ? built : normalizePatch(built);
   if (JSON.stringify(out).length > limits.MAX_JSON_CHARS) fail('patch is too large');
   return out;
 }

@@ -1,6 +1,6 @@
 {
   "format": "gener8.patch",
-  "version": 1,
+  "version": 2,
   "seed": 424242,
   "tempo": 128,
   "key": {
@@ -742,6 +742,31 @@
         "d": 1.5,
         "s": 0.5,
         "r": 3
+      }
+    },
+    {
+      "id": "xy1",
+      "kind": "field",
+      "type": "xy",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "w": 1600,
+        "h": 780
+      },
+      "layer": 0,
+      "handles": {},
+      "axes": {
+        "x": {
+          "to": "pan",
+          "min": -1,
+          "max": 1
+        },
+        "y": {
+          "to": "pitch",
+          "min": 21,
+          "max": 99
+        }
       }
     }
   ]

@@ -1,10 +1,11 @@
 {
   "format": "gener8.patch",
-  "version": 1,
+  "version": 2,
   "seed": 2024,
   "tempo": 64,
   "key": { "root": 2, "scale": "major" },
   "objects": [
+    { "id": "xy1", "kind": "field", "type": "xy", "x": 0, "y": 0, "shape": { "w": 1600, "h": 720 }, "layer": 0, "handles": {}, "axes": { "x": { "to": "pan", "min": -1, "max": 1 }, "y": { "to": "pitch", "min": 24, "max": 96 } } },
     { "id": "f1", "kind": "field", "type": "reverb", "x": 0, "y": 0, "shape": { "r": 700 }, "layer": 0, "handles": { "size": 0.85, "damping": 0.55 } },
     { "id": "f2", "kind": "field", "type": "delay", "x": 220, "y": 110, "shape": { "r": 280 }, "layer": 1, "handles": { "time": 0.5, "feedback": 0.65 } },
     { "id": "f3", "kind": "field", "type": "arp", "x": 230, "y": 70, "shape": { "r": 170 }, "layer": 2, "handles": { "rate": 0.4, "span": 0.6 } },

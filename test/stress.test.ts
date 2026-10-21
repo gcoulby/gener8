@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { Engine } from '../src/core/engine.ts';
 import { SR } from '../src/core/constants.ts';
 import { loadPatch } from './util.ts';
+import { isMap } from '../src/core/fields/registry.ts';
 
 const SECONDS = 60;
 const THRESHOLD = 0.25;
@@ -13,7 +14,7 @@ const THRESHOLD = 0.25;
 test(`stress: 24 sounds × 12 fields, ${SECONDS} s, render ≤ ${THRESHOLD}× real time`, () => {
   const patch = loadPatch('stress-24x12');
   const sounds = patch.objects.filter((o) => o.kind === 'sound').length;
-  const fields = patch.objects.filter((o) => o.kind === 'field').length;
+  const fields = patch.objects.filter((o) => o.kind === 'field' && !isMap(o)).length;
   assert.equal(sounds, 24);
   assert.equal(fields, 12);
 

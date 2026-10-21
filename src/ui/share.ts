@@ -10,6 +10,7 @@ import { generatePatch, generators, GENERATOR_VERSION } from '../core/generate.t
 import { sanitisePatch, ShareError } from '../core/sanitise.ts';
 import { decodePatchPayload, encodePatchPayload, PayloadError } from '../share/codec.ts';
 import { EXAMPLES } from './examples.ts';
+import { isMap } from '../core/fields/registry.ts';
 
 export { canonicalJson };
 
@@ -48,9 +49,9 @@ export async function buildShare(patch: Patch, base = location.origin + location
   return { url: `${base}#p=${await encodePatchPayload(clean)}`, kind: 'patch' };
 }
 
-/** Safe to replace without asking: empty, freshly generated, or an untouched bundled example. */
+/** Safe to replace without asking: empty (XY fields aside), freshly generated, or an untouched bundled example. */
 export function isDisposable(patch: Patch): boolean {
-  if (!patch.objects.length) return true;
+  if (patch.objects.every(isMap)) return true;
   if (isGenerated(patch)) return true;
   const c = canonicalJson(normalizePatch(patch));
   return EXAMPLES.some((ex) => canonicalJson(normalizePatch(ex.patch)) === c);

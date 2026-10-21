@@ -3,7 +3,7 @@
 import type { App } from './app.ts';
 import type { PanelSection, ParamSpec, SoundObj } from '../core/types.ts';
 import { soundTypes } from '../core/sounds/registry.ts';
-import { indexToMidi, nearestIndex, noteName, scaleSteps, yToMidi } from '../core/music.ts';
+import { indexToMidi, nearestIndex, noteName, scaleSteps } from '../core/music.ts';
 import { BG, FONT, FONT_SMALL, rgba } from './theme.ts';
 
 const PAD = 18;
@@ -145,7 +145,7 @@ export function drawPanel(app: App): void {
   g.fillStyle = rgba('sound', 0.9);
   const k = app.view.key;
   const steps = scaleSteps(k.scale);
-  const m = yToMidi(app.poseOf(o).y);
+  const m = app.places.get(o.id)?.pitch ?? 60;
   const pitch = noteName(indexToMidi(nearestIndex(m, k.root, steps), k.root, steps));
   const head = app.mobile ? `${o.id} · ${t?.label ?? o.type} · ${pitch}` : `${o.id} · ${t?.label ?? o.type} · ${t?.mode ?? ''} · ${pitch} · size ${o.size}`;
   g.fillText(head, r.x + PAD, r.y + HEAD / 2 + 4);
