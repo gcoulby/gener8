@@ -205,3 +205,34 @@ test('every map type has a default axis per spec and the right shape', () => {
   }
   assert.equal(Object.values(fieldTypes).filter((t) => t.role === 'map').length % 2, 0, 'palette column stays even');
 });
+
+test('fall-off: 100% (default) fades to nothing at the reach, 0% keeps full strength', () => {
+  const vel = (falloff?: number) => {
+    const p = layout({ reach: 4, ...(falloff === undefined ? {} : { falloff }) });
+    const e = new Engine(p);
+    const L = new Float32Array(4096);
+    const R = new Float32Array(4096);
+    const out: EventRecord[] = [];
+    for (let i = 0; i < 3 * SR; i += 4096) {
+      e.process(L, R, 4096);
+      out.push(...e.drainRecords());
+    }
+    const src = out.find((r) => r.soundId === 'src')!;
+    const far = out.find((r) => r.sourceId === 'src' && r.soundId === 'far');
+    return far ? far.velocity / src.velocity : 0;
+  };
+  // far sits at 300 of a 320 reach (4 × size 80)
+  assert.ok(Math.abs(vel() - 0.9 * (1 - 300 / 320)) < 1e-9, 'linear to zero at the reach');
+  assert.ok(Math.abs(vel(0) - 0.9) < 1e-9, 'no fall-off');
+  assert.ok(Math.abs(vel(0.5) - 0.9 * (1 - 0.5 * (300 / 320))) < 1e-9, 'half');
+});
+
+test("a sound's own note is its pitch wherever no map sets one", () => {
+  const maps = [still(classicStage())];
+  const out = placeSound(5000, 0, maps, { note: 67 }, newPlacement());
+  assert.deepEqual([out.pitch, out.pitchSet], [67, false]);
+  const inside = placeSound(0, 100, maps, { note: 67 }, newPlacement());
+  assert.deepEqual([inside.pitch, inside.pitchSet], [70, true], 'the map wins');
+  const radial = still(roundField('radial', 200, { r: { to: 'level', min: 0, max: -20 } }));
+  assert.equal(placeSound(100, 50, [radial], { note: 55 }, newPlacement()).pitch, 55, 'a map without a pitch axis keeps the note');
+});

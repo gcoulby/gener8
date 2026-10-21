@@ -27,7 +27,7 @@ import { soundDetail, soundPath } from './glyphs.ts'
 import { drawPalette } from './palette.ts'
 import { drawTimeline } from './timeline.ts'
 import { drawPanel } from './panel.ts'
-import { drawMotionBar } from './motionbar.ts'
+import { drawAxisMenu, drawMotionBar } from './motionbar.ts'
 import { drawMixer } from './mixer.ts'
 import { drawMinimap } from './minimap.ts'
 
@@ -68,6 +68,7 @@ export function draw(app: App): void {
 
   drawMotionBar(app)
   drawMinimap(app)
+  drawAxisMenu(app)
   drawTabStack(app)
   drawLogo(app)
   drawPalette(app)
@@ -631,7 +632,8 @@ function drawRipples(app: App): void {
   for (const r of app.ripples) {
     const rad = ((app.tickNow - r.tick) / PPQ) * RIPPLE_SPEED
     if (rad <= 0) continue
-    const al = (1 - rad / r.maxR) * 0.4 * (0.4 + 0.6 * r.vel)
+    // fades as it loses strength: fully with fall-off 100%, barely with 0%
+    const al = (1 - (0.15 + 0.85 * r.falloff) * (rad / r.maxR)) * 0.4 * (0.4 + 0.6 * r.vel)
     if (al <= 0) continue
     const [sx, sy] = app.w2s(r.x, r.y)
     if (r.dirs) {
@@ -1009,12 +1011,13 @@ const HELP = [
   'select anything  motion bar below it: breathe / orbit / drift / path',
   '                 drag or scroll its values (depth, period, radius…)',
   'retrigger        sounds: ripple ring · point trace · multi traces',
-  '                 reach, angle, count, spread, stop on impact',
+  '                 reach, fall-off, angle, count, spread, stop on impact',
   '                 the ● handle: its direction is the angle, its distance the reach',
   'm / b            shortcuts: cycle motion / toggle breathe',
   'tab / shift-tab  cycle through everything under the cursor (incl. field edges)',
   '[ ]              layer down / up (order within a role)',
   '↑ ↓ ← →          nudge a semitone along the pitch axis (shift: an octave)',
+  '                 no map sets pitch? ↑ ↓ change the sound\'s own note',
   'delete           remove selection',
   'c                capture last 30 s (WAV + patch/seed/edit log)',
   'n                minimap on / off · click or drag in it to move the view',

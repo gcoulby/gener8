@@ -31,6 +31,11 @@ export interface RippleSpec {
   spread?: number;
   /** How far it travels, as a multiple of the sound's size. 0 never retriggers. */
   reach?: number;
+  /**
+   * How much strength it loses on the way, 0..1. 1 fades linearly to nothing at
+   * the reach; 0 hits as hard at the reach as next door.
+   */
+  falloff?: number;
   /** The ring or each trace ends at the first listener it reaches. */
   stop?: boolean;
 }
@@ -45,6 +50,8 @@ export interface SoundObj {
   layer: number;
   params: Record<string, number>;
   motion?: Motion;
+  /** MIDI note it plays where no map field sets pitch (default 60, middle C). */
+  note?: number;
   ripple?: RippleSpec;
   /** Mixer: level trim in dB (default 0), mute, solo. */
   trim?: number;
@@ -148,6 +155,8 @@ export interface EventRecord {
   /** Trace directions in turns clockwise from up; absent for a ring. */
   rippleDirs?: number[];
   rippleStop?: boolean;
+  /** Only when not the default 1. */
+  rippleFalloff?: number;
   accent: boolean;
 }
 

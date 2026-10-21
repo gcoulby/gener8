@@ -9,6 +9,8 @@ import { isCircle } from '../core/geometry.ts';
 import { soundTypes } from '../core/sounds/registry.ts';
 import { mapTypeOf } from '../core/fields/registry.ts';
 import { mapLocate, PARAM_PREFIX, RIPPLE_LIMITS, rippleOf, targetOf, XY_TARGETS } from '../core/placement.ts';
+import { MIDI_MAX, MIDI_MIN } from '../core/constants.ts';
+import { noteName } from '../core/music.ts';
 import { FONT_SMALL, INK } from './theme.ts';
 
 export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256];
@@ -33,6 +35,8 @@ export type ValueKey =
   | 'ripple.angle'
   | 'ripple.count'
   | 'ripple.spread'
+  | 'ripple.falloff'
+  | 'sound.note'
   | `axis.${string}.${'min' | 'max'}`;
 
 export interface MotionHit {
@@ -52,6 +56,8 @@ interface Item {
   action: MotionAction;
   active?: boolean;
   value?: boolean;
+  /** Plain dim text, not a control. */
+  dim?: boolean;
 }
 
 /** Display name for an axis target; param targets use the first sound type's label for that key. */
@@ -79,6 +85,7 @@ function retriggerRow(o: PatchObject): Item[] {
     { text: '→ point', action: { kind: 'rmode', mode: 'point' }, active: r.mode === 'point' },
     { text: '⋔ multi', action: { kind: 'rmode', mode: 'multi' }, active: r.mode === 'multi' },
     { text: `reach ×${r.reach}`, action: { kind: 'value', key: 'ripple.reach' }, value: true },
+    { text: `fall-off ${Math.round(r.falloff * 100)}%`, action: { kind: 'value', key: 'ripple.falloff' }, value: true },
   ];
   if (r.mode !== 'ripple') row.push({ text: `angle ${Math.round(r.angle)}°`, action: { kind: 'value', key: 'ripple.angle' }, value: true });
   if (r.mode === 'multi') {
@@ -104,7 +111,18 @@ function axisRow(o: PatchObject, spec: MapAxisSpec): Item[] {
   return row;
 }
 
-function rows(o: PatchObject): Item[][] {
+function noteRow(app: App, o: PatchObject): Item[] {
+  const note = o.kind === 'sound' ? (o.note ?? 60) : 60;
+  const row: Item[] = [
+    { text: 'note', action: { kind: 'label' } },
+    { text: noteName(note), action: { kind: 'value', key: 'sound.note' }, value: true },
+  ];
+  if (app.places.get(o.id)?.pitchSet) row.push({ text: 'a map sets pitch here', action: { kind: 'label' }, dim: true });
+  else row.push({ text: '↑ ↓ to step', action: { kind: 'label' }, dim: true });
+  return row;
+}
+
+function rows(app: App, o: PatchObject): Item[][] {
   const m = o.motion ?? {};
   const pos = m.pos?.type;
   const out: Item[][] = [
@@ -142,6 +160,7 @@ function rows(o: PatchObject): Item[][] {
       { text: p.mode, action: { kind: 'mode' }, value: true },
     ]);
   }
+  if (o.kind === 'sound') out.push(noteRow(app, o));
   if (o.kind === 'sound' && soundTypes[o.type]?.mode === 'event') out.push(retriggerRow(o));
   const mt = mapTypeOf(o);
   if (mt) for (const spec of mt.axes) out.push(axisRow(o, spec));
@@ -165,7 +184,7 @@ export function drawMotionBar(app: App): void {
   if (!o || app.panel || app.scrub) return;
   const g = app.g;
   g.font = FONT_SMALL;
-  const rs = rows(o);
+  const rs = rows(app, o);
   const widths = rs.map((r) => r.reduce((w, it) => w + g.measureText(it.text).width + 12 + GAP, -GAP));
   const maxW = Math.max(...widths);
   const totalH = rs.length * ROW;
@@ -191,7 +210,7 @@ export function drawMotionBar(app: App): void {
         g.roundRect(x + 0.5, y + 0.5, w - 1, CH - 1, 4);
         g.stroke();
         g.fillStyle = INK;
-      } else if (ri > 0 && i === 0) {
+      } else if ((ri > 0 && i === 0) || it.dim) {
         g.fillStyle = 'rgba(233,228,218,0.45)';
       } else {
         g.fillStyle = it.active ? 'rgba(233,228,218,0.9)' : `rgba(233,228,218,${hov ? 0.18 : 0.07})`;
@@ -206,9 +225,9 @@ export function drawMotionBar(app: App): void {
     });
   });
   const hov = app.hover?.kind === 'motion' ? app.hover.hit.action : null;
-  if (hov?.kind === 'value') {
+  if ((hov?.kind === 'value' || hov?.kind === 'axis') && !app.axisMenu) {
     g.fillStyle = 'rgba(233,228,218,0.4)';
-    g.fillText('drag ↔ or scroll', left, top + totalH + 8);
+    g.fillText(hov.kind === 'axis' ? 'click to choose · scroll to step' : 'drag ↔ or scroll', left, top + totalH + 8);
   }
 }
 
@@ -231,6 +250,123 @@ const DEFAULTS: Record<'orbit' | 'drift' | 'path', PosMotion> = {
   drift: { type: 'drift', amplitude: 60, rateBeats: 8 },
   path: { type: 'path', points: [[0, 0], [120, 60], [0, 120], [-120, 60]], periodBeats: 32, mode: 'loop' },
 };
+
+/** Point an axis at a new target (null: none), starting from that target's default range. */
+export function axisTargetEdit(o: PatchObject, axis: string, to: string | null): Edit {
+  const t = to && targetOf(to);
+  const axes: Axes = { ...axesOf(o) };
+  if (to && t) axes[axis] = { to, min: t.min, max: t.max };
+  else delete axes[axis];
+  return { op: 'set', id: o.id, path: ['axes'], value: axes };
+}
+
+// ---------- axis target menu ----------
+
+export interface AxisMenu {
+  id: string;
+  axis: string;
+  /** Left edge, and the chip's top and bottom: it opens below, or above when there's more room. */
+  x: number;
+  top: number;
+  y: number;
+}
+
+export interface MenuHit {
+  to: string | null;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const MROW = 18;
+
+export function openAxisMenu(app: App, o: PatchObject, axis: string, chip: MotionHit): void {
+  app.axisMenu = { id: o.id, axis, x: chip.x, top: chip.y - 3, y: chip.y + chip.h + 3 };
+}
+
+/** The open axis menu: built-in targets, then the params of the sounds inside, then none. Wraps into columns when tall. */
+export function drawAxisMenu(app: App): void {
+  app.menuHits = [];
+  const m = app.axisMenu;
+  const o = m && app.obj(m.id);
+  if (!m || !o || app.sel !== m.id) {
+    app.axisMenu = null;
+    return;
+  }
+  const g = app.g;
+  g.font = FONT_SMALL;
+  const options = axisTargets(app, o);
+  const cur = axesOf(o)[m.axis]?.to ?? null;
+  type Row = { text: string; to?: string | null; head?: boolean };
+  const rows: Row[] = [];
+  const builtIn = options.filter((v): v is string => !!v && !v.startsWith(PARAM_PREFIX));
+  const params = options.filter((v): v is string => !!v && v.startsWith(PARAM_PREFIX));
+  for (const to of builtIn) rows.push({ text: targetLabel(to), to });
+  rows.push({ text: 'sound params', head: true });
+  // different sounds can label different params alike (attack, decay…): add the key when they clash
+  const labels = params.map(targetLabel);
+  if (params.length)
+    params.forEach((to, i) =>
+      rows.push({ text: labels.indexOf(labels[i]) !== labels.lastIndexOf(labels[i]) ? `${labels[i]} · ${to.slice(PARAM_PREFIX.length)}` : labels[i], to }),
+    );
+  else rows.push({ text: 'put sounds inside to list theirs', head: true });
+  rows.push({ text: 'none', to: null });
+
+  const below = app.H - app.barH - m.y - 12;
+  const above = m.top - 12;
+  const up = rows.length * MROW + 8 > below && above > below;
+  const avail = Math.max(MROW * 4, up ? above : below);
+  const perCol = Math.max(4, Math.floor((avail - 8) / MROW));
+  const cols = Math.ceil(rows.length / perCol);
+  const colW = Math.max(...rows.map((r) => g.measureText(r.text).width)) + 26;
+  const w = cols * colW + 8;
+  const h = Math.min(rows.length, perCol) * MROW + 8;
+  const x = Math.max(8, Math.min(m.x, app.W - w - 8));
+  const y = up ? m.top - h : m.y;
+  g.fillStyle = 'rgba(11,11,14,0.96)';
+  g.strokeStyle = 'rgba(233,228,218,0.25)';
+  g.lineWidth = 1;
+  g.beginPath();
+  g.roundRect(x, y, w, h, 6);
+  g.fill();
+  g.stroke();
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  const hov = app.hover?.kind === 'menu' ? app.hover.hit.to : undefined;
+  rows.forEach((r, i) => {
+    const rx = x + 4 + Math.floor(i / perCol) * colW;
+    const ry = y + 4 + (i % perCol) * MROW;
+    if (r.head) {
+      g.fillStyle = 'rgba(233,228,218,0.35)';
+      g.fillText(r.text, rx + 6, ry + MROW / 2);
+      return;
+    }
+    const on = r.to === cur;
+    if (r.to === hov) {
+      g.fillStyle = 'rgba(233,228,218,0.12)';
+      g.fillRect(rx, ry, colW - 4, MROW);
+    }
+    g.fillStyle = on ? INK : 'rgba(233,228,218,0.72)';
+    g.fillText((on ? '▸ ' : '  ') + r.text, rx + 4, ry + MROW / 2);
+    app.menuHits.push({ to: r.to ?? null, x: rx, y: ry, w: colW - 4, h: MROW });
+  });
+}
+
+export function menuHitAt(app: App, mx: number, my: number): MenuHit | null {
+  for (const h of app.menuHits) if (mx >= h.x && mx <= h.x + h.w && my >= h.y && my <= h.y + h.h) return h;
+  return null;
+}
+
+/** Inside the open menu's box (items or not)? */
+export function inAxisMenu(app: App, mx: number, my: number): boolean {
+  if (!app.menuHits.length) return false;
+  const x0 = Math.min(...app.menuHits.map((h) => h.x)) - 4;
+  const y0 = Math.min(...app.menuHits.map((h) => h.y)) - 4;
+  const x1 = Math.max(...app.menuHits.map((h) => h.x + h.w)) + 4;
+  const y1 = Math.max(...app.menuHits.map((h) => h.y + h.h)) + 4;
+  return mx >= x0 && mx <= x1 && my >= y0 && my <= y1;
+}
 
 /** Axis targets to cycle through: the built-ins, then params of the sounds inside the field, then none. */
 function axisTargets(app: App, o: PatchObject): (string | null)[] {
@@ -256,16 +392,12 @@ export function toggleEdit(app: App, o: PatchObject, a: MotionAction, dir = 1): 
     return { op: 'set', id: o.id, path: ['ripple', 'stop'], value: o.ripple?.stop ? null : true };
   }
   if (a.kind === 'axis') {
+    // scrolling over the chip steps through the targets (a click opens the menu instead)
     const list = axisTargets(app, o);
     if (!list.length) return null;
     const cur = axesOf(o)[a.axis]?.to ?? null;
     const i = list.indexOf(cur);
-    const to = list[(((i < 0 ? 0 : i + dir) % list.length) + list.length) % list.length];
-    const t = to && targetOf(to);
-    const axes: Axes = { ...axesOf(o) };
-    if (to && t) axes[a.axis] = { to, min: t.min, max: t.max };
-    else delete axes[a.axis];
-    return { op: 'set', id: o.id, path: ['axes'], value: axes };
+    return axisTargetEdit(o, a.axis, list[(((i < 0 ? 0 : i + dir) % list.length) + list.length) % list.length]);
   }
   if (a.kind === 'mode') {
     const p = o.motion?.pos;
@@ -297,9 +429,10 @@ export function readValue(o: PatchObject, key: ValueKey): number {
     case 'pos.rate':
       return p?.rateBeats ?? 8;
   }
+  if (key === 'sound.note') return o.kind === 'sound' ? (o.note ?? 60) : 60;
   if (key.startsWith('ripple.')) {
     const r = rippleOf(o.kind === 'sound' ? o.ripple : undefined);
-    return r[key.slice(7) as 'reach' | 'angle' | 'count' | 'spread'];
+    return r[key.slice(7) as 'reach' | 'angle' | 'count' | 'spread' | 'falloff'];
   }
   const [, ax, end] = key.split('.') as [string, string, 'min' | 'max'];
   return axesOf(o)[ax]?.[end] ?? 0;
@@ -333,6 +466,10 @@ export function stepValue(o: PatchObject, key: ValueKey, start: number, steps: n
       return clampTo(Math.round(start + steps), RIPPLE_LIMITS.count[0], RIPPLE_LIMITS.count[1]);
     case 'ripple.spread':
       return clampTo(Math.round((start + steps * 5) / 5) * 5, RIPPLE_LIMITS.spread[0], RIPPLE_LIMITS.spread[1]);
+    case 'sound.note':
+      return clampTo(Math.round(start + steps), MIDI_MIN, MIDI_MAX);
+    case 'ripple.falloff':
+      return clampTo(Math.round((start + steps * 0.05) * 20) / 20, RIPPLE_LIMITS.falloff[0], RIPPLE_LIMITS.falloff[1]);
   }
   const a = axesOf(o)[key.split('.')[1]];
   const t = a && targetOf(a.to);
@@ -350,6 +487,7 @@ export function valueEdit(o: PatchObject, key: ValueKey, v: number): Edit {
     return { op: 'set', id: o.id, path: ['axes'], value: axes };
   }
   if (key.startsWith('ripple.')) return { op: 'set', id: o.id, path: ['ripple', key.slice(7)], value: v };
+  if (key === 'sound.note') return { op: 'set', id: o.id, path: ['note'], value: v };
   const path: Record<string, string[]> = {
     'breathe.amount': ['motion', 'breathe', 'amount'],
     'breathe.period': ['motion', 'breathe', 'periodBeats'],

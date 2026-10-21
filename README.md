@@ -54,7 +54,7 @@ Typical uses of an XY field:
 - A wide, gentle pan field (say 4000 units wide, L50 to R50), so sounds can sit far apart without ripples reaching each other or being panned hard.
 - A small field over a few sounds that maps x to filter cutoff and y to level.
 
-Map fields can overlap. For each target, the highest layer wins, so a small field can override part of a big one. A sound outside every map field plays middle C, centred. Map fields can move and breathe like anything else, which modulates whatever they map. They sit under everything, so you select one by its edge or its label (or with Tab), and its axes are set in the bar below it.
+Map fields can overlap. For each target, the highest layer wins, so a small field can override part of a big one. Where no map field sets pitch, a sound plays its own **note**: middle C unless you change it with the note chip in the bar below it, or with ↑ ↓ (shift: an octave). Outside every map field it's also centred. Map fields can move and breathe like anything else, which modulates whatever they map. They sit under everything, so you select one by its edge or its label (or with Tab), and its axes are set in the bar below it.
 
 With room to sprawl, the **minimap** in the top-right corner shows the whole patch and the current view. Click or drag in it to move the view, scroll over it to zoom, and press `n` to hide it.
 
@@ -72,6 +72,7 @@ A sound's size is its loudness and, with its reach, how far its retriggers trave
 | **point** | one trace fired at **angle** (0° is up, 90° is right) |
 | **multi** | **count** traces fanned across **spread** around the angle. At 360° they're spaced evenly all the way round. |
 | **reach** | how far it travels, as a multiple of the sound's size (default ×6). 0 never retriggers. |
+| **fall-off** | how much strength it loses on the way. 100% (the default) fades to nothing at the reach; 0% hits as hard at the reach as next door. |
 | **stop on impact** | the ring, or each trace, ends at the first listener it reaches |
 
 A trace hits a listener when it passes through the listener's body. A selected sound has a ● handle: its direction is the angle and its distance is the reach, so you aim and size the retrigger in one drag. Drag it onto the sound to turn retriggers off. If a map field overrides the angle or reach at that spot, the handle's tag says so.
@@ -94,12 +95,12 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | drag from palette | place a sound or field |
 | drag object | move it (alt-drag duplicates) |
 | handles | ▪ size · ◔ character (drag up/down) |
-| select anything | the motion bar appears: breathe / orbit / drift / path, with drag-or-scroll values; sounds add a retrigger row, XY fields an x and a y row (click or scroll the target to change it) |
+| select anything | the motion bar appears: breathe / orbit / drift / path, with drag-or-scroll values; sounds add a retrigger row, XY fields an x and a y row (click the target for a menu, or scroll it to step through) |
 | tab / shift-tab | cycle through everything under the cursor, including field edges |
 | double-click or zoom into a sound | open its internals (oscillators, filter, ADSR) |
 | pinch / ⌘-scroll | zoom · two-finger / right-drag / space-drag: pan |
 | minimap | click or drag to move the view, scroll to zoom · `n` shows / hides it |
-| ↑ ↓ ← → | nudge a semitone along the pitch axis under the sound (shift: an octave) |
+| ↑ ↓ ← → | nudge a semitone along the pitch axis under the sound (shift: an octave). Where no map sets pitch, ↑ ↓ change the sound's own note. |
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |

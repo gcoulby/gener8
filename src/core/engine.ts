@@ -121,6 +121,8 @@ interface Ripple {
   tick0: number;
   maxR: number;
   vel: number;
+  /** 0..1: how much of its strength it has lost by maxR. */
+  falloff: number;
   chain: number;
   emitter: string;
   hit: Set<string>;
@@ -430,7 +432,7 @@ export class Engine {
     }
     for (const s of this.soundList) {
       pose(s.obj, beat, seed, s.pose);
-      placeSound(s.pose.x, s.pose.y, this.maps, s.obj.ripple, s.place);
+      placeSound(s.pose.x, s.pose.y, this.maps, s.obj, s.place);
       if (s.xyKeys.length || s.place.pk.length) this.applyXYParams(s);
       s.rootIndex = nearestIndex(s.place.pitch, keyRoot, this.steps);
       s.events.length = 0;
@@ -706,7 +708,7 @@ export class Engine {
     let tick = r.tick0 + (d / RIPPLE_SPEED) * PPQ;
     if (tick < t0) tick = t0;
     if (tick - s.lastRipple < refractory) return;
-    const vel = r.vel * (1 - d / r.maxR) * 0.9;
+    const vel = r.vel * (1 - r.falloff * (d / r.maxR)) * 0.9;
     if (vel < 0.05) return;
     s.lastRipple = tick;
     this.fresh.push({
@@ -919,6 +921,7 @@ export class Engine {
           tick0: e.tick,
           maxR: reach,
           vel: e.velocity,
+          falloff: s.place.falloff,
           chain: e.chain,
           emitter: s.id,
           hit: new Set(),
@@ -942,6 +945,7 @@ export class Engine {
           rippleR: reach,
           ...(emits && turns ? { rippleDirs: turns } : null),
           ...(emits && rip!.stop ? { rippleStop: true } : null),
+          ...(emits && s.place.falloff !== 1 ? { rippleFalloff: s.place.falloff } : null),
           accent: !isEvent,
         });
       }

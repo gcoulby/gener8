@@ -122,14 +122,15 @@ test('clamps ripple settings and keeps axes', () => {
   const p = sanitisePatch({
     ...base(),
     objects: [
-      sound('s1', { ripple: { mode: 'multi', angle: 900, count: 99.4, spread: -5, reach: 1e3, stop: true, junk: 1 } }),
-      sound('s2', { ripple: {} }),
+      sound('s1', { ripple: { mode: 'multi', angle: 900, count: 99.4, spread: -5, reach: 1e3, falloff: 7, stop: true, junk: 1 } }),
+      sound('s2', { ripple: {}, note: 130.4 }),
       { id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { x: { to: 'param:cutoff', min: 1e9, max: 0, junk: 1 }, z: {} } },
       { id: 'f1', kind: 'field', type: 'reverb', x: 0, y: 0, shape: { r: 100 }, layer: 0, handles: {}, axes: { x: { to: 'pan', min: 0, max: 1 } } },
     ],
   }) as any;
-  assert.deepEqual(p.objects[0].ripple, { mode: 'multi', angle: 360, count: 16, spread: 0, reach: 24, stop: true });
+  assert.deepEqual(p.objects[0].ripple, { mode: 'multi', angle: 360, count: 16, spread: 0, reach: 24, falloff: 1, stop: true });
   assert.equal(p.objects[1].ripple, undefined);
+  assert.equal(p.objects[1].note, 96);
   assert.deepEqual(p.objects[2].axes, { x: { to: 'param:cutoff', min: 10000, max: 0 } });
   assert.equal(p.objects[3].axes, undefined, 'axes only on xy fields');
 });

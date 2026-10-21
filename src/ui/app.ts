@@ -1,5 +1,5 @@
 import type { Edit, EventRecord, FieldObj, MapType, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
-import { PPQ, SR, CAPTURE_SECONDS, RIPPLE_SPEED } from '../core/constants.ts';
+import { PPQ, SR, CAPTURE_SECONDS, MIDI_MAX, MIDI_MIN, RIPPLE_SPEED } from '../core/constants.ts';
 import { applyEdit, byLayer, classicStage, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
 import { pose, type Pose } from '../core/motion.ts';
 import { angleTurns, depthAt, isCircle } from '../core/geometry.ts';
@@ -7,7 +7,7 @@ import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
 import { fieldTypes, defaultHandles, isMap, mapTypeOf } from '../core/fields/registry.ts';
 import { governingAxis, newPlacement, placeSound, RIPPLE_LIMITS, rippleOf, type MapPose, type Placement } from '../core/placement.ts';
 import { triCorner } from '../core/fields/maps.ts';
-import { SCALE_ORDER } from '../core/music.ts';
+import { noteName, SCALE_ORDER } from '../core/music.ts';
 import { generatePatch, generators } from '../core/generate.ts';
 import { strHash } from '../core/rand.ts';
 import { buildShare, isDisposable, linkErrorMessage, parseHash, resolveLink } from './share.ts';
@@ -20,7 +20,7 @@ import { paletteHit, type PaletteItem } from './palette.ts';
 import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
 import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, type MixerHit } from './mixer.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
-import { motionHitAt, readValue, stepValue, toggleEdit, valueEdit, type MotionHit, type ValueKey } from './motionbar.ts';
+import { axisTargetEdit, inAxisMenu, menuHitAt, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
 import { EXAMPLES } from './examples.ts';
 import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
 
@@ -36,6 +36,7 @@ export interface RippleVis {
   tick: number;
   maxR: number;
   vel: number;
+  falloff: number;
   /** Traces: directions in turns and how far each one gets (stop on impact). */
   dirs?: number[];
   lens?: number[];
@@ -77,6 +78,7 @@ export type Hit =
   | { kind: 'mixerBg' }
   | { kind: 'paletteToggle' }
   | { kind: 'minimap' }
+  | { kind: 'menu'; hit: MenuHit }
   | { kind: 'strip' };
 
 type Drag =
@@ -141,6 +143,9 @@ export class App {
   paletteOpen = false;
   mixerOpen = false;
   showMinimap = readFlag(MINIMAP_KEY, true);
+  /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
+  axisMenu: AxisMenu | null = null;
+  menuHits: MenuHit[] = [];
   mixerScroll = 0;
   mixerHits: MixerHit[] = [];
   meterLevel = new Map<string, number>();
@@ -411,7 +416,7 @@ export class App {
    * from where listeners are now: close to, but not exactly, what the engine hears.
    */
   private rippleVis(e: EventRecord): RippleVis {
-    const r: RippleVis = { x: e.x, y: e.y, tick: e.tick, maxR: e.rippleR, vel: e.velocity, dirs: e.rippleDirs };
+    const r: RippleVis = { x: e.x, y: e.y, tick: e.tick, maxR: e.rippleR, vel: e.velocity, falloff: e.rippleFalloff ?? 1, dirs: e.rippleDirs };
     if (!e.rippleStop && !e.rippleDirs) return r;
     const listeners: { x: number; y: number; w: number }[] = [];
     for (const o of this.view.objects) {
@@ -464,7 +469,7 @@ export class App {
         this.places.set(o.id, pl);
       }
       const p = this.poseOf(o);
-      placeSound(p.x, p.y, this.maps, o.ripple, pl);
+      placeSound(p.x, p.y, this.maps, o, pl);
     }
     this.driven.clear();
     const gens = v.objects.filter((o): o is FieldObj => o.kind === 'field' && fieldTypes[o.type]?.role === 'generator');
@@ -546,6 +551,10 @@ export class App {
   }
 
   hitTest(mx: number, my: number): Hit | null {
+    if (this.axisMenu) {
+      const h = menuHitAt(this, mx, my);
+      if (h) return { kind: 'menu', hit: h };
+    }
     for (const u of this.uiHits) if (mx >= u.x && mx <= u.x + u.w && my >= u.y && my <= u.y + u.h) return { kind: 'ui', id: u.id };
     if (this.mixerOpen) {
       const r = mixerRect(this);
@@ -801,6 +810,16 @@ export class App {
       return;
     }
 
+    if (this.axisMenu) {
+      // an open menu takes the click: pick an item, or close it
+      const h = menuHitAt(this, mx, my);
+      const m = this.axisMenu;
+      const o = this.patch.objects.find((q) => q.id === m.id);
+      if (h && o) this.commit(axisTargetEdit(o, m.axis, h.to));
+      if (h || !inAxisMenu(this, mx, my)) this.axisMenu = null;
+      return;
+    }
+
     const hit = this.hitTest(mx, my);
     this.downAt = { x: mx, y: my, id: hit?.kind === 'object' ? hit.id : null, wasSel: hit?.kind === 'object' && hit.id === this.sel, touch };
     if (this.examplesOpen && !(hit?.kind === 'ui' && (hit.id === 'examples' || hit.id.startsWith('example:')))) {
@@ -853,6 +872,10 @@ export class App {
         const o = this.patch.objects.find((q) => q.id === this.sel);
         if (!o) return;
         const a = hit.hit.action;
+        if (a.kind === 'axis') {
+          openAxisMenu(this, o, a.axis, hit.hit);
+          return;
+        }
         if (a.kind === 'value') {
           this.drag = { kind: 'mvalue', id: o.id, key: a.key, start: readValue(o, a.key), sx: mx };
         } else {
@@ -1112,6 +1135,7 @@ export class App {
         return;
       }
     }
+    if (this.axisMenu && inAxisMenu(this, mx, my)) return;
     if (inMinimap(this, mx, my)) {
       this.zoomAt(this.W / 2, (this.H - this.barH) / 2, e.deltaY < 0 ? 1.15 : 1 / 1.15);
       return;
@@ -1418,7 +1442,8 @@ export class App {
     switch (e.key) {
       case 'Escape':
         this.pinned = null;
-        if (this.examplesOpen) this.examplesOpen = false;
+        if (this.axisMenu) this.axisMenu = null;
+        else if (this.examplesOpen) this.examplesOpen = false;
         else if (this.scrub) this.scrub.cancelled = true;
         else if (this.panel) this.panel = null;
         else if (this.showHelp) this.showHelp = false;
@@ -1486,8 +1511,15 @@ export class App {
         const o = this.obj(sel);
         if (!o) return;
         e.preventDefault();
-        // a semitone (shift: an octave) along whichever axis carries pitch here, else 10 units
         const p = this.poseOf(o);
+        // no map sets this sound's pitch: ↑ ↓ change its own note instead of moving it
+        if (o.kind === 'sound' && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !this.places.get(o.id)?.pitchSet) {
+          const n = Math.min(MIDI_MAX, Math.max(MIDI_MIN, (o.note ?? 60) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 12 : 1)));
+          this.commit({ op: 'set', id: o.id, path: ['note'], value: n });
+          this.toast(`note ${noteName(n)}`);
+          return;
+        }
+        // a semitone (shift: an octave) along whichever axis carries pitch here, else 10 units
         const g = o.kind === 'sound' ? governingAxis(p.x, p.y, this.maps, 'pitch') : null;
         const semi = g ? Math.abs(g.half / ((g.a.max - g.a.min) / 2)) || 10 : 10;
         const step = Math.max(1, Math.round(semi * (e.shiftKey ? 12 : 1)));

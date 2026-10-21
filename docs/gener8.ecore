@@ -230,7 +230,7 @@
         <details key="endRange" value="min &gt;= -10000 and min &lt;= 10000 and max &gt;= -10000 and max &lt;= 10000"/>
       </eAnnotations>
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
-        <details key="documentation" value="Linear map along one axis of a MapField from its low end (min) to its high end (max): XYField x left to right and y bottom to top, RadialField centre to edge, SweepField once round clockwise from up, TriField opposite edge to corner. min greater than max inverts it. Targets and legal ranges (the mapped value is clamped to these): pitch MIDI 24..96 (snapped to the key afterwards), pan -1..1, level dB -40..12, reach 0..24 (× size), angle 0..360, spread 0..360 (degrees, override RippleSettings). param:&lt;key&gt; drives that sound parameter, normalised 0..1 over its range, on sounds that have it."/>
+        <details key="documentation" value="Linear map along one axis of a MapField from its low end (min) to its high end (max): XYField x left to right and y bottom to top, RadialField centre to edge, SweepField once round clockwise from up, TriField opposite edge to corner. min greater than max inverts it. Targets and legal ranges (the mapped value is clamped to these): pitch MIDI 24..96 (snapped to the key afterwards), pan -1..1, level dB -40..12, reach 0..24 (× size), angle 0..360, spread 0..360 (degrees), falloff 0..1 (these four override RippleSettings). param:&lt;key&gt; drives that sound parameter, normalised 0..1 over its range, on sounds that have it."/>
       </eAnnotations>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="to" lowerBound="1" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="min" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble"/>
@@ -437,11 +437,20 @@
         <details key="documentation" value="size is the diameter on screen and sets level (48 is 0 dB) and, with ripple reach, how far its retriggers travel."/>
       </eAnnotations>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="size" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="note" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EInt" defaultValueLiteral="60">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="24"/>
+          <details key="max" value="96"/>
+        </eAnnotations>
+        <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+          <details key="documentation" value="MIDI note it plays wherever no map field sets pitch (snapped to the key like any pitch). Optional in JSON."/>
+        </eAnnotations>
+    </eStructuralFeatures>
     <eStructuralFeatures xsi:type="ecore:EReference" name="ripple" upperBound="1" eType="#//RippleSettings" containment="true"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="RippleSettings">
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
-        <details key="documentation" value="How a sound retriggers listeners when it plays (event sounds only, up to chain depth 4). Every attribute is optional in JSON and falls back to its default. Retriggers travel at 240 units a beat; velocity falls off linearly to 0 at the reach."/>
+        <details key="documentation" value="How a sound retriggers listeners when it plays (event sounds only, up to chain depth 4). Every attribute is optional in JSON and falls back to its default. Retriggers travel at 240 units a beat and lose strength by falloff."/>
       </eAnnotations>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="mode" eType="#//RippleMode" defaultValueLiteral="ripple"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="angle" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0">
@@ -481,6 +490,15 @@
         </eAnnotations>
         <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
           <details key="documentation" value="How far the ring or traces travel, as a multiple of the sound's size. 0 never retriggers."/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="falloff" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="1">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+        <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+          <details key="documentation" value="Strength lost on the way: velocity × (1 − falloff × distance / reach) × 0.9. 1 fades to nothing at the reach; 0 hits as hard at the reach as next door."/>
         </eAnnotations>
     </eStructuralFeatures>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="stop" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EBoolean" defaultValueLiteral="false">

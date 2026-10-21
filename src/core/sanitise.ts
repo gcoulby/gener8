@@ -5,6 +5,7 @@
 
 import type { Axes, Axis, MapType, Breathe, FieldObj, FieldShape, Motion, Patch, PatchObject, PosMotion, RippleSpec, SoundObj, Vec2 } from './types.ts';
 import { SCALE_ORDER } from './music.ts';
+import { MIDI_MAX, MIDI_MIN } from './constants.ts';
 import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
 import { normalizePatch } from './patch.ts';
@@ -169,6 +170,7 @@ function ripple(input: unknown): RippleSpec | undefined {
   if (r.count !== undefined) out.count = Math.round(clamp(num(r.count, 'ripple'), RIPPLE_LIMITS.count[0], RIPPLE_LIMITS.count[1]));
   if (r.spread !== undefined) out.spread = clamp(num(r.spread, 'ripple'), RIPPLE_LIMITS.spread[0], RIPPLE_LIMITS.spread[1]);
   if (r.reach !== undefined) out.reach = clamp(num(r.reach, 'ripple'), RIPPLE_LIMITS.reach[0], RIPPLE_LIMITS.reach[1]);
+  if (r.falloff !== undefined) out.falloff = clamp(num(r.falloff, 'ripple'), RIPPLE_LIMITS.falloff[0], RIPPLE_LIMITS.falloff[1]);
   if (flag(r.stop, 'ripple stop')) out.stop = true;
   return Object.keys(out).length ? out : undefined;
 }
@@ -194,6 +196,7 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
     if (mo) s.motion = mo;
     const rp = ripple(o.ripple);
     if (rp) s.ripple = rp;
+    if (o.note !== undefined) s.note = Math.round(clamp(num(o.note, id), MIDI_MIN, MIDI_MAX));
     if (trim !== undefined) s.trim = trim;
     if (flag(o.mute, 'mute')) s.mute = true;
     if (flag(o.solo, 'solo')) s.solo = true;

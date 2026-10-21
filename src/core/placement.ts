@@ -3,7 +3,7 @@
 // tri) map position inside them to targets, higher layers override lower ones,
 // and a sound outside every map gets the defaults. Shared by the engine and the UI.
 
-import type { Axis, FieldObj, MapType, RippleSpec } from './types.ts';
+import type { Axis, FieldObj, MapType, RippleSpec, SoundObj } from './types.ts';
 import type { Pose } from './motion.ts';
 import { MIDI_MAX, MIDI_MIN, RIPPLE_REACH, Y0_MIDI } from './constants.ts';
 import { shapeDims } from './geometry.ts';
@@ -31,6 +31,7 @@ export const XY_TARGETS: Record<string, XYTarget> = {
   reach: { label: 'reach', lo: 0, hi: 24, min: 0, max: 12, step: 0.5, fmt: (v) => `×${num(v)}` },
   angle: { label: 'angle', lo: 0, hi: 360, min: 0, max: 360, step: 5, fmt: (v) => `${Math.round(v)}°` },
   spread: { label: 'spread', lo: 0, hi: 360, min: 0, max: 360, step: 5, fmt: (v) => `${Math.round(v)}°` },
+  falloff: { label: 'fall-off', lo: 0, hi: 1, min: 0, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)}%` },
 };
 
 export const PARAM_PREFIX = 'param:';
@@ -67,10 +68,11 @@ export const RIPPLE_DEFAULTS: Required<RippleSpec> = {
   count: 3,
   spread: 90,
   reach: RIPPLE_REACH,
+  falloff: 1,
   stop: false,
 };
 
-export const RIPPLE_LIMITS = { count: [1, 16], reach: [0, 24], angle: [0, 360], spread: [0, 360] } as const;
+export const RIPPLE_LIMITS = { count: [1, 16], reach: [0, 24], angle: [0, 360], spread: [0, 360], falloff: [0, 1] } as const;
 
 export function rippleOf(r: RippleSpec | undefined): Required<RippleSpec> {
   return r ? { ...RIPPLE_DEFAULTS, ...r } : RIPPLE_DEFAULTS;
@@ -92,19 +94,22 @@ export function traceTurns(mode: RippleSpec['mode'], angle: number, count: numbe
 
 export interface Placement {
   pitch: number;
+  /** A map field set the pitch (otherwise it's the sound's own note). */
+  pitchSet: boolean;
   pan: number;
   /** dB. */
   level: number;
   reach: number;
   angle: number;
   spread: number;
+  falloff: number;
   /** Sound params set by param: axes, normalised 0..1 (parallel arrays). */
   pk: string[];
   pv: number[];
 }
 
 export function newPlacement(): Placement {
-  return { pitch: Y0_MIDI, pan: 0, level: 0, reach: RIPPLE_REACH, angle: 0, spread: 90, pk: [], pv: [] };
+  return { pitch: Y0_MIDI, pitchSet: false, pan: 0, level: 0, reach: RIPPLE_REACH, angle: 0, spread: 90, falloff: 1, pk: [], pv: [] };
 }
 
 export interface MapPose {
@@ -120,6 +125,7 @@ function setTarget(out: Placement, to: string, v: number): void {
   switch (to) {
     case 'pitch':
       out.pitch = v;
+      out.pitchSet = true;
       return;
     case 'pan':
       out.pan = v;
@@ -135,6 +141,9 @@ function setTarget(out: Placement, to: string, v: number): void {
       return;
     case 'spread':
       out.spread = v;
+      return;
+    case 'falloff':
+      out.falloff = v;
       return;
   }
   const key = to.slice(PARAM_PREFIX.length);
@@ -158,13 +167,16 @@ export function mapLocate(m: MapPose, px: number, py: number, out: number[] = sc
 }
 
 /** Resolve a sound at (px, py) against the maps, which must be in layer order (lowest first). */
-export function placeSound(px: number, py: number, maps: readonly MapPose[], ripple: RippleSpec | undefined, out: Placement): Placement {
-  out.pitch = Y0_MIDI;
+export function placeSound(px: number, py: number, maps: readonly MapPose[], s: Pick<SoundObj, 'note' | 'ripple'> | undefined, out: Placement): Placement {
+  const ripple = s?.ripple;
+  out.pitch = s?.note ?? Y0_MIDI;
+  out.pitchSet = false;
   out.pan = 0;
   out.level = 0;
   out.reach = ripple?.reach ?? RIPPLE_DEFAULTS.reach;
   out.angle = ripple?.angle ?? RIPPLE_DEFAULTS.angle;
   out.spread = ripple?.spread ?? RIPPLE_DEFAULTS.spread;
+  out.falloff = ripple?.falloff ?? RIPPLE_DEFAULTS.falloff;
   out.pk.length = 0;
   out.pv.length = 0;
   for (const m of maps) {
