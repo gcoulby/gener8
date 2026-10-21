@@ -317,6 +317,86 @@
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="rate" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.33"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="entropy" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.25"/>
   </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="PhaseField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=180."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="phase"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="motif" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.33"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="spread" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="ChordsField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=180."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="chords"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="every" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.33"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="colour" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="TuringField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=170."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="turing"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="length" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.43"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="change" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.2"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="TopoField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: w=260 h=260."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="topo"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="density" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="chaos" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.15"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="PlinkoField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: w=240 h=300."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="plinko"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="drop" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="snap" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="WaveField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: w=320 h=180."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="wave"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="period" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="back" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="BounceField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=150."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="bounce"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="every" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.33"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="bounce" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="PolyrhythmField" eSuperTypes="#//GeneratorField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=170."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="poly"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="cycle" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="max" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+  </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="ProbabilityField" eSuperTypes="#//TransformerField">
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
         <details key="documentation" value="Default shape: r=120."/>
@@ -393,6 +473,26 @@
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="n" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.17"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="offset" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0"/>
   </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="CanonField" eSuperTypes="#//TransformerField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=130."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="canon"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="delay" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.4"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="interval" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.83"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="MirrorField" eSuperTypes="#//TransformerField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=130."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="mirror"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="axis" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="share" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="1"/>
+  </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="FilterField" eSuperTypes="#//InsertFx">
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
         <details key="documentation" value="Default shape: r=140."/>
@@ -452,6 +552,46 @@
       </eAnnotations>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="size" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.75"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="shimmer" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.45"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="ResonatorField" eSuperTypes="#//InsertFx">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=150."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="resonator"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="decay" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="mix" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.6"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="FreezeField" eSuperTypes="#//BusFx">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=190."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="freeze"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="size" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="density" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="TremoloField" eSuperTypes="#//InsertFx">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=140."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="tremolo"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="rate" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.25"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="depth" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.7"/>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="LofiField" eSuperTypes="#//InsertFx">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Default shape: r=140."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="lofi"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="bits" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.6"/>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="rate" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.3"/>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Sound" abstract="true" eSuperTypes="#//SceneObject">
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
@@ -755,6 +895,141 @@
         <eAnnotations source="http://gener8.app/ecore/range">
           <details key="min" value="0"/>
           <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="MacroSound" eSuperTypes="#//EventSound">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Eight synthesis models (model: vowel, chords, swarm, fold, grain, particle, modal, string) behind the same harmonics, timbre and morph controls, through a low-pass gate (decay, colour). After Mutable Instruments Plaits."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="macro"/>
+        <details key="stereo" value="false"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="model" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="6">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="7"/>
+          <details key="options" value="vowel,chords,swarm,fold,grain,particle,modal,string"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="harmonics" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="timbre" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="morph" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.3">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="decay" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="1.5">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0.05"/>
+          <details key="max" value="10"/>
+          <details key="unit" value="s"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="colour" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="BassSound" eSuperTypes="#//EventSound">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Monophonic: a new note glides from the last. Saw to square plus a sub sine, a resonant lowpass with its own envelope, and drive."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="bass"/>
+        <details key="stereo" value="false"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="wave" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.3">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="sub" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.5">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="glide" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.06">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0.001"/>
+          <details key="max" value="1"/>
+          <details key="unit" value="s"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="drive" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.3">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="cutoff" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="220">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="40"/>
+          <details key="max" value="4000"/>
+          <details key="unit" value="Hz"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="res" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.35">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="0.95"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="env" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="2.5">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="6"/>
+          <details key="unit" value="oct"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="fdecay" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.25">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0.02"/>
+          <details key="max" value="2"/>
+          <details key="unit" value="s"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="a" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.003">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0.001"/>
+          <details key="max" value="2"/>
+          <details key="unit" value="s"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="d" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.4">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0.01"/>
+          <details key="max" value="4"/>
+          <details key="unit" value="s"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="s" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.7">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0"/>
+          <details key="max" value="1"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EAttribute" name="r" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble" defaultValueLiteral="0.15">
+        <eAnnotations source="http://gener8.app/ecore/range">
+          <details key="min" value="0.01"/>
+          <details key="max" value="4"/>
+          <details key="unit" value="s"/>
         </eAnnotations>
     </eStructuralFeatures>
   </eClassifiers>

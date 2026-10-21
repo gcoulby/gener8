@@ -16,6 +16,14 @@ Generators play notes on the sounds inside them. Most play each sound in its own
 | **rain** ∴ | Sparse droplets off the grid, at seeded pitches near the sound's note. | **density**, **range** |
 | **strum** ⫼ | Every few beats, a slow strummed chord on each sound. Sounds take turns by angle. | **every** (beats), **strum** (gap between strings) |
 | **grid** ▦ | Conway's Game of Life on a grid. A sound fires when a cell is born under it. | **rate** (generations per beat), **entropy** (random births) |
+| **phase** ⟲ | Each sound loops a short seeded motif. The farther it is from the centre, the longer its loop, so loops drift in and out of step, as in *Music for Airports*. | **motif** (notes), **spread** (how much longer the outer loops get) |
+| **chords** ⫶ | A seeded chord progression in the key. Each sound takes a chord tone by its angle, in the octave nearest its own note, so voices lead smoothly. Sounds deeper than halfway restrike every bar. | **every** (bars per chord), **colour** (triads, 7ths, 9ths) |
+| **turing** ◫ | After the Music Thing Modular Turing Machine: a looping register of bits that may flip as they come round. Each sound reads it from its own angle, firing on set bits; the next bits pick the note, over a wider range the deeper it sits. The register shows round the rim. | **length** (steps, in 8ths), **change** (0 locks the loop) |
+| **topo** ▤ | After Mutable Instruments Grids: a map of drum patterns. Where a sound sits blends between them, so moving it morphs its groove; its angle picks low, mid or high parts. | **density**, **chaos** |
+| **plinko** ⁙ | The sounds inside are pegs. Balls drop in near the top centre, fall and bounce off them; each peg a ball hits fires, harder the faster it's going. Move the pegs to change the tune. | **drop every**, **snap** (free, or hits moved onto 1/32, 1/16 or 1/8) |
+| **wave** ⫽ | A line sweeps across the field and fires each sound it passes. | **period** (beats per sweep), **sweep** (one way, or there and back) |
+| **bounce** ⦿ | Every few beats, each sound plays a bouncing ball: hits that come faster and softer until they settle. Depth sets the height of the drop. (Not the same as the bounce *motion*, which moves an object.) | **every** (beats), **bounciness** |
+| **polyrhythm** ⁂ | One cycle, divided differently for each sound: deeper sounds get more hits, so 3 plays against 4 against 5. | **cycle** (beats), **up to** (the most hits per cycle, at the centre) |
 
 ## Transformers (teal, dashed)
 
@@ -31,6 +39,8 @@ Transformers change notes on their way from a generator to the sound.
 | **hold** ⌒ | Stretches notes into long swells. | **length** (up to 32×) |
 | **ratchet** ≡ | Repeats each note as a fading burst. | **rate** |
 | **every Nth** ÷ | Keeps only every Nth note. | **N**, **offset** |
+| **canon** ⤳ | A round: each note comes back later, moved by an interval in the key and softer each time. One repeat at the edge, three at the centre. The repeats are real notes, so later transformers and ripples treat them like any other. | **delay**, **interval** (an octave down to an octave up) |
+| **mirror** ⇅ | Turns melodies upside down around an axis note, staying in key. Deeper sounds have more of their notes flipped. | **axis** (C2 to C6), **share** |
 
 ## FX (violet)
 
@@ -44,6 +54,10 @@ Transformers change notes on their way from a generator to the sound.
 | **chorus** ◎ | bus | **rate**, **depth** |
 | **reverb** ◌ | bus | **size** (1 to 25 s), **damping** |
 | **shimmer** ✦ | bus | **size**, **shimmer** (octave-up bloom) |
+| **resonator** ≋ | insert | **decay**, **mix**. Strings tuned to the key (root, 5th, octave, 10th, 12th) that ring in sympathy with whatever passes through. |
+| **freeze** ❄ | bus | **size** (grain length), **density** (grains per second). Holds what's sent to it as an endless, slowly smearing cloud of grains. |
+| **tremolo** ≀ | insert | **rate** (1/16 to a bar, locked to the beat), **depth** |
+| **lo-fi** ▚ | insert | **bits**, **rate** (sample rate). Crushed, from clean at the edge to fully crunchy at the centre. |
 
 ## Tips
 

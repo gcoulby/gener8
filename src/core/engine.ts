@@ -50,6 +50,7 @@ class FieldCtx implements FieldContext {
   tempo = 120;
   ppq = PPQ;
   sr = SR;
+  tick = 0;
   w = 0;
   h = 0;
   baseW = 0;
@@ -389,7 +390,7 @@ export class Engine {
       lastRipple: -Infinity,
       buf: new Float64Array(BLOCK),
       bufR: t.stereo ? new Float64Array(BLOCK) : null,
-      mod: { pitch: 60, chord: [0, 0, 0, 0] },
+      mod: { pitch: 60, chord: [0, 0, 0, 0], keyRoot: 0, steps: [] },
       events: [],
       place: newPlacement(),
       xyKeys: [],
@@ -433,6 +434,7 @@ export class Engine {
       f.ctx.tempo = patch.tempo;
       f.ctx.keyRoot = keyRoot;
       f.ctx.steps = this.steps;
+      f.ctx.tick = t0;
       f.members.length = 0;
     }
     for (const s of this.soundList) {
@@ -440,6 +442,8 @@ export class Engine {
       placeSound(s.pose.x, s.pose.y, this.maps, s.obj, s.place);
       if (s.xyKeys.length || s.place.pk.length) this.applyXYParams(s);
       s.rootIndex = nearestIndex(s.place.pitch, keyRoot, this.steps);
+      s.mod.keyRoot = keyRoot;
+      s.mod.steps = this.steps;
       s.events.length = 0;
     }
 
@@ -466,6 +470,8 @@ export class Engine {
             angle: angleTurns(fp.x, fp.y, px, py),
             lx: px - fp.x,
             ly: py - fp.y,
+            r: (s.obj.size * s.pose.scale) / 2,
+            rootIndex: s.rootIndex,
             mode: s.type.mode,
           });
         } else if (t.role === 'transformer') {

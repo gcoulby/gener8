@@ -85,10 +85,10 @@ A trace hits a listener when it passes through the listener's body. A selected s
 
 | | |
 |---|---|
-| **Sounds** | subtractive · fm · pluck · percussion · pad · drone · additive · noise |
-| **Generators** | pulse (Euclidean) · drift (random walk) · arp · rain · strum · grid (cellular automaton) |
-| **Transformers** | probability · transpose · quantise · harmony · humanise · hold · ratchet · every Nth |
-| **FX** | filter · tape · tape delay · chorus · reverb · shimmer |
+| **Sounds** | subtractive · fm · pluck · percussion · macro (eight models, after Plaits) · bass · pad · drone · additive · noise |
+| **Generators** | pulse (Euclidean) · drift (random walk) · arp · rain · strum · grid (cellular automaton) · phase · chords · turing (Turing Machine) · topo (after Grids) · plinko · wave · bounce · polyrhythm |
+| **Transformers** | probability · transpose · quantise · harmony · humanise · hold · ratchet · every Nth · canon · mirror |
+| **FX** | filter · tape · tape delay · chorus · reverb · shimmer · resonator · freeze · tremolo · lo-fi |
 | **Maps** | xy · radial · sweep · tri |
 
 ## Controls

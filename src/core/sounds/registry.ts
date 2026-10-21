@@ -9,10 +9,12 @@ import { pad } from './pad.ts';
 import { fm } from './fm.ts';
 import { additive } from './additive.ts';
 import { noise } from './noise.ts';
+import { macro } from './macro.ts';
+import { bass } from './bass.ts';
 
 export const soundTypes: Record<string, SoundType> = {};
 
-for (const t of [subtractive, fm, pluck, percussion, pad, drone, additive, noise]) soundTypes[t.id] = t;
+for (const t of [subtractive, fm, pluck, percussion, macro, bass, pad, drone, additive, noise]) soundTypes[t.id] = t;
 
 export function defaultParams(t: SoundType): Record<string, number> {
   const p: Record<string, number> = {};

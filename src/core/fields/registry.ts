@@ -14,13 +14,18 @@ import { tape } from './tape.ts';
 import { everyNth, probability, quantise, ratchet, transpose } from './transformers.ts';
 import { delay, filter, reverb } from './fx.ts';
 import { radial, sweep, tri, xy } from './maps.ts';
+import { bounce, phase, poly, wave } from './rhythms.ts';
+import { chords, topo, turing } from './sequencers.ts';
+import { plinko } from './plinko.ts';
+import { canon, mirror } from './canon.ts';
+import { freeze, lofi, resonator, tremolo } from './texture.ts';
 
 export const fieldTypes: Record<string, FieldType> = {};
 
 for (const t of [
-  pulse, drift, arp, rain, strum, grid,
-  probability, transpose, quantise, harmony, humanise, hold, ratchet, everyNth,
-  filter, tape, delay, chorus, reverb, shimmer,
+  pulse, drift, arp, rain, strum, grid, phase, chords, turing, topo, plinko, wave, bounce, poly,
+  probability, transpose, quantise, harmony, humanise, hold, ratchet, everyNth, canon, mirror,
+  filter, tape, delay, chorus, reverb, shimmer, resonator, freeze, tremolo, lofi,
   xy, radial, sweep, tri,
 ])
   fieldTypes[t.id] = t;

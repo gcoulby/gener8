@@ -182,10 +182,13 @@ export interface ParamSpec {
   default: number;
   curve: 'lin' | 'exp';
   unit?: string;
+  /** A stepped choice: the value is an index into these labels (min 0, max length - 1). */
+  options?: string[];
 }
 
 export type PanelSection =
-  | { kind: 'knobs'; title: string; keys: string[] }
+  /** `hint`: dim lines under the sliders, e.g. what the macros do in the chosen model. */
+  | { kind: 'knobs'; title: string; keys: string[]; hint?: (params: Record<string, number>) => string[] }
   | { kind: 'adsr'; title: string; keys: [string, string, string, string] }
   | { kind: 'filter'; title: string; cutoff: string; res: string; extra?: string[] };
 
@@ -194,6 +197,9 @@ export interface ModFrame {
   pitch: number;
   /** Open-voiced chord offsets in semitones from pitch (root, 5th, 9th, 10th), snapped to the scale. */
   chord: number[];
+  /** The patch's key, for voices that build their own in-key chords. */
+  keyRoot: number;
+  steps: number[];
 }
 
 export interface VoiceContext {
@@ -240,6 +246,8 @@ export interface FieldContext {
   readonly tempo: number;
   readonly ppq: number;
   readonly sr: number;
+  /** Musical position at the start of the current block. */
+  readonly tick: number;
   /** Current dimensions (breathing applied). Circles report w = h = 2r. */
   readonly w: number;
   readonly h: number;
@@ -263,6 +271,10 @@ export interface GenMember {
   /** Offset from the field centre in world units, y up. */
   lx: number;
   ly: number;
+  /** Radius in world units (size / 2, breathing applied). */
+  r: number;
+  /** Scale index of the sound's own pitch: emitting degree d plays index rootIndex + d. */
+  rootIndex: number;
   mode: 'event' | 'sustained';
 }
 

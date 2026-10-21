@@ -60,7 +60,6 @@ export interface GridVis {
   rows: number;
   cells: Uint8Array;
   gen: number;
-  t: number;
 }
 
 export type HandleKind = 'size' | 'char' | 'mradius' | 'mamp' | 'mheight' | 'mpoint' | 'ripple';
@@ -147,7 +146,8 @@ export class App {
   ripples: RippleVis[] = [];
   causes: Cause[] = [];
   fieldFlash = new Map<string, number>();
-  grids = new Map<string, GridVis>();
+  /** Latest generator visuals (grid cells, plinko balls, Turing register) and when each arrived. */
+  visuals = new Map<string, { data: unknown; t: number }>();
   poses = new Map<string, Pose>();
   /** XY fields in layer order, with their current poses, and what they make of each sound. */
   maps: MapPose[] = [];
@@ -430,7 +430,7 @@ export class App {
     for (const e of t.events) this.pending.push(e);
     if (this.pending.length > 4000) this.pending.splice(0, this.pending.length - 4000);
     for (const id in t.meters) this.meterLevel.set(id, Math.max(this.meterLevel.get(id) ?? 0, t.meters[id]));
-    for (const v of t.visuals) this.grids.set(v.id, { ...(v.data as Omit<GridVis, 't'>), t: now });
+    for (const v of t.visuals) this.visuals.set(v.id, { data: v.data, t: now });
   }
 
   /**

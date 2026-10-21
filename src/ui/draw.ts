@@ -1,4 +1,4 @@
-import { HANDLE_ZOOM, type App, type HandlePos } from './app.ts'
+import { HANDLE_ZOOM, type App, type GridVis, type HandlePos } from './app.ts'
 import type {
   Axis,
   FieldObj,
@@ -14,6 +14,8 @@ import { soundTypes } from '../core/sounds/registry.ts'
 import { fieldTypes, isMap, mapTypeOf } from '../core/fields/registry.ts'
 import { triCorner } from '../core/fields/maps.ts'
 import { pulseHits, pulseLength, euclid } from '../core/fields/generators.ts'
+import { waveAt } from '../core/fields/rhythms.ts'
+import { PLINKO_BALL } from '../core/fields/plinko.ts'
 import {
   indexToMidi,
   nearestIndex,
@@ -532,6 +534,7 @@ function drawField(app: App, f: FieldObj): void {
     g.stroke()
     g.setLineDash([])
     if (f.type === 'pulse') drawPulseRing(app, f, sx, sy, R, a)
+    if (f.type === 'turing') drawTuringRing(app, f, sx, sy, R, a)
     if (R > 26) {
       g.font = '13px ui-monospace, Menlo, monospace'
       g.textAlign = 'center'
@@ -547,11 +550,12 @@ function drawField(app: App, f: FieldObj): void {
     const y0 = sy - h / 2
     g.fillStyle = rgba(role, 0.04 * a)
     g.fillRect(x0, y0, w, h)
-    const grid = app.grids.get(f.id)
+    const vis = app.visuals.get(f.id)
+    const grid = f.type === 'grid' && vis ? (vis.data as GridVis) : null
     if (grid) {
       const cw = w / grid.cols
       const ch = h / grid.rows
-      const fresh = Math.max(0, 1 - (app.now - grid.t) / 200)
+      const fresh = Math.max(0, 1 - (app.now - vis!.t) / 200)
       g.fillStyle = rgba(role, (0.22 + 0.15 * fresh) * a)
       for (let r = 0; r < grid.rows; r++)
         for (let c = 0; c < grid.cols; c++)
@@ -571,6 +575,26 @@ function drawField(app: App, f: FieldObj): void {
         }
         g.stroke()
       }
+    }
+    if (f.type === 'plinko' && vis) drawPlinkoBalls(app, f, vis.data as { balls: number[] }, a)
+    if (f.type === 'wave') {
+      const lx = x0 + waveAt(f.handles, PPQ, app.tickNow) * w
+      g.strokeStyle = rgba(role, 0.6 * a)
+      g.lineWidth = 1.5
+      g.beginPath()
+      g.moveTo(lx, y0)
+      g.lineTo(lx, y0 + h)
+      g.stroke()
+    }
+    if (f.type === 'topo') {
+      // the 3 × 3 map of patterns that sounds blend between
+      g.fillStyle = rgba(role, 0.35 * a)
+      for (let r = 0; r < 3; r++)
+        for (let c = 0; c < 3; c++) {
+          g.beginPath()
+          g.arc(x0 + (c / 2) * w, y0 + (r / 2) * h, 2, 0, TAU)
+          g.fill()
+        }
     }
     g.strokeStyle = stroke
     g.lineWidth = sel ? 1.6 : 1.1
@@ -651,6 +675,49 @@ function drawPulseRing(
     g.moveTo(sx + Math.sin(ang) * (R - 2), sy - Math.cos(ang) * (R - 2))
     g.lineTo(sx + Math.sin(ang) * (R + 5), sy - Math.cos(ang) * (R + 5))
     g.stroke()
+  }
+}
+
+/** The balls in play, from the engine's last report (field-local, y up). */
+function drawPlinkoBalls(app: App, f: FieldObj, data: { balls: number[] }, a: number): void {
+  const g = app.g
+  const p = app.poseOf(f)
+  const r = Math.max(2, PLINKO_BALL * app.cam.zoom)
+  g.fillStyle = rgba('generator', 0.9 * a)
+  for (let i = 0; i < data.balls.length; i += 2) {
+    const [bx, by] = app.w2s(p.x + data.balls[i], p.y + data.balls[i + 1])
+    g.beginPath()
+    g.arc(bx, by, r, 0, TAU)
+    g.fill()
+  }
+}
+
+/** The Turing machine's register round the rim: one cell per step of the loop, lit where the bit is set. */
+function drawTuringRing(
+  app: App,
+  f: FieldObj,
+  sx: number,
+  sy: number,
+  R: number,
+  a: number,
+): void {
+  const vis = app.visuals.get(f.id)
+  if (!vis) return
+  const { reg, len } = vis.data as { reg: number; len: number }
+  const g = app.g
+  const rr = R - 9
+  if (rr < 8) return
+  const fresh = Math.max(0, 1 - (app.now - vis.t) / 250)
+  for (let i = 0; i < len; i++) {
+    const ang = (i / len) * TAU
+    const x = sx + Math.sin(ang) * rr
+    const y = sy - Math.cos(ang) * rr
+    const on = (reg >>> i) & 1
+    g.beginPath()
+    g.fillStyle = rgba('generator', (on ? 0.6 + 0.3 * (i === 0 ? fresh : 0) : 0.2) * a)
+    if (on) g.rect(x - 3, y - 3, 6, 6)
+    else g.rect(x - 1.5, y - 1.5, 3, 3)
+    g.fill()
   }
 }
 
@@ -781,7 +848,7 @@ function drawSound(app: App, o: SoundObj): void {
   }
   g.strokeStyle = listener ? rgba('sound', 0.6 * a) : BG
   g.lineWidth = 1.2
-  soundDetail(g, glyph, sx, sy, r)
+  soundDetail(g, glyph, sx, sy, r, o.params.model ?? -1)
   if (t?.mode === 'event') drawAim(app, o, sx, sy, r, a)
   if (k > 0) {
     g.strokeStyle = rgba('sound', 0.7 * k)

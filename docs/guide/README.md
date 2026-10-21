@@ -43,7 +43,7 @@ The deeper a sound sits inside a field, the more that field acts on it: depth ru
 
 ## Read on
 
-- [Sounds](sounds.md): the eight voices, their internals, size and note
+- [Sounds](sounds.md): the ten voices (one with eight models), their internals, size and note
 - [Fields](fields.md): generators, transformers and FX
 - [Map fields](maps.md): what position means, and how to spread out
 - [Ripples and retriggers](retrigger.md): call and response between sounds

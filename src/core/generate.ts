@@ -39,6 +39,18 @@ const PERIODS = [8, 12, 16, 24, 32];
 const MAX_ATTEMPTS = 24;
 const Y_MAX = 200;
 
+// The types v1 picks from, in registry order as it was when v1 shipped. Types
+// added since are left out, so every seed keeps building the same patch.
+const V1_FIELDS = {
+  gens: ['pulse', 'drift', 'arp', 'rain', 'strum', 'grid'],
+  trans: ['probability', 'transpose', 'quantise', 'harmony', 'humanise', 'hold', 'ratchet', 'everyNth'],
+  fxs: ['filter', 'tape', 'delay', 'chorus', 'reverb', 'shimmer'],
+};
+const V1_SOUNDS = {
+  eventTypes: ['subtractive', 'fm', 'pluck', 'percussion'],
+  susTypes: ['pad', 'drone', 'additive', 'noise'],
+};
+
 const r2 = (v: number) => Math.round(v * 100) / 100;
 const clampN = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -53,10 +65,7 @@ function v1(seed: number): Patch {
   const key = { root: int(0, 11, R(S_KEY, 0)), scale: pick(scales, R(S_KEY, 1)) };
   const tempo = int(50, 130, R(S_TEMPO, 0));
 
-  const byRole = (role: string) => Object.values(fieldTypes).filter((t) => t.role === role).map((t) => t.id);
-  const gens = byRole('generator');
-  const trans = byRole('transformer');
-  const fxs = byRole('fx');
+  const { gens, trans, fxs } = V1_FIELDS;
 
   const nGen = int(1, 3, R(S_COUNTS, 0));
   const nFx = int(1, 3, R(S_COUNTS, 1));
@@ -124,8 +133,7 @@ function v1(seed: number): Patch {
   }
 
   // Sounds: mostly driven by a generator, a few hollow listeners, a few sustained.
-  const eventTypes = Object.values(soundTypes).filter((t) => t.mode === 'event').map((t) => t.id);
-  const susTypes = Object.values(soundTypes).filter((t) => t.mode === 'sustained').map((t) => t.id);
+  const { eventTypes, susTypes } = V1_SOUNDS;
   const total = int(4, 12, R(S_COUNTS, 3));
   const nSus = Math.min(3, int(0, Math.floor(total / 3), R(S_COUNTS, 4)));
   const nListen = Math.min(int(1, 3, R(S_COUNTS, 5)), Math.max(1, total - nSus - Math.ceil(total / 2)));

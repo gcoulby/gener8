@@ -42,10 +42,11 @@ function norm(s: ParamSpec, v: number): number {
 function denorm(s: ParamSpec, u: number): number {
   u = Math.min(1, Math.max(0, u));
   const v = s.curve === 'exp' ? s.min * Math.pow(s.max / s.min, u) : s.min + u * (s.max - s.min);
-  return Number(v.toPrecision(4));
+  return s.options ? Math.round(v) : Number(v.toPrecision(4));
 }
 
 function fmt(s: ParamSpec, v: number): string {
+  if (s.options) return s.options[Math.max(0, Math.min(s.options.length - 1, Math.round(v)))];
   const n = Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(3).replace(/\.?0+$/, '');
   return n + (s.unit ? ' ' + s.unit : '');
 }
@@ -162,6 +163,16 @@ export function drawPanel(app: App): void {
     g.fillStyle = 'rgba(233,228,218,0.45)';
     g.font = FONT_SMALL;
     g.fillText(sec.title.toUpperCase(), c.x, c.top - 14);
+  });
+
+  // hints under a section's sliders
+  t.panel.forEach((sec, i) => {
+    if (sec.kind !== 'knobs' || !sec.hint) return;
+    const c = cell(app, t.panel.length, i);
+    g.font = FONT_SMALL;
+    g.textAlign = 'left';
+    g.fillStyle = 'rgba(233,228,218,0.4)';
+    sec.hint(o.params).forEach((line, j) => g.fillText(line, c.x, c.top + sec.keys.length * 42 + 8 + j * 15));
   });
 
   const active = app.drag?.kind === 'panel' ? app.drag.key : null;
