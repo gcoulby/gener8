@@ -61,16 +61,21 @@ test('render and video entries', () => {
   for (const bad of ['in', 'fade:x', '5 60fps', '5 4k', 'five', '5 5']) assert.equal(r(bad), null, bad);
 
   const v = (t: string) => parseVideoSpec(t, VIDEO_DEFAULT);
-  assert.deepEqual(v('90s 60fps fade'), { seconds: 90, fps: 60, height: 1080, fade: { in: 3, out: 3 } });
-  assert.deepEqual(v('4k 1:00:00 out:30s'), { seconds: 3600, fps: 30, height: 2160, fade: { in: 0, out: 30 } });
+  assert.deepEqual(v('90s 60fps fade'), { seconds: 90, fps: 60, height: 1080, fade: { in: 3, out: 3 }, short: false });
+  assert.deepEqual(v('4k 1:00:00 out:30s'), { seconds: 3600, fps: 30, height: 2160, fade: { in: 0, out: 30 }, short: false });
   assert.equal(v('5 7fps'), null);
+  assert.deepEqual(v('short'), { seconds: 60, fps: 30, height: 1080, fade: { in: 0, out: 0 }, short: true }, 'a minute unless told');
+  assert.deepEqual(v('short 30s fade'), { seconds: 30, fps: 30, height: 1080, fade: { in: 3, out: 3 }, short: true });
+  assert.equal(v('short 4k'), null, 'a short has its own size');
+  assert.equal(v('5')!.short, false, 'only when typed');
+  assert.equal(parseRenderSpec('short', RENDER_DEFAULT), null, 'video only');
 
   // what the entries start out showing parses back to the same spec
   for (const t of ['5', '90s fade', '10m in:2s out:30s', '1:00:00 fade:1.5s']) {
     const s = r(t)!;
     assert.deepEqual(r(fmtRenderSpec(s)), s, t);
   }
-  for (const t of ['5', '90s 60fps fade', '4k 10m in:2s out:30s', '720p']) {
+  for (const t of ['5', '90s 60fps fade', '4k 10m in:2s out:30s', '720p', 'short', 'short 45s fade:2s']) {
     const s = v(t)!;
     assert.deepEqual(v(fmtVideoSpec(s)), s, t);
   }

@@ -51,6 +51,12 @@ To get a video, for YouTube say, press <kbd>shift</kbd>+<kbd>V</kbd> or **video�
 
 The video shows the whole window, not only the canvas: the palette, minimap, bar and timeline, plus anything open, such as the mixer or a selected object's bar. It frames the patch as your window does now, widened or narrowed to 16:9. As with a render, the patch plays from a fresh start, faster than real time and in the background. The sound comes from the same render as the picture, so the two stay in step. Everything is drawn [lit](shortcuts.md), at full brightness, because there's no cursor in the video.
 
+Every video carries the GENER8 logo in its usual top-left spot. With a fade, the logo starts large in the middle of the dark screen, like a title card, and glides up into place as the patch fades in. At the end it comes back to the middle as the patch fades out.
+
+### Shorts
+
+Add `short` for a portrait video to post as a YouTube Short, an Instagram Reel or a TikTok: 1080 × 1920, a minute long unless you type a length, so `short` alone or `short 30s fade`. A short shows just the elements: sounds, fields, ripples and the generators' moving parts. It leaves out the palette, bar, minimap, panels, labels and the map fields underneath. It frames everything your window shows, fitted into the portrait frame, so zoom and pan to frame the patch first. The logo sits at the top centre.
+
 In Chrome and Edge, you choose where to save the MP4 first, and it's written straight to disk as it renders. In other browsers it downloads when it's done. You also get a JSON file with the patch and seed. Expect roughly 3.5 GB for an hour at 1080p and 30 fps. The video is H.264 with AAC audio, falling back to other codecs where the browser can't encode those. The audio is compressed, so it isn't bit-identical to a WAV render. Use **render…** when you want the exact audio.
 
 ## Saving, opening and new

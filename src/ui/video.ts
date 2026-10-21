@@ -10,7 +10,8 @@ import { fadeGain } from '../core/render.ts';
 import type { Patch } from '../core/types.ts';
 import { App } from './app.ts';
 import { BG } from './theme.ts';
-import type { VideoSpec } from './takespec.ts';
+import { drawLogoAt, LOGO, logoWidth } from './draw.ts';
+import { SHORT, type VideoSpec } from './takespec.ts';
 import { download } from './wav.ts';
 import type { FromVideo, ToVideo, VideoFrameData } from './videoworker.ts';
 
@@ -106,17 +107,28 @@ export class VideoJob {
   private async run(live: App, patch: Patch, sink: Sink): Promise<void> {
     // loaded on first use: most sessions never render a video
     const { AudioSample, AudioSampleSource, CanvasSource, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec, Mp4OutputFormat, Output, Quality, StreamTarget } = await import('mediabunny');
-    const { fps, height, seconds, fade } = this.spec;
-    const width = Math.round((height * 16) / 9);
-    const bitrate = BITRATE[height][fps > 30 ? 1 : 0];
+    const { fps, seconds, fade, short } = this.spec;
+    const height = short ? SHORT.height : this.spec.height;
+    const width = short ? SHORT.width : Math.round((height * 16) / 9);
+    const bitrate = BITRATE[short ? 1080 : height][fps > 30 ? 1 : 0];
     const vcodec = await getFirstEncodableVideoCodec(['avc', 'vp9', 'av1'], { width, height, bitrate });
     const acodec = await getFirstEncodableAudioCodec(['aac', 'opus'], { numberOfChannels: 2, sampleRate: SR, bitrate: 256e3 });
     if (!vcodec || !acodec) throw new Error("this browser can't encode video · try Chrome or Edge");
 
-    // The same layout as the live window, widened (or narrowed) to 16:9 and scaled up to the video size.
-    const H = live.H;
-    const W = Math.round((H * width) / height);
-    const app = new App(document.createElement('canvas'), { patch, W, H, dpr: height / H, from: live });
+    let app: App;
+    if (short) {
+      // Just the elements, at phone scale (540 × 960 points), showing everything
+      // the live window shows: its view fitted into the portrait frame.
+      const W = width / 2;
+      const H = height / 2;
+      const zoom = live.cam.zoom * Math.min(W / live.W, H / live.H);
+      app = new App(document.createElement('canvas'), { patch, W, H, dpr: 2, from: live, clean: { cam: { ...live.cam, zoom } } });
+    } else {
+      // The same layout as the live window, widened (or narrowed) to 16:9 and scaled up to the video size.
+      const H = live.H;
+      const W = Math.round((H * width) / height);
+      app = new App(document.createElement('canvas'), { patch, W, H, dpr: height / H, from: live });
+    }
     app.canvas.width = width;
     app.canvas.height = height;
 
@@ -176,6 +188,7 @@ export class VideoJob {
             app.g.fillRect(0, 0, width, height);
             app.g.globalAlpha = 1;
           }
+          drawVideoLogo(app.g, width, height, app.dpr, short, app.mobile, 1 - shade);
           await video.add(k / fps, 1 / fps);
           const sample = new AudioSample({ data: f.audio, format: 'f32-planar', numberOfChannels: 2, sampleRate: SR, timestamp: start / SR });
           await audio.add(sample);
@@ -203,6 +216,39 @@ export class VideoJob {
     await output.finalize();
     sink.finish();
   }
+}
+
+/** 0 → 1, easing in and out. */
+const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+
+/**
+ * The logo on every video, in canvas pixels. It rests in its usual place (the
+ * app's top left, or a short's top centre). While the picture is faded out it
+ * sits large in the middle, like a title card, and glides between the two as
+ * the picture fades in and out: `shown` is how far the picture is faded in.
+ */
+function drawVideoLogo(g: CanvasRenderingContext2D, width: number, height: number, dpr: number, short: boolean, mobile: boolean, shown: number): void {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const per100 = logoWidth(g, 100) / 100; // ink width per pixel of font size
+  let px = (mobile ? LOGO.mobilePx : LOGO.px) * dpr;
+  let x = LOGO.x * dpr;
+  let y = LOGO.y * dpr;
+  if (short) {
+    px = (width * 0.42) / per100;
+    x = (width - px * per100) / 2;
+    y = height * 0.045;
+  }
+  // stays centred for the darkest part of the fade, then moves
+  const t = ease((shown - 0.3) / 0.7);
+  if (t < 1) {
+    const cpx = (width * (short ? 0.7 : 0.4)) / per100;
+    const cx = (width - cpx * per100) / 2;
+    const cy = height / 2 - cpx * 0.55;
+    px = cpx + (px - cpx) * t;
+    x = cx + (x - cx) * t;
+    y = cy + (y - cy) * t;
+  }
+  drawLogoAt(g, x, y, px);
 }
 
 /**

@@ -116,6 +116,8 @@ export interface Headless {
   dpr: number;
   /** The live App: its view and open panels are what the video shows. */
   from: App;
+  /** Just the elements: no UI, labels or map fields (a short). Its own camera. */
+  clean?: { cam: { x: number; y: number; zoom: number } };
 }
 
 export class App {
@@ -140,6 +142,8 @@ export class App {
   video: VideoJob | null = null;
   /** Drawing video frames: no input, no audio, playing from the start. */
   readonly headless: boolean;
+  /** Draw only the elements (see Headless.clean). */
+  readonly clean: boolean;
   voices = 0;
   pending: EventRecord[] = [];
   pulses = new Map<string, Pulse>();
@@ -202,6 +206,7 @@ export class App {
     this.canvas = canvas;
     this.g = canvas.getContext('2d')!;
     this.headless = !!headless;
+    this.clean = !!headless?.clean;
     if (headless) {
       const { from } = headless;
       this.patch = headless.patch;
@@ -218,6 +223,12 @@ export class App {
       this.mixerOpen = from.mixerOpen;
       this.mixerScroll = from.mixerScroll;
       this.showMinimap = from.showMinimap;
+      if (headless.clean) {
+        this.cam = { ...headless.clean.cam };
+        this.sel = null;
+        this.panel = null;
+        this.barH = 0;
+      }
       return;
     }
     // Precedence: a link, then the stored patch, then the demo. Seed links build
@@ -472,7 +483,7 @@ export class App {
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
     let sink;
     try {
-      sink = await openSink(`gener8-video-${stamp}`);
+      sink = await openSink(`gener8-${spec.short ? 'short' : 'video'}-${stamp}`);
     } catch (err) {
       this.toast('video failed: ' + (err as Error).message);
       return;
@@ -1531,7 +1542,7 @@ export class App {
   }
 
   openVideoEntry(): void {
-    this.openEntry('video', fmtVideoSpec(this.videoSpec), 'video: length, then optional 60fps / 720p / 1440p / 4k / fade / in:2s out:20s', 40, (v) => {
+    this.openEntry('video', fmtVideoSpec(this.videoSpec), 'video: length, then optional 60fps / 720p / 1440p / 4k / short / fade / in:2s out:20s', 40, (v) => {
       const spec = parseVideoSpec(v, this.videoSpec);
       if (!spec) {
         this.toast('video: e.g. 5, 90s 60fps fade, 1:00:00 4k out:30s');

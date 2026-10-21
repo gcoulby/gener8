@@ -6,6 +6,8 @@
 //   1:00:00 fade:10s   both 10 s
 //   10m in:2s out:30s  each on its own (a bare fade length is seconds)
 //   5 60fps 4k         video only: frame rate and size
+//   short              video only: a 1080 × 1920 portrait video of just the elements
+//                      (Shorts, Reels, TikTok), a minute unless a length is given
 
 import { RENDER_MAX_SECONDS } from '../core/constants.ts';
 import type { Fade } from '../core/render.ts';
@@ -17,15 +19,20 @@ export interface RenderSpec {
 
 export interface VideoSpec extends RenderSpec {
   fps: number;
-  /** 720, 1080, 1440 or 2160; always 16:9. */
+  /** 720, 1080, 1440 or 2160; always 16:9. Unused for a short. */
   height: number;
+  /** A portrait short (1080 × 1920) of the elements alone, with no UI. */
+  short: boolean;
 }
+
+/** A short's size, and its length when none is typed. */
+export const SHORT = { width: 1080, height: 1920, seconds: 60 };
 
 /** Seconds, for a plain `fade`. */
 export const FADE_DEFAULT = 3;
 
 export const RENDER_DEFAULT: RenderSpec = { seconds: 300, fade: { in: 0, out: 0 } };
-export const VIDEO_DEFAULT: VideoSpec = { ...RENDER_DEFAULT, fps: 30, height: 1080 };
+export const VIDEO_DEFAULT: VideoSpec = { ...RENDER_DEFAULT, fps: 30, height: 1080, short: false };
 
 const HEIGHTS: Record<string, number> = { '720': 720, '720p': 720, '1080': 1080, '1080p': 1080, '1440': 1440, '1440p': 1440, '2k': 1440, '2160': 2160, '2160p': 2160, '4k': 2160 };
 
@@ -48,24 +55,32 @@ export function parseDuration(text: string, bare: 's' | 'm' = 'm'): number | nul
  * starts out showing the current ones).
  */
 export function parseRenderSpec(text: string, base: RenderSpec): RenderSpec | null {
-  const spec = parse(text, { ...base, fps: 0, height: 0 }, false);
+  const spec = parse(text, { ...base, fps: 0, height: 0, short: false }, false);
   return spec && { seconds: spec.seconds, fade: spec.fade };
 }
 
-/** A video… entry: as render…, plus a frame rate (24–60fps) and a size (720p / 1080p / 1440p / 4k). */
+/**
+ * A video… entry: as render…, plus a frame rate (24–60fps) and a size (720p /
+ * 1080p / 1440p / 4k), or `short` for a portrait short. Like fades, short is
+ * only what's typed.
+ */
 export function parseVideoSpec(text: string, base: VideoSpec): VideoSpec | null {
   return parse(text, base, true);
 }
 
 function parse(text: string, base: VideoSpec, video: boolean): VideoSpec | null {
-  const spec: VideoSpec = { ...base, fade: { in: 0, out: 0 } };
+  const spec: VideoSpec = { ...base, fade: { in: 0, out: 0 }, short: false };
   let seconds: number | null = null;
+  let sized = false;
   for (const tok of text.trim().toLowerCase().split(/\s+/)) {
     if (!tok) continue;
     const fps = /^(24|25|30|50|60)fps$/.exec(tok);
     const fade = /^(fade|in|out)(?::(.+))?$/.exec(tok);
     if (video && fps) spec.fps = Number(fps[1]);
-    else if (video && HEIGHTS[tok]) spec.height = HEIGHTS[tok];
+    else if (video && HEIGHTS[tok]) {
+      spec.height = HEIGHTS[tok];
+      sized = true;
+    } else if (video && tok === 'short') spec.short = true;
     else if (fade) {
       // a plain `in` or `out` needs a length; a plain `fade` takes the default
       const len = fade[2] !== undefined ? parseDuration(fade[2], 's') : fade[1] === 'fade' ? FADE_DEFAULT : null;
@@ -75,6 +90,9 @@ function parse(text: string, base: VideoSpec, video: boolean): VideoSpec | null 
     } else if (seconds === null && (seconds = parseDuration(tok)) !== null) spec.seconds = Math.round(seconds);
     else return null;
   }
+  // a short has its own size, and runs a minute unless told otherwise
+  if (spec.short && sized) return null;
+  if (spec.short && seconds === null) spec.seconds = SHORT.seconds;
   spec.seconds = Math.min(spec.seconds, RENDER_MAX_SECONDS);
   // fades longer than the render share it in proportion
   const total = spec.fade.in + spec.fade.out;
@@ -91,7 +109,8 @@ export function fmtRenderSpec(s: RenderSpec): string {
 }
 
 export function fmtVideoSpec(s: VideoSpec): string {
-  return [fmtTime(s.seconds), s.height === 2160 ? '4k' : s.height + 'p', s.fps + 'fps', fmtFade(s.fade)].filter(Boolean).join(' ');
+  const size = s.short ? 'short' : s.height === 2160 ? '4k' : s.height + 'p';
+  return [fmtTime(s.seconds), size, s.fps + 'fps', fmtFade(s.fade)].filter(Boolean).join(' ');
 }
 
 function fmtFade(f: Fade): string {

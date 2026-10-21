@@ -48,13 +48,16 @@ export function draw(app: App): void {
   g.fillRect(0, 0, app.W, app.H)
 
   const objs = app.view.objects.slice().sort(byLayer)
-  // XY fields are the ground: drawn first, under every other field
-  for (const o of objs) if (isMap(o)) drawMap(app, o)
+  // XY fields are the ground: drawn first, under every other field.
+  // A clean frame (a short) leaves them out: they're scaffolding.
+  if (!app.clean) for (const o of objs) if (isMap(o)) drawMap(app, o)
   for (const o of objs) if (o.kind === 'field' && !isMap(o)) drawField(app, o)
   drawRipples(app)
   drawCauses(app)
   drawFollowLinks(app)
   for (const o of objs) if (o.kind === 'sound') drawSound(app, o)
+  // just the elements: no UI, labels or logo (a video draws its own)
+  if (app.clean) return
 
   const sel = app.obj(app.sel)
   if (sel) drawMotionGuide(app, sel)
@@ -79,7 +82,7 @@ export function draw(app: App): void {
   drawMinimap(app)
   drawAxisMenu(app)
   drawTabStack(app)
-  drawLogo(app)
+  if (!app.headless) drawLogo(app)
   drawPalette(app)
   drawTimeline(app)
   drawMixer(app)
@@ -148,16 +151,31 @@ const SANS =
 /** Bottom edge of the logo block, for laying out what sits under it. */
 export let logoBottom = 0
 
+/** The app's own logo, top left. */
+export const LOGO = { x: 10, y: 4, px: 50, mobilePx: 32 }
+
 function drawLogo(app: App): void {
-  const g = app.g
-  const x = 10
-  const y = 4
-  g.font = app.mobile
-    ? "32px 'gener8-logo', ui-monospace, Menlo, monospace"
-    : "50px 'gener8-logo', ui-monospace, Menlo, monospace"
+  logoBottom = drawLogoAt(app.g, LOGO.x, LOGO.y, app.mobile ? LOGO.mobilePx : LOGO.px)
+}
+
+const logoFont = (px: number) => `${px}px 'gener8-logo', ui-monospace, Menlo, monospace`
+
+/** Ink width of the logo at a font size, to place it (e.g. centred). */
+export function logoWidth(g: CanvasRenderingContext2D, px: number): number {
+  g.font = logoFont(px)
+  const m = g.measureText('GENER8')
+  return m.actualBoundingBoxLeft + m.actualBoundingBoxRight
+}
+
+/**
+ * The logo and its subtitle with the text's top-left at (x, y), in the
+ * current transform's units. Returns the bottom of the subtitle's ink.
+ */
+export function drawLogoAt(g: CanvasRenderingContext2D, x: number, y: number, px: number, alpha = 1): number {
+  g.font = logoFont(px)
   g.textAlign = 'left'
   g.textBaseline = 'top'
-  g.fillStyle = 'rgba(233,228,218,0.7)'
+  g.fillStyle = `rgba(233,228,218,${0.7 * alpha})`
   g.fillText('GENER8', x, y)
 
   // Subtitle in a plain sans, sized so its ink spans exactly the logo's ink.
@@ -174,9 +192,9 @@ function drawLogo(app: App): void {
   g.font = `600 ${size}px ${SANS}`
   const t = g.measureText(SUBTITLE)
   const top = y + m.actualBoundingBoxDescent + Math.max(4, size * 0.5)
-  g.fillStyle = 'rgba(233,228,218,0.5)'
+  g.fillStyle = `rgba(233,228,218,${0.5 * alpha})`
   g.fillText(SUBTITLE, left + t.actualBoundingBoxLeft, top)
-  logoBottom = top + t.actualBoundingBoxDescent
+  return top + t.actualBoundingBoxDescent
 }
 
 function dim(app: App, sx: number, sy: number, id: string): number {
@@ -542,7 +560,7 @@ function drawField(app: App, f: FieldObj): void {
       g.fillStyle = rgba(role, 0.75 * a)
       g.fillText(t?.glyph ?? '?', sx, sy - R + 16)
     }
-    if (z >= 1.1 || sel) fieldLabel(app, f, sx, sy - R - 10, a)
+    if ((z >= 1.1 || sel) && !app.clean) fieldLabel(app, f, sx, sy - R - 10, a)
   } else {
     const w = f.shape.w * p.scale * z
     const h = f.shape.h * p.scale * z
@@ -606,7 +624,7 @@ function drawField(app: App, f: FieldObj): void {
     g.textBaseline = 'top'
     g.fillStyle = rgba(role, 0.75 * a)
     g.fillText(t?.glyph ?? '?', x0 + 6, y0 + 5)
-    if (z >= 1.1 || sel) fieldLabel(app, f, sx, y0 - 10, a)
+    if ((z >= 1.1 || sel) && !app.clean) fieldLabel(app, f, sx, y0 - 10, a)
   }
 }
 
@@ -867,7 +885,7 @@ function drawSound(app: App, o: SoundObj): void {
     g.setLineDash([])
   }
   const hovered = app.hover?.kind === 'object' && app.hover.id === o.id
-  if (app.cam.zoom >= 1.1 || hovered || app.sel === o.id) {
+  if ((app.cam.zoom >= 1.1 || hovered || app.sel === o.id) && !app.clean) {
     g.font = FONT_SMALL
     g.textAlign = 'center'
     g.textBaseline = 'top'
@@ -1176,6 +1194,7 @@ const HELP = [
   'shift-C / render render the patch from a fresh start, up to 1 h (e.g. 5, 90s fade, 1:00:00 out:30s)',
   '                 faster than real time; click render again to cancel',
   'shift-V / video  the same as a video of the whole window (e.g. 5, 90s 60fps fade, 10m 4k)',
+  '                 or short: a portrait minute of just the elements (short 30s fade)',
   'l                lit: everything at full brightness · reactive: lit by the cursor',
   'n                minimap on / off · click or drag in it to move the view',
   'mixer / vol      levels, mute, solo, FX returns · master level (drag/scroll)',
