@@ -171,6 +171,10 @@ The current format is version 2. Version 1 patches, which had a fixed y = pitch 
 
 `.github/workflows/pages.yml` tests, builds and publishes to GitHub Pages on every push to `main`. Enable it once under **Settings → Pages → Source: GitHub Actions**.
 
+## AI use
+
+AI tools were used in the development of this app. No AI was used to create any music or audio in the app. The design and architecture of the app is entirely my own. I think it's the responsible thing to say so openly, and I review and take responsibility for everything that ships.
+
 ---
 
 Logo set in *Free Fat Font* by Thom Niessink, free for personal and commercial use.

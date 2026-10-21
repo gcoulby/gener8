@@ -51,3 +51,7 @@ The deeper a sound sits inside a field, the more that field acts on it: depth ru
 - [Mixing, capture and sharing](mixing.md)
 - [Shortcuts](shortcuts.md)
 - [Patch structure](model.md): the metamodel diagram, and what a patch file holds
+
+## AI use
+
+AI tools were used in the development of this app. No AI was used to create any music or audio in the app. The design and architecture of the app is entirely my own. I think it's the responsible thing to say so openly, and I review and take responsibility for everything that ships.
