@@ -1,5 +1,11 @@
 import { HANDLE_ZOOM, type App, type HandlePos } from './app.ts'
-import type { Axis, FieldObj, PatchObject, Role, SoundObj } from '../core/types.ts'
+import type {
+  Axis,
+  FieldObj,
+  PatchObject,
+  Role,
+  SoundObj,
+} from '../core/types.ts'
 import { PPQ, RIPPLE_SPEED, MIDI_MAX, MIDI_MIN } from '../core/constants.ts'
 import { byLayer } from '../core/patch.ts'
 import { angleTurns, depthAt, isCircle, shapeDims } from '../core/geometry.ts'
@@ -114,10 +120,7 @@ function drawTabStack(app: App): void {
   })
   const w = Math.max(...rows.map((r) => g.measureText(r.text).width)) + 34
   const x = Math.min(app.mouse.x + 16, app.W - w - 8)
-  const y = Math.min(
-    app.mouse.y + 14,
-    app.H - app.barH - rows.length * 17 - 14,
-  )
+  const y = Math.min(app.mouse.y + 14, app.H - app.barH - rows.length * 17 - 14)
   g.fillStyle = `rgba(11,11,14,${0.9 * a})`
   g.beginPath()
   g.roundRect(x, y, w, rows.length * 17 + 10, 6)
@@ -191,7 +194,11 @@ function guideValues(a: Axis, root: number): number[] {
   const hi = Math.max(a.min, a.max)
   if (a.to === 'pitch') {
     const out: number[] = []
-    for (let m = Math.max(MIDI_MIN, Math.ceil(lo)); m <= Math.min(MIDI_MAX, hi); m++)
+    for (
+      let m = Math.max(MIDI_MIN, Math.ceil(lo));
+      m <= Math.min(MIDI_MAX, hi);
+      m++
+    )
       if ((((m - root) % 12) + 12) % 12 === 0) out.push(m)
     return out
   }
@@ -272,13 +279,18 @@ function drawRoundMap(app: App, f: FieldObj, r: number): void {
       if (t.id === 'radial') {
         g.arc(sx, sy, u * R, 0, TAU)
         g.stroke()
-        if (a.to === 'pitch' && z >= 0.3 && u > 0.05) g.fillText(noteName(v), sx, sy - u * R - 2)
+        if (a.to === 'pitch' && z >= 0.3 && u > 0.05)
+          g.fillText(noteName(v), sx, sy - u * R - 2)
       } else if (t.id === 'sweep') {
         g.moveTo(sx, sy)
         g.lineTo(sx + Math.sin(u * TAU) * R, sy - Math.cos(u * TAU) * R)
         g.stroke()
         if (a.to === 'pitch' && z >= 0.3)
-          g.fillText(noteName(v), sx + Math.sin(u * TAU) * R * 0.8, sy - Math.cos(u * TAU) * R * 0.8)
+          g.fillText(
+            noteName(v),
+            sx + Math.sin(u * TAU) * R * 0.8,
+            sy - Math.cos(u * TAU) * R * 0.8,
+          )
       } else if (tri) {
         // a line of equal weight runs parallel to the edge opposite corner i
         const [ax, ay] = corner(i)
@@ -315,7 +327,11 @@ function drawRoundMap(app: App, f: FieldObj, r: number): void {
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   g.fillStyle = rgba('map', 0.8 * k)
-  g.fillText(`${t.glyph} ${f.id}  [${f.layer}]`, lb.x + lb.w / 2, lb.y + lb.h / 2)
+  g.fillText(
+    `${t.glyph} ${f.id}  [${f.layer}]`,
+    lb.x + lb.w / 2,
+    lb.y + lb.h / 2,
+  )
   if (R < 40 || (!sel && k < 0.7 && z < 0.5)) return
   g.fillStyle = rgba('map', 0.6 * k)
   if (tri) {
@@ -325,7 +341,11 @@ function drawRoundMap(app: App, f: FieldObj, r: number): void {
       const [x, y] = corner(i, R + 14)
       g.textAlign = i === 0 ? 'center' : i === 1 ? 'left' : 'right'
       g.textBaseline = i === 0 ? 'bottom' : 'top'
-      g.fillText(`${spec.key}: ${e.label} ${e.hi}`, i === 0 ? x : x + (i === 1 ? -6 : 6), i === 0 ? y - 10 : y)
+      g.fillText(
+        `${spec.key}: ${e.label} ${e.hi}`,
+        i === 0 ? x : x + (i === 1 ? -6 : 6),
+        i === 0 ? y - 10 : y,
+      )
     })
   } else {
     const spec = t.axes[0]
@@ -333,7 +353,11 @@ function drawRoundMap(app: App, f: FieldObj, r: number): void {
     if (e) {
       g.textAlign = 'center'
       g.textBaseline = 'top'
-      g.fillText(`${e.label}: ${spec.lo} ${e.lo} → ${spec.hi} ${e.hi}`, sx, sy + R + 6)
+      g.fillText(
+        `${e.label}: ${spec.lo} ${e.lo} → ${spec.hi} ${e.hi}`,
+        sx,
+        sy + R + 6,
+      )
     }
   }
 }
@@ -408,7 +432,11 @@ function drawXYMap(app: App, f: FieldObj): void {
   g.fillStyle = rgba('map', 0.8 * k)
   g.textAlign = 'left'
   g.textBaseline = 'top'
-  g.fillText(`${fieldTypes[f.type]?.glyph ?? '⊹'} ${f.id}  [${f.layer}]`, x0 + 6, y0 + 5)
+  g.fillText(
+    `${fieldTypes[f.type]?.glyph ?? '⊹'} ${f.id}  [${f.layer}]`,
+    x0 + 6,
+    y0 + 5,
+  )
   if (vx1 - vx0 < 140 || vy1 - vy0 < 60) return
   g.fillStyle = rgba('map', 0.6 * k)
   const ex = axisEnds(axes.x)
@@ -634,7 +662,10 @@ function drawRipples(app: App): void {
     const rad = ((app.tickNow - r.tick) / PPQ) * RIPPLE_SPEED
     if (rad <= 0) continue
     // fades as it loses strength: fully with fall-off 100%, barely with 0%
-    const al = (1 - (0.15 + 0.85 * r.falloff) * (rad / r.maxR)) * 0.4 * (0.4 + 0.6 * r.vel)
+    const al =
+      (1 - (0.15 + 0.85 * r.falloff) * (rad / r.maxR)) *
+      0.4 *
+      (0.4 + 0.6 * r.vel)
     if (al <= 0) continue
     const [sx, sy] = app.w2s(r.x, r.y)
     if (r.dirs) {
@@ -783,11 +814,23 @@ function drawSound(app: App, o: SoundObj): void {
 }
 
 /** Point / multi sounds: a tick out from the rim for each trace direction. */
-function drawAim(app: App, o: SoundObj, sx: number, sy: number, r: number, a: number): void {
+function drawAim(
+  app: App,
+  o: SoundObj,
+  sx: number,
+  sy: number,
+  r: number,
+  a: number,
+): void {
   const rip = rippleOf(o.ripple)
   if (rip.mode === 'ripple') return
   const pl = app.places.get(o.id)
-  const turns = traceTurns(rip.mode, pl?.angle ?? rip.angle, rip.count, pl?.spread ?? rip.spread)
+  const turns = traceTurns(
+    rip.mode,
+    pl?.angle ?? rip.angle,
+    rip.count,
+    pl?.spread ?? rip.spread,
+  )
   if (!turns) return
   const g = app.g
   g.strokeStyle = rgba('sound', 0.55 * a)
@@ -831,7 +874,13 @@ function drawMotionGuide(app: App, o: PatchObject): void {
     g.setLineDash([3, 5])
     g.beginPath()
     for (let i = 0; i <= 128; i++) {
-      followPose(o, app.beat + (period * i) / 128, app.view.seed, app.lookup, tmp)
+      followPose(
+        o,
+        app.beat + (period * i) / 128,
+        app.view.seed,
+        app.lookup,
+        tmp,
+      )
       const [x, y] = app.w2s(tmp.x, tmp.y)
       if (i === 0) g.moveTo(x, y)
       else g.lineTo(x, y)
@@ -914,7 +963,8 @@ function drawHandles(app: App, o: PatchObject): void {
       const [cx, cy] = app.w2s(sp.x, sp.y)
       const rip = rippleOf(o.ripple)
       const pl = app.places.get(o.id)
-      const reachPx = (pl?.reach ?? rip.reach) * o.size * sp.scale * app.cam.zoom
+      const reachPx =
+        (pl?.reach ?? rip.reach) * o.size * sp.scale * app.cam.zoom
       g.strokeStyle = rgba('sound', 0.35)
       g.setLineDash([2, 3])
       g.beginPath()
@@ -926,9 +976,17 @@ function drawHandles(app: App, o: PatchObject): void {
         g.beginPath()
         if (rip.mode === 'ripple') g.arc(cx, cy, reachPx, 0, TAU)
         else
-          for (const t of traceTurns(rip.mode, pl?.angle ?? rip.angle, rip.count, pl?.spread ?? rip.spread) ?? []) {
+          for (const t of traceTurns(
+            rip.mode,
+            pl?.angle ?? rip.angle,
+            rip.count,
+            pl?.spread ?? rip.spread,
+          ) ?? []) {
             g.moveTo(cx, cy)
-            g.lineTo(cx + Math.sin(t * TAU) * reachPx, cy - Math.cos(t * TAU) * reachPx)
+            g.lineTo(
+              cx + Math.sin(t * TAU) * reachPx,
+              cy - Math.cos(t * TAU) * reachPx,
+            )
           }
         g.stroke()
       }
@@ -941,8 +999,10 @@ function drawHandles(app: App, o: PatchObject): void {
       g.stroke()
       if (on) {
         const over: string[] = []
-        if (pl && pl.reach !== rip.reach) over.push(`reach ×${Math.round(pl.reach * 10) / 10}`)
-        if (pl && rip.mode !== 'ripple' && pl.angle !== rip.angle) over.push(`angle ${Math.round(pl.angle)}°`)
+        if (pl && pl.reach !== rip.reach)
+          over.push(`reach ×${Math.round(pl.reach * 10) / 10}`)
+        if (pl && rip.mode !== 'ripple' && pl.angle !== rip.angle)
+          over.push(`angle ${Math.round(pl.angle)}°`)
         tag(
           app,
           h.x + 10,
@@ -1020,6 +1080,7 @@ function drawPitchLadder(app: App, o: SoundObj): void {
 
 const HELP = [
   'gener8: place sounds, overlap fields. no cables.',
+  'g or docs (bottom bar)   the full guide: how everything works',
   '',
   'space            start / pause audio',
   'drag palette     place a sound or field',
@@ -1042,7 +1103,7 @@ const HELP = [
   'tab / shift-tab  cycle through everything under the cursor (incl. field edges)',
   '[ ]              layer down / up (order within a role)',
   '↑ ↓ ← →          nudge a semitone along the pitch axis (shift: an octave)',
-  '                 no map sets pitch? ↑ ↓ change the sound\'s own note',
+  "                 no map sets pitch? ↑ ↓ change the sound's own note",
   'delete           remove selection',
   'c                capture last 30 s (WAV + patch/seed/edit log)',
   'n                minimap on / off · click or drag in it to move the view',
@@ -1061,7 +1122,7 @@ const HELP = [
 
 function drawHelp(app: App): void {
   const g = app.g
-  const w = 560
+  const w = 720
   const h = HELP.length * 17 + 30
   const x = (app.W - w) / 2
   const y = (app.H - h) / 2

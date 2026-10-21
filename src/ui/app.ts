@@ -22,6 +22,7 @@ import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, 
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import { axisTargetEdit, inAxisMenu, menuHitAt, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
 import { EXAMPLES } from './examples.ts';
+import { DocsViewer, parseDocsHash } from './docs.ts';
 import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
 
 export interface Pulse {
@@ -143,6 +144,7 @@ export class App {
   paletteOpen = false;
   mixerOpen = false;
   showMinimap = readFlag(MINIMAP_KEY, true);
+  readonly docs = new DocsViewer();
   /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
   axisMenu: AxisMenu | null = null;
   /** Picking a leader for this object: the next click on an object sets its follow. */
@@ -187,6 +189,8 @@ export class App {
       this.queueSave();
       this.toastLoaded();
     } else if (link) void this.loadFromHash();
+    const doc = parseDocsHash(location.hash);
+    if (doc) this.docs.open(doc.page, doc.anchor);
     window.addEventListener('hashchange', () => void this.loadFromHash());
     requestAnimationFrame(this.frame);
   }
@@ -195,6 +199,12 @@ export class App {
   async loadFromHash(): Promise<void> {
     const hash = location.hash;
     if (hash.length < 2) return;
+    // #docs/<page>: open the guide, leaving the patch alone
+    const doc = parseDocsHash(hash);
+    if (doc) {
+      this.docs.open(doc.page, doc.anchor);
+      return;
+    }
     const link = parseHash(hash);
     // strip it either way, so a reload doesn't repeat it
     this.stripHash();
@@ -1271,6 +1281,10 @@ export class App {
       case 'help':
         this.showHelp = !this.showHelp;
         return;
+      case 'docs':
+        this.showHelp = false;
+        this.docs.open();
+        return;
       case 'new':
         this.load({ ...emptyPatch(), tempo: p.tempo, key: p.key, seed: p.seed, objects: [classicStage()] }, 'new patch · scrub the timeline to go back');
         return;
@@ -1462,6 +1476,10 @@ export class App {
   private onKey(e: KeyboardEvent): void {
     // typing in the seed box must not trigger shortcuts (c captures, t taps tempo…)
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (this.docs.isOpen) {
+      if (e.key === 'Escape') this.docs.escape();
+      return;
+    }
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key === 's') {
       e.preventDefault();
@@ -1528,6 +1546,10 @@ export class App {
         return;
       case 'c':
         void this.capture();
+        return;
+      case 'g':
+        this.showHelp = false;
+        this.docs.open();
         return;
       case 'n':
         this.showMinimap = !this.showMinimap;

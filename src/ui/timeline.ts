@@ -33,7 +33,7 @@ function readoutItems(app: App): Item[] {
     ['seed', `seed ${p.seed}`],
   ];
   if (!app.mobile) items.push(['voices', `${app.audio.voices}v`]);
-  items.push(['mixer', app.mixerOpen ? 'mixer ▾' : 'mixer ▴'], ['capture', '● capture'], ['help', '?']);
+  items.push(['mixer', app.mixerOpen ? 'mixer ▾' : 'mixer ▴'], ['capture', '● capture'], ['docs', 'docs'], ['help', '?']);
   return items;
 }
 

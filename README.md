@@ -15,6 +15,8 @@ npm run dev        # open the printed URL, press space
 
 Press **space** to start audio. The ambient demo loads first. **examples ▾** in the bottom bar has eight more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), rhythmic and a stress patch.
 
+**The guide:** press **docs** in the bottom bar (or <kbd>g</kbd>) for the full guide, rendered in the app. The same pages are in [`docs/guide/`](docs/guide/README.md) and read fine on GitHub too. Link to a page with `#docs/<page>`, e.g. `#docs/maps`. The guide's last page, [Patch structure](docs/guide/model.md) (`#docs/model`), walks through the metamodel diagram below.
+
 **On a phone or tablet** the layout adapts: tap ▶ to start, **+** opens the palette, pinch to zoom, drag empty space to pan, tap a selected object again to step down through what's under it, and double-tap a sound for its internals.
 
 ## Sharing
@@ -112,7 +114,8 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | r / random | a new patch from a random seed (asks again before replacing an edited patch) |
 | seed… | type a seed: a number, or any text (hashed to a number) |
 | share | copy a link to the current patch |
-| h / ? | help |
+| h / ? | quick help |
+| g / docs | the full guide |
 
 Mixer levels, mutes and solos are stored in the patch, so they're part of every capture and replay.
 
@@ -149,7 +152,7 @@ src/ui/        canvas, input, panels, timeline
 patches/       example patches (JSON is the source of truth)
 test/          node:test suites
 scripts/       render, capture replay, golden hashes, stress patch
-docs/          patch metamodel (Ecore) and its diagram
+docs/          the guide (docs/guide/*.md, shown in the app), patch metamodel (Ecore) and its diagram
 ```
 
 ## Patch metamodel
