@@ -6,10 +6,10 @@ Nothing about the canvas has a fixed meaning. **Map fields** (steel, dashed) dec
 
 | Map | Shape | Axes |
 |---|---|---|
-| **xy** ⊹ | rectangle | **x** left → right, **y** bottom → top |
-| **radial** ◎ | circle | **r** from the centre out to the edge |
-| **sweep** ↻ | circle | **around**, once round clockwise from the top |
-| **tri** △ | triangle | **a**, **b**, **c**, each from the opposite edge to its own corner |
+| ![xy](icons/field-xy.svg) **xy** | rectangle | **x** left → right, **y** bottom → top |
+| ![radial](icons/field-radial.svg) **radial** | circle | **r** from the centre out to the edge |
+| ![sweep](icons/field-sweep.svg) **sweep** | circle | **around**, once round clockwise from the top |
+| ![tri](icons/field-tri.svg) **tri** | triangle | **a**, **b**, **c**, each from the opposite edge to its own corner |
 
 Every bundled example, and every **new** patch, starts with one big XY field: pitch on y, pan on x.
 

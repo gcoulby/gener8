@@ -6,16 +6,16 @@ Sounds are the voices: warm-white shapes on the canvas. Each type has its own gl
 
 | Type | Kind | Character |
 |---|---|---|
-| **subtractive** | event | Detuned saw/square oscillators through a resonant filter with its own envelope. |
-| **fm** | event | Two-operator FM: bells, keys, glass. |
-| **pluck** | event | A plucked string (Karplus-Strong). |
-| **percussion** | event | A body that blends sine and noise, with a pitch sweep. |
-| **macro** | event | Eight synthesis models behind the same three controls, after Mutable Instruments Plaits. See [Macro](#macro). |
-| **bass** | event | A monophonic bass: saw to square plus a sub, a resonant filter with its own envelope, and glide between notes. |
-| **pad** | sustained | A slow-swelling unison pad with a breathing filter. |
-| **drone** | sustained | Saws over a sine sub, drifting slowly. |
-| **additive** | sustained | Stacked partials: organ-like to hollow and shimmering. |
-| **noise** | sustained | A focused band of noise: wind, surf, crackle. |
+| ![subtractive](icons/sound-subtractive.svg) **subtractive** | event | Detuned saw/square oscillators through a resonant filter with its own envelope. |
+| ![fm](icons/sound-fm.svg) **fm** | event | Two-operator FM: bells, keys, glass. |
+| ![pluck](icons/sound-pluck.svg) **pluck** | event | A plucked string (Karplus-Strong). |
+| ![percussion](icons/sound-percussion.svg) **percussion** | event | A body that blends sine and noise, with a pitch sweep. |
+| ![macro](icons/sound-macro.svg) **macro** | event | Eight synthesis models behind the same three controls, after Mutable Instruments Plaits. See [Macro](#macro). |
+| ![bass](icons/sound-bass.svg) **bass** | event | A monophonic bass: saw to square plus a sub, a resonant filter with its own envelope, and glide between notes. |
+| ![pad](icons/sound-pad.svg) **pad** | sustained | A slow-swelling unison pad with a breathing filter. |
+| ![drone](icons/sound-drone.svg) **drone** | sustained | Saws over a sine sub, drifting slowly. |
+| ![additive](icons/sound-additive.svg) **additive** | sustained | Stacked partials: organ-like to hollow and shimmering. |
+| ![noise](icons/sound-noise.svg) **noise** | sustained | A focused band of noise: wind, surf, crackle. |
 
 **Event** sounds play a note each time something triggers them. **Sustained** sounds play all the time. A trigger becomes an accent: a swell or a brighter moment. Sustained sounds also follow pitch changes smoothly, so moving one through a pitch map glides between notes.
 
@@ -23,16 +23,16 @@ Sounds are the voices: warm-white shapes on the canvas. Each type has its own gl
 
 The octagon. One sound, eight **models**, chosen with the **model** slider in its panel. Every model has the same three controls: **harmonics**, **timbre** and **morph**. They mean something different in each, and the panel lists what they do for the chosen model. Because the names stay the same, an XY field can map position to any of them (see [param targets](maps.md#targets)), so moving a sound morphs whatever model it's on.
 
-| Model | Mark | Harmonics | Timbre | Morph |
-|---|---|---|---|---|
-| **vowel** | ⬭ | vocal tract size | vowel: u, o, a, e, i | breath |
-| **chords** | ☰ | chord: triad, 7th, 9th, stacked 4ths, always in key | open voicing | saw → square → sine |
-| **swarm** | ⁘ | detune | brightness | octave scatter |
-| **fold** | ⌇ | symmetry | fold drive | sine → triangle in |
-| **grain** | ⋯ | formant | second formant | roughness |
-| **particle** | ⁖ | resonator spread | density | resonance |
-| **modal** | ▭ | material: string → bar → bell | brightness | damping of the upper partials |
-| **string** | ǀ | how long the highs ring | pluck brightness | bow |
+| Model | Harmonics | Timbre | Morph |
+|---|---|---|---|
+| ![vowel](icons/macro-vowel.svg) **vowel** | vocal tract size | vowel: u, o, a, e, i | breath |
+| ![chords](icons/macro-chords.svg) **chords** | chord: triad, 7th, 9th, stacked 4ths, always in key | open voicing | saw → square → sine |
+| ![swarm](icons/macro-swarm.svg) **swarm** | detune | brightness | octave scatter |
+| ![fold](icons/macro-fold.svg) **fold** | symmetry | fold drive | sine → triangle in |
+| ![grain](icons/macro-grain.svg) **grain** | formant | second formant | roughness |
+| ![particle](icons/macro-particle.svg) **particle** | resonator spread | density | resonance |
+| ![modal](icons/macro-modal.svg) **modal** | material: string → bar → bell | brightness | damping of the upper partials |
+| ![string](icons/macro-string.svg) **string** | how long the highs ring | pluck brightness | bow |
 
 The mark inside the octagon shows which model a sound is on. Every note goes through a **low-pass gate**, as in Plaits: **decay** is how long it rings, and **colour** is how much it also darkens as it fades (0 only fades, 1 closes like a vactrol).
 

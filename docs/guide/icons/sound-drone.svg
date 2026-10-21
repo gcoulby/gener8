@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 30 30" role="img" aria-label="drone">
+<title>drone</title>
+<rect width="30" height="30" rx="6" fill="#0b0b0e"/>
+<path d="M22.44 15A7.44 7.44 0 1 1 7.56 15A7.44 7.44 0 1 1 22.44 15" fill="rgba(243,233,216,0.8)"/>
+<path d="M19.09 15A4.09 4.09 0 1 1 10.91 15A4.09 4.09 0 1 1 19.09 15" fill="none" stroke="rgba(11,11,14,1)" stroke-width="1"/>
+</svg>

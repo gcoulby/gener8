@@ -34,8 +34,14 @@ const SOURCES: [string, string, string][] = [
   ['model', 'model.md', model],
 ];
 
+/** The palette icons in the tables (npm run doc-icons), keyed as the markdown writes them: icons/<file>. */
+const ICONS = import.meta.glob('../../docs/guide/icons/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+
 /** Images the guide may show, by the relative path the markdown uses (so it also renders on GitHub). */
-const IMAGES: Record<string, string> = { '../gener8-model.svg': modelSvg };
+const IMAGES: Record<string, string> = {
+  '../gener8-model.svg': modelSvg,
+  ...Object.fromEntries(Object.entries(ICONS).map(([path, url]) => [path.replace(/^.*\/guide\//, ''), url])),
+};
 
 export const DOC_PAGES: DocPage[] = SOURCES.map(([id, file, md]) => ({ id, file, md, title: md.match(/^#\s+(.+)$/m)?.[1] ?? id }));
 
@@ -101,6 +107,8 @@ const DOCS_CSS = `
 .g8-docs table{border-collapse:collapse;width:100%;font-size:12.5px}
 .g8-docs th,.g8-docs td{text-align:left;vertical-align:top;padding:6px 10px;border-bottom:1px solid rgba(233,228,218,.09)}
 .g8-docs th{color:rgba(233,228,218,.55);font-weight:500;font-size:11px;letter-spacing:.04em}
+.g8-docs td img{width:26px;height:26px;vertical-align:-8px;margin-right:7px}
+.g8-docs td:has(> img:first-child){white-space:nowrap}
 .g8-docs blockquote{margin:0 0 12px;padding:4px 14px;border-left:2px solid rgba(233,228,218,.25);color:rgba(233,228,218,.7)}
 .g8-docs hr{border:0;border-top:1px solid rgba(233,228,218,.12);margin:20px 0}
 .g8-docs nav a,.g8-docs nav a:hover{border-bottom:0}
@@ -202,7 +210,8 @@ export class DocsViewer {
       const link = (p: DocPage, text: string) => `<a href="#docs/${p.id}" data-doc="${p.id}">${text}</a>`;
       this.article.innerHTML =
         r.html + `<div class="pager"><span>${prev ? link(prev, '← ' + prev.title) : ''}</span><span>${next ? link(next, next.title + ' →') : ''}</span></div>`;
-      for (const img of this.article.querySelectorAll('img')) zoomable(img);
+      // diagrams pan and zoom; icons in tables stay inline
+      for (const img of this.article.querySelectorAll('img')) if (!img.closest('td, th')) zoomable(img);
       const toc = r.headings.filter((h) => h.level === 2);
       this.nav.innerHTML =
         `<div class="brand">GENER8 GUIDE</div>` +

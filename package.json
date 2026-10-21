@@ -16,7 +16,8 @@
     "make-stress": "node scripts/make-stress.ts",
     "render": "node scripts/render.ts",
     "render-capture": "node scripts/render-capture.ts",
-    "model-svg": "node scripts/model-svg.ts"
+    "model-svg": "node scripts/model-svg.ts",
+    "doc-icons": "node scripts/doc-icons.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

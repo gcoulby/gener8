@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 30 30" role="img" aria-label="tape delay">
+<title>tape delay</title>
+<rect width="30" height="30" rx="6" fill="#0b0b0e"/>
+<path d="M25.8 15A10.8 10.8 0 1 1 4.2 15A10.8 10.8 0 1 1 25.8 15" fill="rgba(154,124,240,0.12)"/>
+<path d="M25.8 15A10.8 10.8 0 1 1 4.2 15A10.8 10.8 0 1 1 25.8 15" fill="none" stroke="rgba(154,124,240,0.85)" stroke-width="1.2"/>
+<text x="15" y="15.5" font-size="12" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" dominant-baseline="central" fill="rgba(154,124,240,0.95)">⋯</text>
+</svg>

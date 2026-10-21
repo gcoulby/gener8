@@ -139,6 +139,7 @@ The DSP is plain TypeScript in `src/core/`, shared unchanged by the AudioWorklet
 | `npm run render patch.json 60 out.wav [-- --fade 2,30]` | offline render, optionally fading in and out (seconds) |
 | `npm run golden` | regenerate reference hashes after an intended sound change |
 | `npm run model-svg` | regenerate `docs/gener8-model.svg` from `docs/gener8.ecore` |
+| `npm run doc-icons` | redraw the guide's type icons (`docs/guide/icons/`) from the palette's drawing code, after adding a type or changing a glyph |
 | `npm run generator-golden` | regenerate seed → patch hashes (only when adding a generator version; v1 is frozen) |
 
 Tests run on Node's built-in runner with native TypeScript (Node ≥ 22.18). The one runtime dependency is [mediabunny](https://mediabunny.dev), for MP4 muxing in video renders, and it loads only when one starts. The rest are dev dependencies: Vite, TypeScript and `@types/node`.

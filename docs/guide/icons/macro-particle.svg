@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 30 30" role="img" aria-label="macro: particle">
+<title>macro: particle</title>
+<rect width="30" height="30" rx="6" fill="#0b0b0e"/>
+<path d="M25.1 19.19L19.19 25.1L10.81 25.1L4.9 19.19L4.9 10.81L10.81 4.9L19.19 4.9L25.1 10.81Z" fill="rgba(243,233,216,0.8)"/>
+<path d="M13.2 13.18A0.8 0.8 0 1 1 11.6 13.18A0.8 0.8 0 1 1 13.2 13.18" fill="#0b0b0e"/>
+<path d="M18.08 14.22A1 1 0 1 1 16.08 14.22A1 1 0 1 1 18.08 14.22" fill="#0b0b0e"/>
+<path d="M15.18 17.6A0.7 0.7 0 1 1 13.78 17.6A0.7 0.7 0 1 1 15.18 17.6" fill="#0b0b0e"/>
+</svg>

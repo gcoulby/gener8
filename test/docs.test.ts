@@ -110,7 +110,19 @@ test('every image in the guide exists and the viewer can show it', () => {
   for (const f of files) {
     for (const [, src] of read(f).matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
       assert.ok(existsSync(new URL(src, DIR)), `${f}: no file ${src}`);
-      assert.ok(viewer.includes(`'${src}':`), `${f}: ${src} is not in the viewer's IMAGES`);
+      const icon = src.startsWith('icons/') && viewer.includes("import.meta.glob('../../docs/guide/icons/*.svg'");
+      assert.ok(icon || viewer.includes(`'${src}':`), `${f}: ${src} is not in the viewer's IMAGES`);
     }
+  }
+});
+
+test('every sound and field type has a guide icon, and the guide shows it', async () => {
+  const { soundTypes } = await import('../src/core/sounds/registry.ts');
+  const { fieldTypes } = await import('../src/core/fields/registry.ts');
+  const guide = files.map(read).join('\n');
+  const want = [...Object.keys(soundTypes).map((id) => `sound-${id}`), ...Object.keys(fieldTypes).map((id) => `field-${id}`)];
+  for (const name of want) {
+    assert.ok(existsSync(new URL(`icons/${name}.svg`, DIR)), `no icons/${name}.svg · run npm run doc-icons`);
+    assert.ok(guide.includes(`(icons/${name}.svg)`), `the guide doesn't show icons/${name}.svg`);
   }
 });
