@@ -11,6 +11,7 @@
    "title": "Cells",
    "artist": "GENER8",
    "genre": "generative",
+   "url": "https://gcoulby.github.io/gener8/",
    "notes": "A cellular automaton grid plays the voices that sit on it, with probability and a pulse, into delay and reverb."
  },
  "objects": [

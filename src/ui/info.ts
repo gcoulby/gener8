@@ -128,6 +128,8 @@ export class InfoDialog {
     );
     card.append(row);
     ok.focus();
+    // a press on the canvas that opened this takes the focus back as it ends
+    setTimeout(() => ok.isConnected && ok.focus(), 50);
   }
 
   /** The editor. `author` fills an empty artist and link; onSave gets the info and whether to remember them. */

@@ -75,7 +75,7 @@ Your patch is also saved in the browser as you go. Replacing an edited patch ask
 
 ## Patch info
 
-**info…** (<kbd>i</kbd>) gives a patch a title, artist, genre, link and notes. Info is saved in the patch file and travels in share links. When you open a patch file or a link that has info, a card shows it first.
+**info…** (<kbd>i</kbd>) gives a patch a title, artist, genre, link and notes. Info is saved in the patch file and travels in share links. When you open a patch file, a link or one of the examples and it has info, a card shows it first.
 
 Tick **remember my artist name and link** and they're kept in this browser. Every patch you save afterwards that has no artist yet is signed with them. A patch that already names an artist keeps it, so saving someone else's patch doesn't claim it as yours. Info isn't part of the sound: it never changes a render.
 

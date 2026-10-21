@@ -1517,8 +1517,9 @@ export class App {
 
   /** Load a bundled example and frame it, wherever the view had wandered. */
   private loadExample(ex: (typeof EXAMPLES)[number]): void {
-    this.load(ex.patch, `loaded ${ex.label}`);
+    if (!this.load(ex.patch, `loaded ${ex.label}`)) return;
     this.fitView();
+    this.showInfo();
   }
 
   randomPatch(): void {
@@ -1705,6 +1706,11 @@ export class App {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (this.docs.isOpen) {
       if (e.key === 'Escape') this.docs.escape();
+      return;
+    }
+    // the card can lose focus to the click that opened it: keys still belong to it
+    if (this.infoDialog.isOpen) {
+      if (e.key === 'Escape' || e.key === 'Enter') this.infoDialog.close();
       return;
     }
     const mod = e.metaKey || e.ctrlKey;
