@@ -1,5 +1,5 @@
 import type { Edit, EventRecord, FieldObj, MapType, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
-import { PPQ, SR, CAPTURE_SECONDS, MIDI_MAX, MIDI_MIN, RIPPLE_SPEED } from '../core/constants.ts';
+import { PPQ, SR, CAPTURE_SECONDS, MIDI_MAX, MIDI_MIN, RENDER_MAX_SECONDS, RIPPLE_SPEED } from '../core/constants.ts';
 import { applyEdit, byLayer, classicStage, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
 import { followPose, type Pose } from '../core/motion.ts';
 import { angleTurns, depthAt, isCircle } from '../core/geometry.ts';
@@ -15,6 +15,7 @@ import { BG, FONT, INK } from './theme.ts';
 import { AudioBridge } from './audio.ts';
 import { History } from './history.ts';
 import { download, encodeWav } from './wav.ts';
+import { RenderJob } from './renderjob.ts';
 import { draw } from './draw.ts';
 import { paletteHit, type PaletteItem } from './palette.ts';
 import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
@@ -120,6 +121,8 @@ export class App {
   scrub: { sample: number; preview: Patch; cancelled: boolean } | null = null;
   readonly audio = new AudioBridge();
   history: History | null = null;
+  /** Offline render in progress (see startRender). */
+  render: RenderJob | null = null;
   pending: EventRecord[] = [];
   pulses = new Map<string, Pulse>();
   ripples: RippleVis[] = [];
@@ -167,7 +170,8 @@ export class App {
   private taps: number[] = [];
   /** Replacing an edited patch needs a second press before this time. */
   private confirmUntil = 0;
-  private seedInput: HTMLInputElement | null = null;
+  private entryInput: HTMLInputElement | null = null;
+  private renderSeconds = 300;
   private spaceDown = false;
   private sendQueue = new Map<string, Edit>();
   private saveTimer = 0;
@@ -382,6 +386,34 @@ export class App {
     };
     download(new Blob([JSON.stringify(capture)], { type: 'application/json' }), `${name}.json`);
     this.toast(`captured ${Math.round(r.left.length / SR)} s → ${name}.wav + .json`);
+  }
+
+  /**
+   * Render the current patch from a fresh start, as a reload + play would sound,
+   * faster than real time in a worker. Downloads WAV + patch JSON when done.
+   */
+  async startRender(seconds: number): Promise<void> {
+    this.render?.cancel();
+    const patch = clone(this.patch);
+    const job = new RenderJob(patch, seconds);
+    this.render = job;
+    this.toast(`rendering ${fmtTime(seconds)} from the start · click render to cancel`);
+    let wav: Blob;
+    try {
+      wav = await job.done;
+    } catch (err) {
+      if (this.render === job) this.render = null;
+      this.toast('render failed: ' + (err as Error).message);
+      return;
+    }
+    if (this.render !== job) return;
+    this.render = null;
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    const name = `gener8-render-${stamp}`;
+    download(wav, `${name}.wav`);
+    const meta = { format: 'gener8.render', version: 1, sampleRate: SR, seconds, seed: patch.seed, patch };
+    download(new Blob([JSON.stringify(meta)], { type: 'application/json' }), `${name}.json`);
+    this.toast(`rendered ${fmtTime(seconds)} → ${name}.wav + .json`);
   }
 
   // ---------- frame ----------
@@ -1278,6 +1310,16 @@ export class App {
       case 'capture':
         void this.capture();
         return;
+      case 'render':
+        if (this.render) {
+          this.render.cancel();
+          this.render = null;
+          this.toast('render cancelled');
+          return;
+        }
+        // on the click, like seedentry below
+        this.canvas.addEventListener('click', () => this.openRenderEntry(), { once: true });
+        return;
       case 'help':
         this.showHelp = !this.showHelp;
         return;
@@ -1375,20 +1417,55 @@ export class App {
     return strHash(t) >>> 0;
   }
 
-  /** A small DOM input over the bar: the canvas has no text entry of its own. */
+  /** Render length text → seconds: h:mm:ss, m:ss, or a number with an optional s / m / h (bare = minutes). */
+  static parseDuration(text: string): number | null {
+    const t = text.trim().toLowerCase();
+    let sec: number;
+    if (/^\d+(:\d{1,2}){1,2}$/.test(t)) sec = t.split(':').reduce((acc, x) => acc * 60 + Number(x), 0);
+    else {
+      const m = /^(\d+(?:\.\d+)?)\s*(s|m|h)?$/.exec(t);
+      if (!m) return null;
+      sec = Number(m[1]) * { s: 1, m: 60, h: 3600 }[m[2] ?? 'm']!;
+    }
+    return sec > 0 ? Math.round(sec) : null;
+  }
+
   openSeedEntry(): void {
-    if (this.seedInput) {
-      this.seedInput.focus();
+    this.openEntry('seedentry', String(this.patch.seed), 'seed', 32, (v) => {
+      if (!this.confirmReplace()) return false;
+      this.loadSeed(App.parseSeed(v));
+    });
+  }
+
+  openRenderEntry(): void {
+    this.openEntry('render', fmtTime(this.renderSeconds), 'render length (m:ss or h:mm:ss)', 12, (v) => {
+      const sec = App.parseDuration(v);
+      if (sec === null) {
+        this.toast('render length: e.g. 5, 90s, 1:30, 1:00:00');
+        return false;
+      }
+      this.renderSeconds = Math.min(sec, RENDER_MAX_SECONDS);
+      void this.startRender(this.renderSeconds);
+    });
+  }
+
+  /**
+   * A small DOM input over the bar item `anchor`: the canvas has no text entry
+   * of its own. Enter calls onEnter with the text; it closes unless that returns false.
+   */
+  private openEntry(anchor: string, value: string, label: string, maxLength: number, onEnter: (v: string) => boolean | void): void {
+    if (this.entryInput) {
+      this.entryInput.focus();
       return;
     }
-    const hit = this.uiHits.find((u) => u.id === 'seedentry');
+    const hit = this.uiHits.find((u) => u.id === anchor);
     const inp = document.createElement('input');
     inp.type = 'text';
-    inp.maxLength = 32;
-    inp.value = String(this.patch.seed);
+    inp.maxLength = maxLength;
+    inp.value = value;
     inp.spellcheck = false;
     inp.autocomplete = 'off';
-    inp.setAttribute('aria-label', 'seed');
+    inp.setAttribute('aria-label', label);
     const st = inp.style;
     st.position = 'fixed';
     st.left = Math.max(8, Math.min((hit?.x ?? 14) - 2, this.W - 168)) + 'px';
@@ -1401,12 +1478,12 @@ export class App {
     st.border = '1px solid rgba(233,228,218,0.3)';
     st.borderRadius = '4px';
     st.outline = 'none';
-    this.seedInput = inp;
+    this.entryInput = inp;
     let done = false;
     const close = () => {
       if (done) return;
       done = true;
-      this.seedInput = null;
+      this.entryInput = null;
       inp.remove();
     };
     inp.addEventListener('keydown', (e) => {
@@ -1414,10 +1491,7 @@ export class App {
       if (e.key === 'Escape') close();
       else if (e.key === 'Enter') {
         if (!inp.value.trim()) return close();
-        if (!this.confirmReplace()) return;
-        const seed = App.parseSeed(inp.value);
-        close();
-        this.loadSeed(seed);
+        if (onEnter(inp.value) !== false) close();
       }
     });
     inp.addEventListener('blur', close);
@@ -1578,6 +1652,10 @@ export class App {
       case 'D':
       case 'T':
       case 'R':
+      case 'C':
+        e.preventDefault(); // keep the C out of the input this opens
+        this.openRenderEntry();
+        return;
       case 'X': {
         const ex = EXAMPLES.find((x) => x.key === e.key)!;
         this.load(ex.patch, `loaded ${ex.label}`);

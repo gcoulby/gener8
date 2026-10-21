@@ -108,6 +108,7 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |
+| shift-C / render… | render the patch from a fresh start for up to 1 h (e.g. `5`, `90s`, `1:00:00`), faster than real time in a worker; click again to cancel |
 | vol | master level (drag or scroll) |
 | mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
 | bottom bar | new · open · save · random · seed… · share · examples |
@@ -124,6 +125,7 @@ Mixer levels, mutes and solos are stored in the patch, so they're part of every 
 The DSP is plain TypeScript in `src/core/`, shared unchanged by the AudioWorklet and Node. It avoids `Math.sin/exp/pow/…` (not bit-identical across JS engines) in favour of its own implementations, and all randomness is counter-based on the seed. As a result:
 - A patch renders bit-identically every time, at any buffer size.
 - A capture's JSON (root patch + edit log) re-renders its WAV bit for bit: `npm run render-capture capture.json capture.wav`.
+- An in-app render matches `npm run render` of the same patch and length bit for bit.
 
 ## Scripts
 

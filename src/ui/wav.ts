@@ -1,8 +1,18 @@
 /** 32-bit float stereo WAV. */
 export function encodeWav(left: Float32Array, right: Float32Array, sampleRate: number): Blob {
   const n = left.length;
-  const dataBytes = n * 2 * 4;
-  const buf = new ArrayBuffer(58 + dataBytes);
+  const data = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) {
+    data[2 * i] = left[i];
+    data[2 * i + 1] = right[i];
+  }
+  return new Blob([wavHeader(n, sampleRate), data], { type: 'audio/wav' });
+}
+
+/** The 58-byte header of a 32-bit float stereo WAV of `frames` frames; interleaved little-endian samples follow. */
+export function wavHeader(frames: number, sampleRate: number): ArrayBuffer {
+  const dataBytes = frames * 2 * 4;
+  const buf = new ArrayBuffer(58);
   const v = new DataView(buf);
   let o = 0;
   const str = (s: string) => {
@@ -30,15 +40,10 @@ export function encodeWav(left: Float32Array, right: Float32Array, sampleRate: n
   u16(0);
   str('fact');
   u32(4);
-  u32(n);
+  u32(frames);
   str('data');
   u32(dataBytes);
-  for (let i = 0; i < n; i++) {
-    v.setFloat32(o, left[i], true);
-    v.setFloat32(o + 4, right[i], true);
-    o += 8;
-  }
-  return new Blob([buf], { type: 'audio/wav' });
+  return buf;
 }
 
 export function download(blob: Blob, name: string): void {

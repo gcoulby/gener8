@@ -17,6 +17,7 @@
 | <kbd>b</kbd> | Toggle breathe. |
 | <kbd>n</kbd> | Show or hide the minimap. |
 | <kbd>c</kbd> | Capture the last 30 seconds. |
+| <kbd>shift</kbd>+<kbd>C</kbd> | Render the patch from a fresh start, up to an hour. |
 | <kbd>t</kbd> | Tap tempo. |
 | <kbd>r</kbd> | Random patch. |
 | <kbd>⌘S</kbd> / <kbd>⌘O</kbd> | Save / open a patch file. |

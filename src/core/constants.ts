@@ -26,3 +26,5 @@ export const MIDI_MAX = 96;
 export const HISTORY_SECONDS = 300;
 export const SNAPSHOT_SECONDS = 10;
 export const CAPTURE_SECONDS = 30;
+/** Longest offline render (a fresh start of the current patch); 1 h of float WAV ≈ 1.4 GB. */
+export const RENDER_MAX_SECONDS = 3600;

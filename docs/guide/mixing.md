@@ -32,6 +32,16 @@ Press <kbd>c</kbd> or **● capture** to save the last 30 seconds as a WAV, plus
 npm run render-capture capture.json capture.wav
 ```
 
+## Render
+
+Capture records what you just heard. To get a longer take, press <kbd>shift</kbd>+<kbd>C</kbd> or **render…** and type a length of up to an hour: `5` (minutes), `90s`, `1:30` or `1:00:00`. The current patch is rendered from a fresh start, exactly as it would sound if you reloaded and pressed play, but faster than real time and in the background, so you can keep playing. While it runs, the bar shows its progress. Click it again to cancel. When it finishes, you get a WAV and a JSON file with the patch and seed. An hour is about 1.4 GB of 32-bit float audio, and a typical patch takes a few minutes to render it.
+
+The same render from the command line:
+
+```sh
+npm run render patch.json 3600 out.wav
+```
+
 ## Saving, opening and new
 
 | | |

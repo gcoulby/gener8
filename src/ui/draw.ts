@@ -1106,6 +1106,8 @@ const HELP = [
   "                 no map sets pitch? ↑ ↓ change the sound's own note",
   'delete           remove selection',
   'c                capture last 30 s (WAV + patch/seed/edit log)',
+  'shift-C / render render the patch from a fresh start, up to 1 h (e.g. 5, 90s, 1:00:00)',
+  '                 faster than real time; click render again to cancel',
   'n                minimap on / off · click or drag in it to move the view',
   'mixer / vol      levels, mute, solo, FX returns · master level (drag/scroll)',
   't                tap tempo · wheel over bpm / root / scale / seed',
