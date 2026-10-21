@@ -1,5 +1,5 @@
 import type { Edit, EventRecord, FieldObj, MapType, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
-import { PPQ, SR, CAPTURE_SECONDS, MIDI_MAX, MIDI_MIN, RENDER_MAX_SECONDS, RIPPLE_SPEED } from '../core/constants.ts';
+import { PPQ, SR, CAPTURE_SECONDS, MIDI_MAX, MIDI_MIN, RIPPLE_SPEED } from '../core/constants.ts';
 import { applyEdit, byLayer, classicStage, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
 import { followPose, type Pose } from '../core/motion.ts';
 import { angleTurns, depthAt, isCircle } from '../core/geometry.ts';
@@ -16,7 +16,8 @@ import { AudioBridge } from './audio.ts';
 import { History } from './history.ts';
 import { download, encodeWav } from './wav.ts';
 import { RenderJob } from './renderjob.ts';
-import { fmtVideoSpec, openSink, parseVideoSpec, VIDEO_DEFAULT, VideoJob, type VideoSpec } from './video.ts';
+import { openSink, VideoJob } from './video.ts';
+import { fmtRenderSpec, fmtTime, fmtVideoSpec, parseRenderSpec, parseVideoSpec, RENDER_DEFAULT, VIDEO_DEFAULT, type RenderSpec, type VideoSpec } from './takespec.ts';
 import type { Tele } from '../worklet/protocol.ts';
 import { draw } from './draw.ts';
 import { paletteHit, type PaletteItem } from './palette.ts';
@@ -191,7 +192,7 @@ export class App {
   /** Replacing an edited patch needs a second press before this time. */
   private confirmUntil = 0;
   private entryInput: HTMLInputElement | null = null;
-  private renderSeconds = 300;
+  private renderSpec: RenderSpec = RENDER_DEFAULT;
   private videoSpec: VideoSpec = VIDEO_DEFAULT;
   private spaceDown = false;
   private sendQueue = new Map<string, Edit>();
@@ -436,12 +437,12 @@ export class App {
    * Render the current patch from a fresh start, as a reload + play would sound,
    * faster than real time in a worker. Downloads WAV + patch JSON when done.
    */
-  async startRender(seconds: number): Promise<void> {
+  async startRender(spec: RenderSpec): Promise<void> {
     this.render?.cancel();
     const patch = clone(this.patch);
-    const job = new RenderJob(patch, seconds);
+    const job = new RenderJob(patch, spec.seconds, spec.fade);
     this.render = job;
-    this.toast(`rendering ${fmtTime(seconds)} from the start · click render to cancel`);
+    this.toast(`rendering ${fmtRenderSpec(spec)} from the start · click render to cancel`);
     let wav: Blob;
     try {
       wav = await job.done;
@@ -455,9 +456,9 @@ export class App {
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
     const name = `gener8-render-${stamp}`;
     download(wav, `${name}.wav`);
-    const meta = { format: 'gener8.render', version: 1, sampleRate: SR, seconds, seed: patch.seed, patch };
+    const meta = { format: 'gener8.render', version: 1, sampleRate: SR, seconds: spec.seconds, fade: spec.fade, seed: patch.seed, patch };
     download(new Blob([JSON.stringify(meta)], { type: 'application/json' }), `${name}.json`);
-    this.toast(`rendered ${fmtTime(seconds)} → ${name}.wav + .json`);
+    this.toast(`rendered ${fmtRenderSpec(spec)} → ${name}.wav + .json`);
   }
 
   /**
@@ -1510,19 +1511,6 @@ export class App {
     return strHash(t) >>> 0;
   }
 
-  /** Render length text → seconds: h:mm:ss, m:ss, or a number with an optional s / m / h (bare = minutes). */
-  static parseDuration(text: string): number | null {
-    const t = text.trim().toLowerCase();
-    let sec: number;
-    if (/^\d+(:\d{1,2}){1,2}$/.test(t)) sec = t.split(':').reduce((acc, x) => acc * 60 + Number(x), 0);
-    else {
-      const m = /^(\d+(?:\.\d+)?)\s*(s|m|h)?$/.exec(t);
-      if (!m) return null;
-      sec = Number(m[1]) * { s: 1, m: 60, h: 3600 }[m[2] ?? 'm']!;
-    }
-    return sec > 0 ? Math.round(sec) : null;
-  }
-
   openSeedEntry(): void {
     this.openEntry('seedentry', String(this.patch.seed), 'seed', 32, (v) => {
       if (!this.confirmReplace()) return false;
@@ -1531,26 +1519,26 @@ export class App {
   }
 
   openRenderEntry(): void {
-    this.openEntry('render', fmtTime(this.renderSeconds), 'render length (m:ss or h:mm:ss)', 12, (v) => {
-      const sec = App.parseDuration(v);
-      if (sec === null) {
-        this.toast('render length: e.g. 5, 90s, 1:30, 1:00:00');
+    this.openEntry('render', fmtRenderSpec(this.renderSpec), 'render: length, then optional fade / fade:10s / in:2s out:20s', 28, (v) => {
+      const spec = parseRenderSpec(v, this.renderSpec);
+      if (!spec) {
+        this.toast('render: e.g. 5, 90s fade, 1:00:00 in:2s out:30s');
         return false;
       }
-      this.renderSeconds = Math.min(sec, RENDER_MAX_SECONDS);
-      void this.startRender(this.renderSeconds);
+      this.renderSpec = spec;
+      void this.startRender(spec);
     });
   }
 
   openVideoEntry(): void {
-    this.openEntry('video', fmtVideoSpec(this.videoSpec), 'video: length, then optional 60fps / 720p / 1440p / 4k', 24, (v) => {
-      const spec = parseVideoSpec(v, App.parseDuration, this.videoSpec);
+    this.openEntry('video', fmtVideoSpec(this.videoSpec), 'video: length, then optional 60fps / 720p / 1440p / 4k / fade / in:2s out:20s', 40, (v) => {
+      const spec = parseVideoSpec(v, this.videoSpec);
       if (!spec) {
-        this.toast('video: e.g. 5, 90s 60fps, 1:00:00 4k');
+        this.toast('video: e.g. 5, 90s 60fps fade, 1:00:00 4k out:30s');
         return false;
       }
-      this.videoSpec = { ...spec, seconds: Math.min(spec.seconds, RENDER_MAX_SECONDS) };
-      void this.startVideo(this.videoSpec);
+      this.videoSpec = spec;
+      void this.startVideo(spec);
     });
   }
 
@@ -1572,10 +1560,12 @@ export class App {
     inp.autocomplete = 'off';
     inp.setAttribute('aria-label', label);
     const st = inp.style;
+    // wide enough for the starting text (FONT is ~6.7px a character), within the window
+    const w = Math.min(this.W - 34, Math.max(150, (value.length + 4) * 6.7));
     st.position = 'fixed';
-    st.left = Math.max(8, Math.min((hit?.x ?? 14) - 2, this.W - 168)) + 'px';
+    st.left = Math.max(8, Math.min((hit?.x ?? 14) - 2, this.W - w - 18)) + 'px';
     st.bottom = this.H - (hit?.y ?? this.H - this.barH) + 6 + 'px';
-    st.width = '150px';
+    st.width = w + 'px';
     st.padding = '5px 8px';
     st.font = this.mobile ? FONT.replace(/^\d+px/, '16px') : FONT;
     st.color = INK;
@@ -1877,9 +1867,6 @@ export function visReach(r: RippleVis): number {
   return r.stopR ?? r.maxR;
 }
 
-export function fmtTime(sec: number): string {
-  const s = Math.max(0, Math.round(sec));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
+export { fmtTime };
 
 export const CAPTURE_SAMPLES = CAPTURE_SECONDS * SR;

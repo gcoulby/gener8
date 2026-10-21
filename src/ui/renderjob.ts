@@ -1,4 +1,5 @@
 import type { Patch } from '../core/types.ts';
+import type { Fade } from '../core/render.ts';
 import type { FromRender, ToRender } from './renderworker.ts';
 
 /** One offline render running in a worker; cancel() drops it. */
@@ -8,7 +9,7 @@ export class RenderJob {
   private worker: Worker;
   readonly done: Promise<Blob>;
 
-  constructor(patch: Patch, seconds: number) {
+  constructor(patch: Patch, seconds: number, fade: Fade) {
     this.seconds = seconds;
     this.worker = new Worker(new URL('./renderworker.ts', import.meta.url), { type: 'module' });
     this.done = new Promise((resolve, reject) => {
@@ -25,7 +26,7 @@ export class RenderJob {
         this.worker.terminate();
       };
     });
-    const msg: ToRender = { patch, seconds };
+    const msg: ToRender = { patch, seconds, fade };
     this.worker.postMessage(msg);
   }
 

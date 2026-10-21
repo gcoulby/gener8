@@ -36,15 +36,18 @@ npm run render-capture capture.json capture.wav
 
 Capture records what you just heard. To get a longer take, press <kbd>shift</kbd>+<kbd>C</kbd> or **render…** and type a length of up to an hour: `5` (minutes), `90s`, `1:30` or `1:00:00`. The current patch is rendered from a fresh start, exactly as it would sound if you reloaded and pressed play, but faster than real time and in the background, so you can keep playing. While it runs, the bar shows its progress. Click it again to cancel. When it finishes, you get a WAV and a JSON file with the patch and seed. An hour is about 1.4 GB of 32-bit float audio, and a typical patch takes a few minutes to render it.
 
-The same render from the command line:
+To fade in and out, add `fade` after the length: `10m fade` fades over 3 seconds at each end. Set the time with `fade:10s`, or set each end on its own with `in:` and `out:`, e.g. `1:00:00 in:2s out:30s`. A fade length on its own is in seconds. The fades are smooth S-curves, starting and ending in silence. The entry remembers what you last typed.
+
+The same render from the command line, with the same fades, matches the in-app one bit for bit:
 
 ```sh
 npm run render patch.json 3600 out.wav
+npm run render patch.json 3600 out.wav -- --fade 2,30   # 2 s in, 30 s out
 ```
 
 ## Video
 
-To get a video, for YouTube say, press <kbd>shift</kbd>+<kbd>V</kbd> or **video…**. Type a length as for a render, optionally followed by a frame rate and a size: `5` is five minutes at 1080p and 30 fps, `90s 60fps` is 90 seconds at 60 fps, and `1:00:00 4k` is an hour in 4K. The sizes are `720p`, `1080p`, `1440p` and `4k`, all 16:9. 30 fps suits the slow motion of most patches and halves the render time and file size compared with 60 fps.
+To get a video, for YouTube say, press <kbd>shift</kbd>+<kbd>V</kbd> or **video…**. Type a length as for a render, optionally followed by a frame rate, a size and [fades](#render): `5` is five minutes at 1080p and 30 fps, `90s 60fps fade` is 90 seconds at 60 fps fading in and out, and `1:00:00 4k out:30s` is an hour in 4K with a 30-second fade out. The picture fades from and to black along with the sound. The sizes are `720p`, `1080p`, `1440p` and `4k`, all 16:9. 30 fps suits the slow motion of most patches and halves the render time and file size compared with 60 fps.
 
 The video shows the whole window, not only the canvas: the palette, minimap, bar and timeline, plus anything open, such as the mixer or a selected object's bar. It frames the patch as your window does now, widened or narrowed to 16:9. As with a render, the patch plays from a fresh start, faster than real time and in the background. The sound comes from the same render as the picture, so the two stay in step. Everything is drawn [lit](shortcuts.md), at full brightness, because there's no cursor in the video.
 

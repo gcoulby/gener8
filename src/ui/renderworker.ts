@@ -4,18 +4,19 @@
 // blobs to disk), so an hour never sits in one ArrayBuffer.
 
 import { Engine } from '../core/engine.ts';
+import { applyFade, type Fade } from '../core/render.ts';
 import { SR } from '../core/constants.ts';
 import type { Patch } from '../core/types.ts';
 import { wavHeader } from './wav.ts';
 
-export type ToRender = { patch: Patch; seconds: number };
+export type ToRender = { patch: Patch; seconds: number; fade: Fade };
 export type FromRender = { type: 'progress'; done: number } | { type: 'done'; wav: Blob };
 
 const CHUNK = 4096;
 const PART = 10 * SR; // frames per Blob part (3.84 MB)
 
 self.onmessage = (ev: MessageEvent<ToRender>) => {
-  const { patch, seconds } = ev.data;
+  const { patch, seconds, fade } = ev.data;
   const post = (m: FromRender) => self.postMessage(m);
   const engine = new Engine(patch);
   engine.recordEvents = false;
@@ -26,6 +27,7 @@ self.onmessage = (ev: MessageEvent<ToRender>) => {
   for (let at = 0; at < n; at += PART) {
     const m = Math.min(PART, n - at);
     for (let i = 0; i < m; i += CHUNK) engine.process(left, right, Math.min(CHUNK, m - i), i);
+    applyFade(left, right, at, m, n, fade);
     const data = new Float32Array(m * 2);
     for (let i = 0; i < m; i++) {
       data[2 * i] = left[i];

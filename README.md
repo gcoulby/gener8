@@ -109,8 +109,8 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |
-| shift-C / render… | render the patch from a fresh start for up to 1 h (e.g. `5`, `90s`, `1:00:00`), faster than real time in a worker; click again to cancel |
-| shift-V / video… | the same render as an MP4 of the whole window, e.g. `5`, `90s 60fps`, `1:00:00 4k` (default 1080p, 30 fps); click again to cancel |
+| shift-C / render… | render the patch from a fresh start for up to 1 h (e.g. `5`, `90s fade`, `1:00:00 in:2s out:30s`), faster than real time in a worker; click again to cancel |
+| shift-V / video… | the same render as an MP4 of the whole window, e.g. `5`, `90s 60fps fade`, `1:00:00 4k out:30s` (default 1080p, 30 fps); click again to cancel |
 | vol | master level (drag or scroll) |
 | mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
 | bottom bar | new · open · save · random · seed… · share · examples |
@@ -127,7 +127,7 @@ Mixer levels, mutes and solos are stored in the patch, so they're part of every 
 The DSP is plain TypeScript in `src/core/`, shared unchanged by the AudioWorklet and Node. It avoids `Math.sin/exp/pow/…` (not bit-identical across JS engines) in favour of its own implementations, and all randomness is counter-based on the seed. As a result:
 - A patch renders bit-identically every time, at any buffer size.
 - A capture's JSON (root patch + edit log) re-renders its WAV bit for bit: `npm run render-capture capture.json capture.wav`.
-- An in-app render matches `npm run render` of the same patch and length bit for bit.
+- An in-app render matches `npm run render` of the same patch, length and fades bit for bit.
 
 ## Scripts
 
@@ -136,7 +136,7 @@ The DSP is plain TypeScript in `src/core/`, shared unchanged by the AudioWorklet
 | `npm run dev` / `build` / `preview` | Vite |
 | `npm test` | determinism, golden hashes, every registered type, ripples, stress |
 | `npm run stress` | renders 24 sounds × 12 fields for 60 s and reports speed against real time |
-| `npm run render patch.json 60 out.wav` | offline render |
+| `npm run render patch.json 60 out.wav [-- --fade 2,30]` | offline render, optionally fading in and out (seconds) |
 | `npm run golden` | regenerate reference hashes after an intended sound change |
 | `npm run model-svg` | regenerate `docs/gener8-model.svg` from `docs/gener8.ecore` |
 | `npm run generator-golden` | regenerate seed → patch hashes (only when adding a generator version; v1 is frozen) |

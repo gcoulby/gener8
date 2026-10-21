@@ -6,19 +6,13 @@
 
 import type { StreamTargetChunk } from 'mediabunny';
 import { SR } from '../core/constants.ts';
+import { fadeGain } from '../core/render.ts';
 import type { Patch } from '../core/types.ts';
-import { App, fmtTime } from './app.ts';
+import { App } from './app.ts';
+import { BG } from './theme.ts';
+import type { VideoSpec } from './takespec.ts';
 import { download } from './wav.ts';
 import type { FromVideo, ToVideo, VideoFrameData } from './videoworker.ts';
-
-export interface VideoSpec {
-  seconds: number;
-  fps: number;
-  /** 720, 1080, 1440 or 2160; always 16:9. */
-  height: number;
-}
-
-export const VIDEO_DEFAULT: VideoSpec = { seconds: 300, fps: 30, height: 1080 };
 
 /** Roughly YouTube's recommended upload bitrates (SDR). */
 const BITRATE: Record<number, [number, number]> = {
@@ -27,30 +21,6 @@ const BITRATE: Record<number, [number, number]> = {
   1440: [16e6, 24e6],
   2160: [35e6, 53e6],
 };
-
-const HEIGHTS: Record<string, number> = { '720': 720, '720p': 720, '1080': 1080, '1080p': 1080, '1440': 1440, '1440p': 1440, '2k': 1440, '2160': 2160, '2160p': 2160, '4k': 2160 };
-
-/**
- * "5", "10m 60fps", "1:00:00 4k"…: a length (as for render) plus optional
- * frame rate (30fps / 60fps) and size (720p / 1080p / 1440p / 4k), in any order.
- */
-export function parseVideoSpec(text: string, parseDuration: (t: string) => number | null, base: VideoSpec): VideoSpec | null {
-  const spec = { ...base };
-  let seconds: number | null = null;
-  for (const tok of text.trim().toLowerCase().split(/\s+/)) {
-    if (!tok) continue;
-    const f = /^(24|25|30|50|60)\s*fps$/.exec(tok);
-    if (f) spec.fps = Number(f[1]);
-    else if (HEIGHTS[tok]) spec.height = HEIGHTS[tok];
-    else if (seconds === null && (seconds = parseDuration(tok)) !== null) spec.seconds = seconds;
-    else return null;
-  }
-  return spec;
-}
-
-export function fmtVideoSpec(s: VideoSpec): string {
-  return `${fmtTime(s.seconds)} ${s.height === 2160 ? '4k' : s.height + 'p'} ${s.fps}fps`;
-}
 
 /** Where the MP4 goes: a file chosen up front (Chrome, Edge), else a download at the end. */
 interface Sink {
@@ -136,7 +106,7 @@ export class VideoJob {
   private async run(live: App, patch: Patch, sink: Sink): Promise<void> {
     // loaded on first use: most sessions never render a video
     const { AudioSample, AudioSampleSource, CanvasSource, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec, Mp4OutputFormat, Output, Quality, StreamTarget } = await import('mediabunny');
-    const { fps, height, seconds } = this.spec;
+    const { fps, height, seconds, fade } = this.spec;
     const width = Math.round((height * 16) / 9);
     const bitrate = BITRATE[height][fps > 30 ? 1 : 0];
     const vcodec = await getFirstEncodableVideoCodec(['avc', 'vp9', 'av1'], { width, height, bitrate });
@@ -173,12 +143,13 @@ export class VideoJob {
       this.wake?.();
     };
     const post = (m: ToVideo) => this.worker.postMessage(m);
-    post({ type: 'init', patch, fps, frames: total });
+    post({ type: 'init', patch, fps, frames: total, fade });
     // two batches in flight: the worker renders the next while this one is drawn and encoded
     post({ type: 'more', n: batch });
     post({ type: 'more', n: batch });
 
     const decay = 0.88 ** (60 / fps);
+    const samples = Math.round((total * SR) / fps);
     let k = 0;
     let slice = performance.now();
     try {
@@ -196,6 +167,15 @@ export class VideoJob {
           app.tickNow = f.tele.tick;
           app.activate(f.tele.sample, now);
           app.paint(now, decay);
+          // the picture fades with the sound, from and to the background: black at both ends
+          const shade = 1 - Math.min(fadeGain(start, samples, fade), fadeGain(f.tele.sample - 1, samples, fade));
+          if (shade > 0) {
+            app.g.setTransform(1, 0, 0, 1, 0, 0);
+            app.g.globalAlpha = shade;
+            app.g.fillStyle = BG;
+            app.g.fillRect(0, 0, width, height);
+            app.g.globalAlpha = 1;
+          }
           await video.add(k / fps, 1 / fps);
           const sample = new AudioSample({ data: f.audio, format: 'f32-planar', numberOfChannels: 2, sampleRate: SR, timestamp: start / SR });
           await audio.add(sample);

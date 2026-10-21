@@ -5,10 +5,11 @@
 
 import { Engine } from '../core/engine.ts';
 import { SR } from '../core/constants.ts';
+import { applyFade, type Fade } from '../core/render.ts';
 import type { Patch } from '../core/types.ts';
 import type { Tele } from '../worklet/protocol.ts';
 
-export type ToVideo = { type: 'init'; patch: Patch; fps: number; frames: number } | { type: 'more'; n: number };
+export type ToVideo = { type: 'init'; patch: Patch; fps: number; frames: number; fade: Fade } | { type: 'more'; n: number };
 
 export interface VideoFrameData {
   tele: Tele;
@@ -24,6 +25,9 @@ let engine: Engine;
 let fps = 30;
 let total = 0;
 let next = 0;
+let fade: Fade;
+/** Samples in the whole render, for the fade out. */
+let samples = 0;
 
 self.onmessage = (ev: MessageEvent<ToVideo>) => {
   const m = ev.data;
@@ -32,13 +36,16 @@ self.onmessage = (ev: MessageEvent<ToVideo>) => {
     fps = m.fps;
     total = m.frames;
     next = 0;
+    fade = m.fade;
+    samples = Math.round((total * SR) / fps);
     return;
   }
   const frames: VideoFrameData[] = [];
   const transfer: ArrayBuffer[] = [];
   for (let k = 0; k < m.n && next < total; k++, next++) {
     // frame boundaries on whole samples, so rounding never drifts
-    const n = Math.round(((next + 1) * SR) / fps) - Math.round((next * SR) / fps);
+    const at = Math.round((next * SR) / fps);
+    const n = Math.round(((next + 1) * SR) / fps) - at;
     const audio = new Float32Array(n * 2);
     const left = audio.subarray(0, n);
     const right = audio.subarray(n);
@@ -46,6 +53,7 @@ self.onmessage = (ev: MessageEvent<ToVideo>) => {
       const c = Math.min(CHUNK, n - i);
       engine.process(left.subarray(i, i + c), right.subarray(i, i + c), c);
     }
+    applyFade(left, right, at, n, samples, fade);
     const tele: Tele = {
       type: 'tele',
       sample: engine.sample,
