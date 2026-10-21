@@ -102,7 +102,16 @@ src/ui/        canvas, input, panels, timeline
 patches/       example patches (JSON is the source of truth)
 test/          node:test suites
 scripts/       render, capture replay, golden hashes, stress patch
+docs/          patch metamodel (Ecore) and its diagram
 ```
+
+## Patch metamodel
+
+Patches are plain JSON, and their structure is also described as an Eclipse Ecore metamodel: [`docs/gener8.ecore`](docs/gener8.ecore). It covers the patch, key and scale, shapes, the four motion kinds, and every sound and field type. The diagram below was generated from it with the [Model Viewer](https://gcoulby.github.io/model-viewer/).
+
+[![GENER8 patch metamodel](docs/gener8-model.svg)](docs/gener8-model.svg)
+
+*Click the diagram to open it full size (it's wide).*
 
 ## Deploying
 
@@ -110,4 +119,6 @@ scripts/       render, capture replay, golden hashes, stress patch
 
 ---
 
-Logo set in *Free Fat Font*.
+Logo set in *Free Fat Font* by Thom Niessink, free for personal and commercial use.
+
+Metamodel diagram rendered with [gcoulby/model-viewer](https://gcoulby.github.io/model-viewer/).
