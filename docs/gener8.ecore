@@ -127,7 +127,7 @@
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="MapField" abstract="true" eSuperTypes="#//Field">
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
-        <details key="documentation" value="Maps the position of the sounds inside it to placement. Not a processing stage: read directly by the engine before generators run. A sound inside several takes each axis target from the highest layer that sets it; outside all of them it sits at MIDI 60, centre pan."/>
+        <details key="documentation" value="Maps the position of the sounds inside it to placement through one or more Axis children, stored in JSON under axes keyed by the axis name. Not a processing stage: read directly by the engine before generators run. A sound inside several takes each target from the highest layer that sets it; outside all of them it sits at MIDI 60, centre pan. Selected by its edge or label only."/>
       </eAnnotations>
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="XYField" eSuperTypes="#//MapField">
@@ -154,6 +154,73 @@
         </eAnnotations>
     </eStructuralFeatures>
   </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="RadialField" eSuperTypes="#//MapField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/Ecore">
+        <details key="constraints" value="circleShape"/>
+      </eAnnotations>
+      <eAnnotations source="http://www.eclipse.org/emf/2002/Ecore/OCL/Pivot">
+        <details key="circleShape" value="shape.oclIsKindOf(Circle)"/>
+      </eAnnotations>
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Circle with one axis, r, from the centre (min) out to the edge (max): a spotlight. Default shape: r=240. Default axis: level 0 dB at the centre to -24 dB at the edge."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="radial"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="r" upperBound="1" eType="#//Axis" containment="true">
+        <eAnnotations source="http://gener8.app/ecore/json">
+          <details key="key" value="axes.r"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="SweepField" eSuperTypes="#//MapField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/Ecore">
+        <details key="constraints" value="circleShape"/>
+      </eAnnotations>
+      <eAnnotations source="http://www.eclipse.org/emf/2002/Ecore/OCL/Pivot">
+        <details key="circleShape" value="shape.oclIsKindOf(Circle)"/>
+      </eAnnotations>
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Circle with one axis, t, going round clockwise from straight up (min) back to straight up (max); pairs with orbit motion. Default shape: r=240. Default axis: pitch 48..72."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="sweep"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="t" upperBound="1" eType="#//Axis" containment="true">
+        <eAnnotations source="http://gener8.app/ecore/json">
+          <details key="key" value="axes.t"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+  </eClassifiers>
+  <eClassifiers xsi:type="ecore:EClass" name="TriField" eSuperTypes="#//MapField">
+      <eAnnotations source="http://www.eclipse.org/emf/2002/Ecore">
+        <details key="constraints" value="circleShape"/>
+      </eAnnotations>
+      <eAnnotations source="http://www.eclipse.org/emf/2002/Ecore/OCL/Pivot">
+        <details key="circleShape" value="shape.oclIsKindOf(Circle)"/>
+      </eAnnotations>
+      <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
+        <details key="documentation" value="Equilateral triangle stored as a Circle: r is the circumradius, corner a straight up, then b and c clockwise. Each axis runs from the edge opposite its corner (min) to the corner (max), as barycentric weights, so the three always blend (at the centre each is a third of the way). Default shape: r=260. Default axes: a pitch 48..84, b pan 0..1, c reach 0..12."/>
+      </eAnnotations>
+      <eAnnotations source="http://gener8.app/ecore/json">
+        <details key="type" value="tri"/>
+      </eAnnotations>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="a" upperBound="1" eType="#//Axis" containment="true">
+        <eAnnotations source="http://gener8.app/ecore/json">
+          <details key="key" value="axes.a"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="b" upperBound="1" eType="#//Axis" containment="true">
+        <eAnnotations source="http://gener8.app/ecore/json">
+          <details key="key" value="axes.b"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+    <eStructuralFeatures xsi:type="ecore:EReference" name="c" upperBound="1" eType="#//Axis" containment="true">
+        <eAnnotations source="http://gener8.app/ecore/json">
+          <details key="key" value="axes.c"/>
+        </eAnnotations>
+    </eStructuralFeatures>
+  </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="Axis">
       <eAnnotations source="http://www.eclipse.org/emf/2002/Ecore">
         <details key="constraints" value="knownTarget endRange"/>
@@ -163,7 +230,7 @@
         <details key="endRange" value="min &gt;= -10000 and min &lt;= 10000 and max &gt;= -10000 and max &lt;= 10000"/>
       </eAnnotations>
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
-        <details key="documentation" value="Linear map across the field: min at the left (x) or bottom (y) edge, max at the right or top; min greater than max inverts it. Targets and legal ranges (the mapped value is clamped to these): pitch MIDI 24..96 (snapped to the key afterwards), pan -1..1, level dB -40..12, reach 0..24 (× size), angle 0..360, spread 0..360 (degrees, override RippleSettings). param:&lt;key&gt; drives that sound parameter, normalised 0..1 over its range, on sounds that have it."/>
+        <details key="documentation" value="Linear map along one axis of a MapField from its low end (min) to its high end (max): XYField x left to right and y bottom to top, RadialField centre to edge, SweepField once round clockwise from up, TriField opposite edge to corner. min greater than max inverts it. Targets and legal ranges (the mapped value is clamped to these): pitch MIDI 24..96 (snapped to the key afterwards), pan -1..1, level dB -40..12, reach 0..24 (× size), angle 0..360, spread 0..360 (degrees, override RippleSettings). param:&lt;key&gt; drives that sound parameter, normalised 0..1 over its range, on sounds that have it."/>
       </eAnnotations>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="to" lowerBound="1" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EString"/>
     <eStructuralFeatures xsi:type="ecore:EAttribute" name="min" eType="ecore:EDataType http://www.eclipse.org/emf/2002/Ecore#//EDouble"/>

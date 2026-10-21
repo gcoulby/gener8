@@ -1,9 +1,9 @@
 // Where a sound sits → how it is placed: pitch, pan, level and its ripple
-// settings. Nothing about the canvas is fixed: XY fields map position inside
-// them to targets, higher layers override lower ones, and a sound outside every
-// XY field gets the defaults. Shared by the engine and the UI.
+// settings. Nothing about the canvas is fixed: map fields (xy, radial, sweep,
+// tri) map position inside them to targets, higher layers override lower ones,
+// and a sound outside every map gets the defaults. Shared by the engine and the UI.
 
-import type { Axes, Axis, FieldObj, RippleSpec } from './types.ts';
+import type { Axis, FieldObj, MapType, RippleSpec } from './types.ts';
 import type { Pose } from './motion.ts';
 import { MIDI_MAX, MIDI_MIN, RIPPLE_REACH, Y0_MIDI } from './constants.ts';
 import { shapeDims } from './geometry.ts';
@@ -42,11 +42,6 @@ export function targetOf(to: string): XYTarget | null {
   if (to.startsWith(PARAM_PREFIX)) return PARAM_TARGET;
   return Object.hasOwn(XY_TARGETS, to) ? XY_TARGETS[to] : null;
 }
-
-export const DEFAULT_AXES: Axes = {
-  x: { to: 'pan', min: -1, max: 1 },
-  y: { to: 'pitch', min: 48, max: 84 },
-};
 
 /** Value at offset `l` from the centre of an axis spanning ±half. min > max inverts it. */
 export function axisValue(a: Axis, l: number, half: number): number {
@@ -115,6 +110,7 @@ export function newPlacement(): Placement {
 export interface MapPose {
   obj: FieldObj;
   pose: Pose;
+  type: MapType;
 }
 
 function setTarget(out: Placement, to: string, v: number): void {
@@ -150,15 +146,15 @@ function setTarget(out: Placement, to: string, v: number): void {
   }
 }
 
-/** Is (px, py) inside the map's rectangle (edges included)? Returns the half extents, or null. */
-export function mapContains(m: MapPose, px: number, py: number): { hw: number; hh: number } | null {
+const scratch: number[] = [];
+
+/**
+ * Locate (px, py) in a map: false when outside, otherwise out holds
+ * [offset, half] per axis (see MapType.locate).
+ */
+export function mapLocate(m: MapPose, px: number, py: number, out: number[] = scratch): boolean {
   const d = shapeDims(m.obj.shape, m.pose.scale);
-  const hw = d.w / 2;
-  const hh = d.h / 2;
-  const dx = px - m.pose.x;
-  const dy = py - m.pose.y;
-  if ((dx < 0 ? -dx : dx) > hw || (dy < 0 ? -dy : dy) > hh) return null;
-  return { hw, hh };
+  return m.type.locate(d.w, d.h, px - m.pose.x, py - m.pose.y, out);
 }
 
 /** Resolve a sound at (px, py) against the maps, which must be in layer order (lowest first). */
@@ -172,24 +168,32 @@ export function placeSound(px: number, py: number, maps: readonly MapPose[], rip
   out.pk.length = 0;
   out.pv.length = 0;
   for (const m of maps) {
-    const ext = mapContains(m, px, py);
-    if (!ext) continue;
-    const axes = m.obj.axes ?? DEFAULT_AXES;
-    if (axes.x) setTarget(out, axes.x.to, axisValue(axes.x, px - m.pose.x, ext.hw));
-    if (axes.y) setTarget(out, axes.y.to, axisValue(axes.y, py - m.pose.y, ext.hh));
+    if (!mapLocate(m, px, py)) continue;
+    const axes = m.obj.axes ?? m.type.defaultAxes;
+    const specs = m.type.axes;
+    for (let i = 0; i < specs.length; i++) {
+      const a = axes[specs[i].key];
+      if (a) setTarget(out, a.to, axisValue(a, scratch[i * 2], scratch[i * 2 + 1]));
+    }
   }
   return out;
 }
 
-/** The topmost map whose axis drives `to` at (px, py), for the UI's pitch ladder and nudges. */
+/**
+ * The topmost XY field whose x or y axis drives `to` at (px, py): the straight
+ * axes the UI can draw a pitch ladder along and nudge by semitones.
+ */
 export function governingAxis(px: number, py: number, maps: readonly MapPose[], to: string): { m: MapPose; axis: 'x' | 'y'; a: Axis; half: number } | null {
   for (let i = maps.length - 1; i >= 0; i--) {
     const m = maps[i];
-    const ext = mapContains(m, px, py);
-    if (!ext) continue;
-    const axes = m.obj.axes ?? DEFAULT_AXES;
-    if (axes.y?.to === to) return { m, axis: 'y', a: axes.y, half: ext.hh };
-    if (axes.x?.to === to) return { m, axis: 'x', a: axes.x, half: ext.hw };
+    if (!mapLocate(m, px, py)) continue;
+    const axes = m.obj.axes ?? m.type.defaultAxes;
+    if (m.type.id !== 'xy') {
+      if (m.type.axes.some((s) => axes[s.key]?.to === to)) return null;
+      continue;
+    }
+    if (axes.y?.to === to) return { m, axis: 'y', a: axes.y, half: scratch[3] };
+    if (axes.x?.to === to) return { m, axis: 'x', a: axes.x, half: scratch[1] };
   }
   return null;
 }

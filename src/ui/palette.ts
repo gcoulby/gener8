@@ -79,7 +79,12 @@ export function drawPaletteIcon(g: CanvasRenderingContext2D, item: PaletteItem, 
   g.lineWidth = 1.2;
   g.beginPath();
   if (t.shape === 'rect') g.rect(cx - r * 0.9, cy - r * 0.65, r * 1.8, r * 1.3);
-  else g.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
+  else if (t.shape === 'triangle') {
+    g.moveTo(cx, cy - r * 0.95);
+    g.lineTo(cx + r * 0.95, cy + r * 0.7);
+    g.lineTo(cx - r * 0.95, cy + r * 0.7);
+    g.closePath();
+  } else g.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
   g.fill();
   if (t.role === 'transformer' || t.role === 'map') g.setLineDash([3, 2]);
   g.stroke();

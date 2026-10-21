@@ -1,11 +1,12 @@
-import type { Edit, EventRecord, FieldObj, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
+import type { Edit, EventRecord, FieldObj, MapType, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
 import { PPQ, SR, CAPTURE_SECONDS, RIPPLE_SPEED } from '../core/constants.ts';
 import { applyEdit, byLayer, classicStage, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
 import { pose, type Pose } from '../core/motion.ts';
 import { angleTurns, depthAt, isCircle } from '../core/geometry.ts';
 import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
-import { fieldTypes, defaultHandles, isMap } from '../core/fields/registry.ts';
-import { governingAxis, newPlacement, placeSound, rippleOf, type MapPose, type Placement } from '../core/placement.ts';
+import { fieldTypes, defaultHandles, isMap, mapTypeOf } from '../core/fields/registry.ts';
+import { governingAxis, newPlacement, placeSound, RIPPLE_LIMITS, rippleOf, type MapPose, type Placement } from '../core/placement.ts';
+import { triCorner } from '../core/fields/maps.ts';
 import { SCALE_ORDER } from '../core/music.ts';
 import { generatePatch, generators } from '../core/generate.ts';
 import { strHash } from '../core/rand.ts';
@@ -21,6 +22,7 @@ import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, 
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import { motionHitAt, readValue, stepValue, toggleEdit, valueEdit, type MotionHit, type ValueKey } from './motionbar.ts';
 import { EXAMPLES } from './examples.ts';
+import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
 
 export interface Pulse {
   t: number;
@@ -55,7 +57,7 @@ export interface GridVis {
   t: number;
 }
 
-export type HandleKind = 'size' | 'char' | 'mradius' | 'mamp' | 'mpoint' | 'rangle';
+export type HandleKind = 'size' | 'char' | 'mradius' | 'mamp' | 'mpoint' | 'ripple';
 
 export interface HandlePos {
   kind: HandleKind;
@@ -74,6 +76,7 @@ export type Hit =
   | { kind: 'mixer'; hit: MixerHit }
   | { kind: 'mixerBg' }
   | { kind: 'paletteToggle' }
+  | { kind: 'minimap' }
   | { kind: 'strip' };
 
 type Drag =
@@ -87,11 +90,13 @@ type Drag =
   | { kind: 'vol'; sx: number; start: number }
   | { kind: 'mixerScroll'; sx: number; start: number }
   | { kind: 'pinch'; d0: number; z0: number; wx: number; wy: number }
+  | { kind: 'minimap'; tf: MiniTf }
   | { kind: 'panel'; key: string; data: any };
 
 const STORE_KEY = 'gener8.patch.v2';
 /** Where the stored patch goes when a link replaces it. */
 const PREV_KEY = 'gener8.patch.prev';
+const MINIMAP_KEY = 'gener8.minimap';
 export const HANDLE_ZOOM = 0.6;
 /** Far enough out to see the whole canvas (±8000, see sanitise.ts XY). */
 const MIN_ZOOM = 0.05;
@@ -135,6 +140,7 @@ export class App {
   barH = STRIP_H;
   paletteOpen = false;
   mixerOpen = false;
+  showMinimap = readFlag(MINIMAP_KEY, true);
   mixerScroll = 0;
   mixerHits: MixerHit[] = [];
   meterLevel = new Map<string, number>();
@@ -448,7 +454,7 @@ export class App {
     this.maps = v.objects
       .filter((o): o is FieldObj => isMap(o))
       .sort(byLayer)
-      .map((o) => ({ obj: o, pose: this.poseOf(o) }));
+      .map((o) => ({ obj: o, pose: this.poseOf(o), type: fieldTypes[o.type] as MapType }));
     for (const k of this.places.keys()) if (!seen.has(k)) this.places.delete(k);
     for (const o of v.objects) {
       if (o.kind !== 'sound') continue;
@@ -492,16 +498,21 @@ export class App {
     const z = this.cam.zoom;
     if (o.kind === 'sound') {
       out.push({ kind: 'size', x: sx + this.soundRadius(o), y: sy });
-      const r = rippleOf(o.ripple);
-      if (o.id === this.sel && r.mode !== 'ripple' && soundTypes[o.type]?.mode === 'event') {
-        const a = ((this.places.get(o.id)?.angle ?? r.angle) / 360) * Math.PI * 2;
-        const R = this.soundRadius(o) + 32;
-        out.push({ kind: 'rangle', x: sx + Math.sin(a) * R, y: sy - Math.cos(a) * R });
+      if (o.id === this.sel && soundTypes[o.type]?.mode === 'event') {
+        // retrigger handle: its direction is the sound's own angle, its distance its own reach
+        // (a map field may override either; the handle's tag says so)
+        const r = rippleOf(o.ripple);
+        const a = (r.angle / 360) * Math.PI * 2;
+        const R = Math.max(this.soundRadius(o) + 18, r.reach * o.size * p.scale * z);
+        out.push({ kind: 'ripple', x: sx + Math.sin(a) * R, y: sy - Math.cos(a) * R });
       }
     } else {
       const t = fieldTypes[o.type];
       const keys = t ? t.handles.map((h) => h.key) : [];
-      if (isCircle(o.shape)) {
+      if (t?.shape === 'triangle' && isCircle(o.shape)) {
+        const [cx, cy] = triCorner(1, o.shape.r * p.scale * z);
+        out.push({ kind: 'size', x: sx + cx, y: sy - cy });
+      } else if (isCircle(o.shape)) {
         const R = o.shape.r * p.scale * z;
         out.push({ kind: 'size', x: sx + R, y: sy });
         const angs = [0.125, 0.875];
@@ -544,6 +555,7 @@ export class App {
       }
     }
     if (this.mobile && mx >= 8 && mx <= 44 && my >= 46 && my <= 82) return { kind: 'paletteToggle' };
+    if (inMinimap(this, mx, my)) return { kind: 'minimap' };
     const mh = motionHitAt(this, mx, my);
     if (mh) return { kind: 'motion', hit: mh };
     const pi = paletteHit(this, mx, my);
@@ -588,17 +600,11 @@ export class App {
     for (const o of sorted) {
       if (o.kind !== 'field') continue;
       const p = this.poseOf(o);
-      if (isMap(o) && !isCircle(o.shape)) {
-        // XY fields are the ground everything sits on: pick them by their edge or corner label only.
-        const hw = (o.shape.w * p.scale) / 2;
-        const hh = (o.shape.h * p.scale) / 2;
-        const dx = Math.abs(wx - p.x);
-        const dy = Math.abs(wy - p.y);
-        const inside = dx <= hw && dy <= hh;
-        const edgePx = (inside ? Math.min(hw - dx, hh - dy) : Math.hypot(Math.max(dx - hw, 0), Math.max(dy - hh, 0))) * z;
-        const [lx, ly] = this.w2s(p.x - hw, p.y + hh);
-        const onLabel = mx >= lx && mx <= lx + 64 && my >= ly && my <= ly + 20;
-        if (edgePx < EDGE || onLabel) mapsHit.push(o.id);
+      if (mapTypeOf(o)) {
+        // Map fields are the ground everything sits on: pick them by their edge or label only.
+        const lb = this.mapLabelBox(o);
+        const onLabel = mx >= lb.x && mx <= lb.x + lb.w && my >= lb.y && my <= lb.y + lb.h;
+        if (mapEdgeDist(o, p, wx, wy) * z < EDGE || onLabel) mapsHit.push(o.id);
         continue;
       }
       let edgePx: number;
@@ -615,6 +621,15 @@ export class App {
       if (edgePx < EDGE || depthAt(o.shape, p.x, p.y, p.scale, wx, wy) > 0) out.push(o.id);
     }
     return out.concat(mapsHit);
+  }
+
+  /** Screen box of a map field's label, which also picks it: top-left inside a rectangle, above the top of a circle or triangle. */
+  mapLabelBox(o: FieldObj): { x: number; y: number; w: number; h: number; align: 'left' | 'center' } {
+    const p = this.poseOf(o);
+    const z = this.cam.zoom;
+    const [sx, sy] = this.w2s(p.x, p.y);
+    if (isCircle(o.shape)) return { x: sx - 40, y: sy - o.shape.r * p.scale * z - 22, w: 80, h: 18, align: 'center' };
+    return { x: sx - (o.shape.w * p.scale * z) / 2, y: sy - (o.shape.h * p.scale * z) / 2, w: 80, h: 20, align: 'left' };
   }
 
   /** Is (mx, my) within reach of where the current pin was made? */
@@ -653,7 +668,7 @@ export class App {
     }
     const t = fieldTypes[item.type];
     if (!t) return null;
-    const f: FieldObj = { id: nextId(this.patch, t.role === 'map' ? 'xy' : 'f'), kind: 'field', type: t.id, x: Math.round(x), y: Math.round(y), shape: clone(t.defaultShape), layer, handles: defaultHandles(t) };
+    const f: FieldObj = { id: nextId(this.patch, t.role === 'map' ? t.id : 'f'), kind: 'field', type: t.id, x: Math.round(x), y: Math.round(y), shape: clone(t.defaultShape), layer, handles: defaultHandles(t) };
     if (t.role === 'map') f.axes = clone(t.defaultAxes);
     return f;
   }
@@ -662,7 +677,7 @@ export class App {
     const o = this.patch.objects.find((q) => q.id === id);
     if (!o) return null;
     const c = clone(o);
-    c.id = nextId(this.patch, o.kind === 'sound' ? 's' : isMap(o) ? 'xy' : 'f');
+    c.id = nextId(this.patch, o.kind === 'sound' ? 's' : isMap(o) ? o.type : 'f');
     c.layer = this.maxLayer() + 1;
     this.commit({ op: 'add', obj: c });
     return c.id;
@@ -810,6 +825,13 @@ export class App {
       case 'paletteToggle':
         this.paletteOpen = !this.paletteOpen;
         return;
+      case 'minimap': {
+        const tf = minimapTf(this);
+        if (!tf) return;
+        this.drag = { kind: 'minimap', tf };
+        [this.cam.x, this.cam.y] = m2w(tf, mx, my);
+        return;
+      }
       case 'mixerBg':
         this.drag = { kind: 'mixerScroll', sx: mx, start: this.mixerScroll };
         return;
@@ -892,6 +914,9 @@ export class App {
     }
     const [wx, wy] = this.s2w(mx, my);
     switch (d.kind) {
+      case 'minimap':
+        [this.cam.x, this.cam.y] = m2w(d.tf, mx, my);
+        return;
       case 'pan':
         this.cam.x = d.cx - (mx - d.sx) / this.cam.zoom;
         this.cam.y = d.cy + (my - d.sy) / this.cam.zoom;
@@ -978,9 +1003,14 @@ export class App {
         this.commitCoalesced(key, { op: 'set', id: o.id, path: ['motion', 'pos', d.h.kind === 'mradius' ? 'radius' : 'amplitude'], value: r });
         return;
       }
-      case 'rangle': {
+      case 'ripple': {
+        if (o.kind !== 'sound') return;
         const a = Math.round((angleTurns(p.x, p.y, wx, wy) * 360) / 5) * 5;
-        this.commitCoalesced(key, { op: 'set', id: o.id, path: ['ripple', 'angle'], value: a % 360 });
+        // pulled in onto the sound itself: reach 0, it stops retriggering
+        const d = Math.hypot(wx - p.x, wy - p.y) * this.cam.zoom < this.soundRadius(o) + 4 ? 0 : Math.hypot(wx - p.x, wy - p.y);
+        const reach = Math.min(RIPPLE_LIMITS.reach[1], Math.round((d / (o.size * p.scale)) * 2) / 2);
+        this.commitCoalesced(key + ':a', { op: 'set', id: o.id, path: ['ripple', 'angle'], value: a % 360 });
+        this.commitCoalesced(key + ':r', { op: 'set', id: o.id, path: ['ripple', 'reach'], value: reach });
         return;
       }
       case 'mpoint': {
@@ -1081,6 +1111,10 @@ export class App {
         }
         return;
       }
+    }
+    if (inMinimap(this, mx, my)) {
+      this.zoomAt(this.W / 2, (this.H - this.barH) / 2, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+      return;
     }
     const mh = motionHitAt(this, mx, my);
     if (mh && (mh.action.kind === 'value' || mh.action.kind === 'axis')) {
@@ -1413,6 +1447,10 @@ export class App {
       case 'c':
         void this.capture();
         return;
+      case 'n':
+        this.showMinimap = !this.showMinimap;
+        writeFlag(MINIMAP_KEY, this.showMinimap);
+        return;
       case 't':
         this.tap();
         return;
@@ -1462,6 +1500,23 @@ export class App {
   }
 }
 
+function readFlag(key: string, fallback: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === '1';
+  } catch {
+    return fallback;
+  }
+}
+
+function writeFlag(key: string, on: boolean): void {
+  try {
+    localStorage.setItem(key, on ? '1' : '0');
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -1486,6 +1541,31 @@ async function copyText(text: string): Promise<boolean> {
   }
   ta.remove();
   return ok;
+}
+
+/** Distance in world units from (wx, wy) to a map field's outline. */
+function mapEdgeDist(o: FieldObj, p: Pose, wx: number, wy: number): number {
+  const dx = wx - p.x;
+  const dy = wy - p.y;
+  if (!isCircle(o.shape)) {
+    const hw = (o.shape.w * p.scale) / 2;
+    const hh = (o.shape.h * p.scale) / 2;
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    return ax <= hw && ay <= hh ? Math.min(hw - ax, hh - ay) : Math.hypot(Math.max(ax - hw, 0), Math.max(ay - hh, 0));
+  }
+  const R = o.shape.r * p.scale;
+  if (fieldTypes[o.type]?.shape !== 'triangle') return Math.abs(Math.hypot(dx, dy) - R);
+  let best = Infinity;
+  for (let i = 0; i < 3; i++) {
+    const [ax, ay] = triCorner(i, R);
+    const [bx, by] = triCorner((i + 1) % 3, R);
+    const ex = bx - ax;
+    const ey = by - ay;
+    const t = Math.min(1, Math.max(0, ((dx - ax) * ex + (dy - ay) * ey) / (ex * ex + ey * ey)));
+    best = Math.min(best, Math.hypot(dx - ax - t * ex, dy - ay - t * ey));
+  }
+  return best;
 }
 
 /** How far a ripple's visuals travel. */

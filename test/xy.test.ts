@@ -2,16 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/core/engine.ts';
 import { SR } from '../src/core/constants.ts';
-import type { EventRecord, FieldObj, Patch, PatchObject, RippleSpec } from '../src/core/types.ts';
+import type { EventRecord, FieldObj, MapType, Patch, PatchObject, RippleSpec } from '../src/core/types.ts';
 import { classicStage, normalizePatch } from '../src/core/patch.ts';
-import { isMap } from '../src/core/fields/registry.ts';
+import { fieldTypes, isMap } from '../src/core/fields/registry.ts';
 import { newPlacement, placeSound, traceTurns, type MapPose } from '../src/core/placement.ts';
 import { renderOffline } from '../src/core/render.ts';
 import { hashAudio } from './util.ts';
 
 const v1Pitch = (y: number) => Math.min(96, Math.max(24, 60 + y / 10));
 const v1Pan = (x: number) => Math.min(1, Math.max(-1, x / 800));
-const still = (obj: FieldObj): MapPose => ({ obj, pose: { x: obj.x, y: obj.y, scale: 1 } });
+const still = (obj: FieldObj): MapPose => ({ obj, pose: { x: obj.x, y: obj.y, scale: 1 }, type: fieldTypes[obj.type] as MapType });
 
 function xyField(id: string, x: number, y: number, w: number, h: number, layer: number, axes: FieldObj['axes']): FieldObj {
   return { id, kind: 'field', type: 'xy', x, y, shape: { w, h }, layer, handles: {}, axes };
@@ -158,4 +158,50 @@ test('reach sets how far it travels; 0 never retriggers', () => {
   assert.deepEqual(answered(layout({ reach: 0 })), []);
   // 3 × size 80 = 240: up (150) and right (200) yes, diag (283) and far (300) no
   assert.deepEqual(answered(layout({ reach: 3 })), ['right', 'up']);
+});
+
+// ---------- radial, sweep, tri ----------
+
+function roundField(type: string, r: number, axes: FieldObj['axes']): FieldObj {
+  return { id: type, kind: 'field', type, x: 100, y: 50, shape: { r }, layer: 0, handles: {}, axes };
+}
+
+test('radial: centre is min, edge is max, outside is untouched', () => {
+  const m = [still(roundField('radial', 200, { r: { to: 'level', min: 0, max: -20 } }))];
+  const at = (x: number, y: number) => placeSound(x, y, m, undefined, newPlacement()).level;
+  assert.equal(at(100, 50), 0);
+  assert.equal(at(200, 50), -10);
+  assert.equal(at(100, 250), -20);
+  assert.equal(at(100, 251), 0, 'outside');
+});
+
+test('sweep: values go round clockwise from straight up', () => {
+  const m = [still(roundField('sweep', 200, { t: { to: 'pitch', min: 48, max: 72 } }))];
+  const at = (x: number, y: number) => placeSound(x, y, m, undefined, newPlacement()).pitch;
+  assert.equal(at(100, 150), 48, 'up');
+  assert.ok(Math.abs(at(200, 50) - 54) < 1e-9, 'right: a quarter of the way');
+  assert.ok(Math.abs(at(100, -50) - 60) < 1e-9, 'down: half way');
+  assert.ok(Math.abs(at(0, 50) - 66) < 1e-9, 'left: three quarters');
+});
+
+test('tri: each axis runs from the opposite edge to its own corner, and they blend', () => {
+  const m = [still(roundField('tri', 300, { a: { to: 'pitch', min: 40, max: 80 }, b: { to: 'pan', min: 0, max: 1 }, c: { to: 'level', min: 0, max: -30 } }))];
+  const at = (x: number, y: number) => placeSound(x, y, m, undefined, newPlacement());
+  const top = at(100, 50 + 299.999);
+  assert.ok(Math.abs(top.pitch - 80) < 1e-3 && Math.abs(top.pan) < 1e-3 && Math.abs(top.level) < 1e-3, 'top corner');
+  const mid = at(100, 50);
+  assert.ok(Math.abs(mid.pitch - (40 + 40 / 3)) < 1e-9 && Math.abs(mid.pan - 1 / 3) < 1e-9 && Math.abs(mid.level + 10) < 1e-9, 'centre: a third each');
+  // bottom edge (opposite corner a) at y = 50 - 150
+  assert.ok(Math.abs(at(100, -100).pitch - 40) < 1e-9);
+  assert.equal(at(100, 50 + 301).pitch, 60, 'outside: default');
+  assert.equal(at(400, -100).pitch, 60, 'outside a bottom corner');
+});
+
+test('every map type has a default axis per spec and the right shape', () => {
+  for (const t of Object.values(fieldTypes)) {
+    if (t.role !== 'map') continue;
+    for (const s of t.axes) assert.ok(s.key in t.defaultAxes, `${t.id}.${s.key}`);
+    assert.equal(t.shape === 'rect', !('r' in t.defaultShape), t.id);
+  }
+  assert.equal(Object.values(fieldTypes).filter((t) => t.role === 'map').length % 2, 0, 'palette column stays even');
 });

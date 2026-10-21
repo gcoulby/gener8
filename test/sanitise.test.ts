@@ -56,6 +56,8 @@ const rejects: [string, () => unknown][] = [
   ['unknown axis target', () => ({ ...base(), objects: [{ id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { x: { to: 'warp', min: 0, max: 1 } } }] })],
   ['unknown param target', () => ({ ...base(), objects: [{ id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { y: { to: 'param:nope', min: 0, max: 1 } } }] })],
   ['axis end not a number', () => ({ ...base(), objects: [{ id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {}, axes: { y: { to: 'pitch', min: '0', max: 1 } } }] })],
+  ['xy field with a circle shape', () => ({ ...base(), objects: [{ id: 'xy9', kind: 'field', type: 'xy', x: 0, y: 0, shape: { r: 100 }, layer: 0, handles: {} }] })],
+  ['tri field with a rect shape', () => ({ ...base(), objects: [{ id: 'tri1', kind: 'field', type: 'tri', x: 0, y: 0, shape: { w: 100, h: 100 }, layer: 0, handles: {} }] })],
   ['bad ripple mode', () => ({ ...base(), objects: [sound('s1', { ripple: { mode: 'laser' } })] })],
   ['ripple stop not boolean', () => ({ ...base(), objects: [sound('s1', { ripple: { stop: 1 } })] })],
   ['seed out of range', () => ({ ...base(), seed: 4294967296 })],
@@ -130,6 +132,11 @@ test('clamps ripple settings and keeps axes', () => {
   assert.equal(p.objects[1].ripple, undefined);
   assert.deepEqual(p.objects[2].axes, { x: { to: 'param:cutoff', min: 10000, max: 0 } });
   assert.equal(p.objects[3].axes, undefined, 'axes only on xy fields');
+});
+
+test("drops axis keys the map type doesn't have", () => {
+  const p = sanitisePatch({ ...base(), objects: [{ id: 'r1', kind: 'field', type: 'radial', x: 0, y: 0, shape: { r: 100 }, layer: 0, handles: {}, axes: { x: { to: 'pitch', min: 0, max: 1 }, r: { to: 'pan', min: -1, max: 1 } } }] }) as any;
+  assert.deepEqual(p.objects[0].axes, { r: { to: 'pan', min: -1, max: 1 } });
 });
 
 test('a version 1 link migrates: the stage XY field is added', () => {

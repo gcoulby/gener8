@@ -344,7 +344,8 @@ export class Engine {
     }
     this.soundList = sl;
     this.fieldList = fl;
-    this.maps = fl.filter((f) => f.type.role === 'map').map((f) => ({ obj: f.obj, pose: f.pose }));
+    this.maps = [];
+    for (const f of fl) if (f.type.role === 'map') this.maps.push({ obj: f.obj, pose: f.pose, type: f.type });
   }
 
   private makeSound(o: SoundObj, t: SoundType): SoundRT {

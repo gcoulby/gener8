@@ -4,11 +4,11 @@
 // row (ripple / point / multi), and XY fields a row per axis.
 
 import type { App } from './app.ts';
-import type { Axes, Axis, Edit, PatchObject, PosMotion, RippleSpec } from '../core/types.ts';
+import type { Axes, Axis, Edit, MapAxisSpec, PatchObject, PosMotion, RippleSpec } from '../core/types.ts';
 import { isCircle } from '../core/geometry.ts';
 import { soundTypes } from '../core/sounds/registry.ts';
-import { isMap } from '../core/fields/registry.ts';
-import { DEFAULT_AXES, mapContains, PARAM_PREFIX, RIPPLE_LIMITS, rippleOf, targetOf, XY_TARGETS } from '../core/placement.ts';
+import { mapTypeOf } from '../core/fields/registry.ts';
+import { mapLocate, PARAM_PREFIX, RIPPLE_LIMITS, rippleOf, targetOf, XY_TARGETS } from '../core/placement.ts';
 import { FONT_SMALL, INK } from './theme.ts';
 
 export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256];
@@ -19,7 +19,7 @@ export type MotionAction =
   | { kind: 'mode' }
   | { kind: 'rmode'; mode: NonNullable<RippleSpec['mode']> }
   | { kind: 'rstop' }
-  | { kind: 'axis'; axis: 'x' | 'y' }
+  | { kind: 'axis'; axis: string }
   | { kind: 'label' };
 
 export type ValueKey =
@@ -33,10 +33,7 @@ export type ValueKey =
   | 'ripple.angle'
   | 'ripple.count'
   | 'ripple.spread'
-  | 'axis.x.min'
-  | 'axis.x.max'
-  | 'axis.y.min'
-  | 'axis.y.max';
+  | `axis.${string}.${'min' | 'max'}`;
 
 export interface MotionHit {
   action: MotionAction;
@@ -71,7 +68,7 @@ export function targetLabel(to: string): string {
 }
 
 export function axesOf(o: PatchObject): Axes {
-  return (o.kind === 'field' && o.axes) || DEFAULT_AXES;
+  return (o.kind === 'field' && o.axes) || mapTypeOf(o)?.defaultAxes || {};
 }
 
 function retriggerRow(o: PatchObject): Item[] {
@@ -92,18 +89,17 @@ function retriggerRow(o: PatchObject): Item[] {
   return row;
 }
 
-function axisRow(o: PatchObject, ax: 'x' | 'y'): Item[] {
+function axisRow(o: PatchObject, spec: MapAxisSpec): Item[] {
+  const ax = spec.key;
   const a = axesOf(o)[ax];
   const row: Item[] = [
-    { text: ax === 'x' ? 'x ↔' : 'y ↕', action: { kind: 'label' } },
+    { text: spec.label, action: { kind: 'label' } },
     { text: `${a ? targetLabel(a.to) : 'none'} ▾`, action: { kind: 'axis', axis: ax }, value: true },
   ];
   const t = a && targetOf(a.to);
   if (a && t) {
-    const lo = ax === 'x' ? 'left' : 'bottom';
-    const hi = ax === 'x' ? 'right' : 'top';
-    row.push({ text: `${lo} ${t.fmt(a.min)}`, action: { kind: 'value', key: `axis.${ax}.min` }, value: true });
-    row.push({ text: `${hi} ${t.fmt(a.max)}`, action: { kind: 'value', key: `axis.${ax}.max` }, value: true });
+    row.push({ text: `${spec.lo} ${t.fmt(a.min)}`, action: { kind: 'value', key: `axis.${ax}.min` }, value: true });
+    row.push({ text: `${spec.hi} ${t.fmt(a.max)}`, action: { kind: 'value', key: `axis.${ax}.max` }, value: true });
   }
   return row;
 }
@@ -147,7 +143,8 @@ function rows(o: PatchObject): Item[][] {
     ]);
   }
   if (o.kind === 'sound' && soundTypes[o.type]?.mode === 'event') out.push(retriggerRow(o));
-  if (isMap(o)) out.push(axisRow(o, 'x'), axisRow(o, 'y'));
+  const mt = mapTypeOf(o);
+  if (mt) for (const spec of mt.axes) out.push(axisRow(o, spec));
   return out;
 }
 
@@ -238,11 +235,13 @@ const DEFAULTS: Record<'orbit' | 'drift' | 'path', PosMotion> = {
 /** Axis targets to cycle through: the built-ins, then params of the sounds inside the field, then none. */
 function axisTargets(app: App, o: PatchObject): (string | null)[] {
   const keys = new Set<string>();
-  const m = { obj: o as Extract<PatchObject, { kind: 'field' }>, pose: app.poseOf(o) };
+  const type = mapTypeOf(o);
+  if (!type || o.kind !== 'field') return [];
+  const m = { obj: o, pose: app.poseOf(o), type };
   for (const s of app.view.objects) {
     if (s.kind !== 'sound') continue;
     const p = app.poseOf(s);
-    if (!mapContains(m, p.x, p.y)) continue;
+    if (!mapLocate(m, p.x, p.y)) continue;
     for (const q of soundTypes[s.type]?.params ?? []) keys.add(q.key);
   }
   return [...Object.keys(XY_TARGETS), ...[...keys].sort().map((k) => PARAM_PREFIX + k), null];
@@ -258,6 +257,7 @@ export function toggleEdit(app: App, o: PatchObject, a: MotionAction, dir = 1): 
   }
   if (a.kind === 'axis') {
     const list = axisTargets(app, o);
+    if (!list.length) return null;
     const cur = axesOf(o)[a.axis]?.to ?? null;
     const i = list.indexOf(cur);
     const to = list[(((i < 0 ? 0 : i + dir) % list.length) + list.length) % list.length];
@@ -301,7 +301,7 @@ export function readValue(o: PatchObject, key: ValueKey): number {
     const r = rippleOf(o.kind === 'sound' ? o.ripple : undefined);
     return r[key.slice(7) as 'reach' | 'angle' | 'count' | 'spread'];
   }
-  const [, ax, end] = key.split('.') as [string, 'x' | 'y', 'min' | 'max'];
+  const [, ax, end] = key.split('.') as [string, string, 'min' | 'max'];
   return axesOf(o)[ax]?.[end] ?? 0;
 }
 
@@ -334,7 +334,7 @@ export function stepValue(o: PatchObject, key: ValueKey, start: number, steps: n
     case 'ripple.spread':
       return clampTo(Math.round((start + steps * 5) / 5) * 5, RIPPLE_LIMITS.spread[0], RIPPLE_LIMITS.spread[1]);
   }
-  const a = axesOf(o)[key.split('.')[1] as 'x' | 'y'];
+  const a = axesOf(o)[key.split('.')[1]];
   const t = a && targetOf(a.to);
   if (!t) return start;
   const v = Math.round((start + steps * t.step) / t.step) * t.step;
@@ -343,7 +343,7 @@ export function stepValue(o: PatchObject, key: ValueKey, start: number, steps: n
 
 export function valueEdit(o: PatchObject, key: ValueKey, v: number): Edit {
   if (key.startsWith('axis.')) {
-    const [, ax, end] = key.split('.') as [string, 'x' | 'y', 'min' | 'max'];
+    const [, ax, end] = key.split('.') as [string, string, 'min' | 'max'];
     const axes: Axes = { ...axesOf(o) };
     const cur = axes[ax];
     if (cur) axes[ax] = { ...cur, [end]: v } as Axis;

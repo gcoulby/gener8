@@ -3,11 +3,12 @@
 // human message, and clamps numbers to the ranges the UI itself allows.
 // The open-file path and normal editing do not go through this.
 
-import type { Axes, Axis, Breathe, FieldObj, FieldShape, Motion, Patch, PatchObject, PosMotion, RippleSpec, SoundObj, Vec2 } from './types.ts';
+import type { Axes, Axis, MapType, Breathe, FieldObj, FieldShape, Motion, Patch, PatchObject, PosMotion, RippleSpec, SoundObj, Vec2 } from './types.ts';
 import { SCALE_ORDER } from './music.ts';
 import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
 import { normalizePatch } from './patch.ts';
+import { isCircle } from './geometry.ts';
 import { PARAM_PREFIX, RIPPLE_LIMITS, targetOf } from './placement.ts';
 
 export class ShareError extends Error {}
@@ -16,7 +17,7 @@ export class ShareError extends Error {}
 export const SHARE_LIMITS = {
   MAX_SOUNDS: 24,
   MAX_FIELDS: 12,
-  /** XY fields, counted apart from MAX_FIELDS: they cost a few comparisons per sound. */
+  /** Map fields (xy, radial, sweep, tri), counted apart from MAX_FIELDS: they cost a few comparisons per sound. */
   MAX_MAPS: 8,
   MAX_JSON_CHARS: 262144,
   MAX_PATH_POINTS: 32,
@@ -148,14 +149,14 @@ function axis(input: unknown, what: string): Axis | undefined {
   return { to, min: clamp(num(a.min, what), -AXIS_END, AXIS_END), max: clamp(num(a.max, what), -AXIS_END, AXIS_END) };
 }
 
-function axes(input: unknown): Axes | undefined {
+function axes(input: unknown, t: MapType): Axes | undefined {
   if (input === undefined) return undefined;
   const a = obj(input, 'axes');
   const out: Axes = {};
-  const x = axis(a.x, 'x axis');
-  const y = axis(a.y, 'y axis');
-  if (x) out.x = x;
-  if (y) out.y = y;
+  for (const spec of t.axes) {
+    const v = axis(a[spec.key], `${spec.key} axis`);
+    if (v) out[spec.key] = v;
+  }
   return out;
 }
 
@@ -204,7 +205,8 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
     const f: FieldObj = { id, kind: 'field', type, x, y, shape: shape(o.shape), layer, handles };
     if (mo) f.motion = mo;
     if (t.role === 'map') {
-      const ax = axes(o.axes);
+      if ((t.shape === 'rect') !== !isCircle(f.shape)) fail(`bad ${id} shape`);
+      const ax = axes(o.axes, t);
       if (ax) f.axes = ax;
     }
     if (trim !== undefined) f.trim = trim;
@@ -234,11 +236,11 @@ export function sanitisePatch(input: unknown, limits = SHARE_LIMITS): Patch {
   for (const o of list) {
     const kind = isPlain(o) ? o.kind : undefined;
     if (kind === 'sound') nSounds++;
-    else if (kind === 'field' && isPlain(o) && o.type === 'xy') nMaps++;
+    else if (kind === 'field' && isPlain(o) && typeof o.type === 'string' && Object.hasOwn(fieldTypes, o.type) && fieldTypes[o.type].role === 'map') nMaps++;
     else if (kind === 'field') nFields++;
     if (nSounds > limits.MAX_SOUNDS) fail(`too many sounds (max ${limits.MAX_SOUNDS})`);
     if (nFields > limits.MAX_FIELDS) fail(`too many fields (max ${limits.MAX_FIELDS})`);
-    if (nMaps > limits.MAX_MAPS) fail(`too many xy fields (max ${limits.MAX_MAPS})`);
+    if (nMaps > limits.MAX_MAPS) fail(`too many map fields (max ${limits.MAX_MAPS})`);
   }
   const objects = list.map((o) => object(o, limits));
   const ids = new Set<string>();

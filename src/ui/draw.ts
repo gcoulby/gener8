@@ -5,7 +5,8 @@ import { byLayer } from '../core/patch.ts'
 import { angleTurns, depthAt, isCircle, shapeDims } from '../core/geometry.ts'
 import { pose } from '../core/motion.ts'
 import { soundTypes } from '../core/sounds/registry.ts'
-import { fieldTypes, isMap } from '../core/fields/registry.ts'
+import { fieldTypes, isMap, mapTypeOf } from '../core/fields/registry.ts'
+import { triCorner } from '../core/fields/maps.ts'
 import { pulseHits, pulseLength, euclid } from '../core/fields/generators.ts'
 import {
   indexToMidi,
@@ -15,7 +16,6 @@ import {
 } from '../core/music.ts'
 import {
   axisOffset,
-  DEFAULT_AXES,
   governingAxis,
   rippleOf,
   targetOf,
@@ -29,6 +29,7 @@ import { drawTimeline } from './timeline.ts'
 import { drawPanel } from './panel.ts'
 import { drawMotionBar } from './motionbar.ts'
 import { drawMixer } from './mixer.ts'
+import { drawMinimap } from './minimap.ts'
 
 const TAU = Math.PI * 2
 
@@ -66,6 +67,7 @@ export function draw(app: App): void {
   }
 
   drawMotionBar(app)
+  drawMinimap(app)
   drawTabStack(app)
   drawLogo(app)
   drawPalette(app)
@@ -196,6 +198,145 @@ function guideValues(a: Axis, root: number): number[] {
 }
 
 function drawMap(app: App, f: FieldObj): void {
+  if (isCircle(f.shape)) drawRoundMap(app, f, f.shape.r)
+  else drawXYMap(app, f)
+}
+
+/** Selected, hovered or neither: how strongly a map field is drawn. */
+function mapEmphasis(app: App, f: FieldObj): number {
+  if (app.sel === f.id) return 1
+  const hov =
+    (app.hover?.kind === 'object' || app.hover?.kind === 'handle') &&
+    app.hover.id === f.id
+  return hov ? 0.7 : 0.45
+}
+
+function axisEnds(a: Axis | undefined) {
+  const t = a && targetOf(a.to)
+  return a && t
+    ? { label: targetLabel(a.to), lo: t.fmt(a.min), hi: t.fmt(a.max) }
+    : null
+}
+
+/** Radial, sweep and triangle maps: shape outline, guides for pitch and pan, labels. */
+function drawRoundMap(app: App, f: FieldObj, r: number): void {
+  const t = mapTypeOf(f)
+  if (!t) return
+  const g = app.g
+  const p = app.poseOf(f)
+  const z = app.cam.zoom
+  const [sx, sy] = app.w2s(p.x, p.y)
+  const R = r * p.scale * z
+  if (sx + R < 0 || sx - R > app.W || sy + R < 0 || sy - R > app.H) return
+  const k = mapEmphasis(app, f)
+  const sel = app.sel === f.id
+  const axes = f.axes ?? t.defaultAxes
+  const root = app.view.key.root
+  const tri = t.shape === 'triangle'
+  const corner = (i: number, rr = R): [number, number] => {
+    const [cx, cy] = triCorner(i, rr)
+    return [sx + cx, sy - cy]
+  }
+  const outline = () => {
+    g.beginPath()
+    if (tri) {
+      for (let i = 0; i < 3; i++) {
+        const [x, y] = corner(i)
+        if (i) g.lineTo(x, y)
+        else g.moveTo(x, y)
+      }
+      g.closePath()
+    } else g.arc(sx, sy, R, 0, TAU)
+  }
+
+  outline()
+  g.fillStyle = rgba('map', 0.03)
+  g.fill()
+  g.save()
+  outline()
+  g.clip()
+  g.strokeStyle = rgba('map', 0.12)
+  g.fillStyle = rgba('map', 0.35)
+  g.lineWidth = 1
+  g.font = FONT_SMALL
+  g.textAlign = 'center'
+  g.textBaseline = 'bottom'
+  t.axes.forEach((spec, i) => {
+    const a = axes[spec.key]
+    if (!a) return
+    for (const v of guideValues(a, root)) {
+      const u = axisOffset(a, v, 0.5) + 0.5 // 0..1 along the axis
+      g.beginPath()
+      if (t.id === 'radial') {
+        g.arc(sx, sy, u * R, 0, TAU)
+        g.stroke()
+        if (a.to === 'pitch' && z >= 0.3 && u > 0.05) g.fillText(noteName(v), sx, sy - u * R - 2)
+      } else if (t.id === 'sweep') {
+        g.moveTo(sx, sy)
+        g.lineTo(sx + Math.sin(u * TAU) * R, sy - Math.cos(u * TAU) * R)
+        g.stroke()
+        if (a.to === 'pitch' && z >= 0.3)
+          g.fillText(noteName(v), sx + Math.sin(u * TAU) * R * 0.8, sy - Math.cos(u * TAU) * R * 0.8)
+      } else if (tri) {
+        // a line of equal weight runs parallel to the edge opposite corner i
+        const [ax, ay] = corner(i)
+        const [bx, by] = corner((i + 1) % 3)
+        const [cx, cy] = corner((i + 2) % 3)
+        g.moveTo(ax + (1 - u) * (bx - ax), ay + (1 - u) * (by - ay))
+        g.lineTo(ax + (1 - u) * (cx - ax), ay + (1 - u) * (cy - ay))
+        g.stroke()
+      }
+    }
+  })
+  if (t.id === 'sweep') {
+    // where the sweep starts and which way it goes
+    g.strokeStyle = rgba('map', 0.35 * k)
+    g.beginPath()
+    g.moveTo(sx, sy)
+    g.lineTo(sx, sy - R)
+    g.stroke()
+    g.beginPath()
+    g.arc(sx, sy, R * 0.92, -Math.PI / 2 + 0.08, -Math.PI / 2 + 0.5)
+    g.stroke()
+  }
+  g.restore()
+
+  outline()
+  g.strokeStyle = rgba('map', 0.35 * k)
+  g.lineWidth = sel ? 1.4 : 1
+  g.setLineDash([4, 6])
+  g.stroke()
+  g.setLineDash([])
+
+  const lb = app.mapLabelBox(f)
+  g.font = FONT_SMALL
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.fillStyle = rgba('map', 0.8 * k)
+  g.fillText(`${t.glyph} ${f.id}  [${f.layer}]`, lb.x + lb.w / 2, lb.y + lb.h / 2)
+  if (R < 40 || (!sel && k < 0.7 && z < 0.5)) return
+  g.fillStyle = rgba('map', 0.6 * k)
+  if (tri) {
+    t.axes.forEach((spec, i) => {
+      const e = axisEnds(axes[spec.key])
+      if (!e) return
+      const [x, y] = corner(i, R + 14)
+      g.textAlign = i === 0 ? 'center' : i === 1 ? 'left' : 'right'
+      g.textBaseline = i === 0 ? 'bottom' : 'top'
+      g.fillText(`${spec.key}: ${e.label} ${e.hi}`, i === 0 ? x : x + (i === 1 ? -6 : 6), i === 0 ? y - 10 : y)
+    })
+  } else {
+    const spec = t.axes[0]
+    const e = axisEnds(axes[spec.key])
+    if (e) {
+      g.textAlign = 'center'
+      g.textBaseline = 'top'
+      g.fillText(`${e.label}: ${spec.lo} ${e.lo} → ${spec.hi} ${e.hi}`, sx, sy + R + 6)
+    }
+  }
+}
+
+function drawXYMap(app: App, f: FieldObj): void {
   const g = app.g
   const p = app.poseOf(f)
   const z = app.cam.zoom
@@ -207,11 +348,8 @@ function drawMap(app: App, f: FieldObj): void {
   const y0 = sy - h / 2
   if (x0 > app.W || y0 > app.H || x0 + w < 0 || y0 + h < 0) return
   const sel = app.sel === f.id
-  const hov =
-    (app.hover?.kind === 'object' || app.hover?.kind === 'handle') &&
-    app.hover.id === f.id
-  const k = sel ? 1 : hov ? 0.7 : 0.45
-  const axes = f.axes ?? DEFAULT_AXES
+  const k = mapEmphasis(app, f)
+  const axes = f.axes ?? mapTypeOf(f)?.defaultAxes ?? {}
   const root = app.view.key.root
   // labels stay on the visible part of the field (clear of the palette and bar)
   const vx0 = Math.max(x0, 76)
@@ -227,7 +365,7 @@ function drawMap(app: App, f: FieldObj): void {
   g.rect(x0, y0, w, h)
   g.clip()
   g.font = FONT_SMALL
-  for (const ax of ['x', 'y'] as const) {
+  for (const ax of ['x', 'y']) {
     const a = axes[ax]
     if (!a) continue
     const half = (ax === 'x' ? d.w : d.h) / 2
@@ -271,12 +409,8 @@ function drawMap(app: App, f: FieldObj): void {
   g.fillText(`${fieldTypes[f.type]?.glyph ?? '⊹'} ${f.id}  [${f.layer}]`, x0 + 6, y0 + 5)
   if (vx1 - vx0 < 140 || vy1 - vy0 < 60) return
   g.fillStyle = rgba('map', 0.6 * k)
-  const ends = (a: Axis | undefined) => {
-    const t = a && targetOf(a.to)
-    return a && t ? { label: targetLabel(a.to), lo: t.fmt(a.min), hi: t.fmt(a.max) } : null
-  }
-  const ex = ends(axes.x)
-  const ey = ends(axes.y)
+  const ex = axisEnds(axes.x)
+  const ey = axisEnds(axes.y)
   g.textBaseline = 'bottom'
   // an end label is only shown when that edge is on screen
   const lOn = x0 >= vx0 - 1
@@ -743,18 +877,36 @@ function drawHandles(app: App, o: PatchObject): void {
           o.kind === 'sound'
             ? `size ${o.size} (loudness, reach)`
             : isMap(o)
-              ? 'resize (top-left stays put)'
+              ? isCircle(o.shape)
+                ? 'size'
+                : 'resize (top-left stays put)'
               : 'size (intensity)',
           role,
         )
-    } else if (h.kind === 'rangle' && o.kind === 'sound') {
-      const [cx, cy] = app.w2s(app.poseOf(o).x, app.poseOf(o).y)
+    } else if (h.kind === 'ripple' && o.kind === 'sound') {
+      // angle + reach handle: a dotted line out to it, and while in use the full extent
+      const sp = app.poseOf(o)
+      const [cx, cy] = app.w2s(sp.x, sp.y)
+      const rip = rippleOf(o.ripple)
+      const pl = app.places.get(o.id)
+      const reachPx = (pl?.reach ?? rip.reach) * o.size * sp.scale * app.cam.zoom
       g.strokeStyle = rgba('sound', 0.35)
       g.setLineDash([2, 3])
       g.beginPath()
       g.moveTo(cx, cy)
       g.lineTo(h.x, h.y)
       g.stroke()
+      if (on && reachPx > 0) {
+        g.strokeStyle = rgba('sound', 0.18)
+        g.beginPath()
+        if (rip.mode === 'ripple') g.arc(cx, cy, reachPx, 0, TAU)
+        else
+          for (const t of traceTurns(rip.mode, pl?.angle ?? rip.angle, rip.count, pl?.spread ?? rip.spread) ?? []) {
+            g.moveTo(cx, cy)
+            g.lineTo(cx + Math.sin(t * TAU) * reachPx, cy - Math.cos(t * TAU) * reachPx)
+          }
+        g.stroke()
+      }
       g.setLineDash([])
       g.fillStyle = on ? INK : BG
       g.strokeStyle = rgba('sound', 0.9)
@@ -762,8 +914,19 @@ function drawHandles(app: App, o: PatchObject): void {
       g.arc(h.x, h.y, 5, 0, TAU)
       g.fill()
       g.stroke()
-      if (on)
-        tag(app, h.x + 10, h.y, `angle ${Math.round(rippleOf(o.ripple).angle)}° (drag)`, 'sound')
+      if (on) {
+        const over: string[] = []
+        if (pl && pl.reach !== rip.reach) over.push(`reach ×${Math.round(pl.reach * 10) / 10}`)
+        if (pl && rip.mode !== 'ripple' && pl.angle !== rip.angle) over.push(`angle ${Math.round(pl.angle)}°`)
+        tag(
+          app,
+          h.x + 10,
+          h.y,
+          `${rip.mode === 'ripple' ? '' : `angle ${Math.round(rip.angle)}° · `}reach ×${rip.reach}${rip.reach <= 0 ? ' (off)' : ''}  drag` +
+            (over.length ? `  · a map sets ${over.join(', ')}` : ''),
+          'sound',
+        )
+      }
     } else {
       g.fillStyle = on ? INK : BG
       g.strokeStyle = 'rgba(233,228,218,0.7)'
@@ -836,7 +999,8 @@ const HELP = [
   'space            start / pause audio',
   'drag palette     place a sound or field',
   'drag object      move · alt-drag duplicates',
-  'xy field ⊹       maps position to pitch / pan / level / reach / angle / params',
+  'maps ⊹ ◎ ↻ △     xy · radial (centre→edge) · sweep (around) · tri (3 corners)',
+  '                 position → pitch / pan / level / reach / angle / params',
   '                 select by its edge or label · set each axis in the bar below it',
   'size handle ▪    sound: loudness + ripple reach · field: extent',
   'character ◔      drag up/down',
@@ -845,13 +1009,15 @@ const HELP = [
   'select anything  motion bar below it: breathe / orbit / drift / path',
   '                 drag or scroll its values (depth, period, radius…)',
   'retrigger        sounds: ripple ring · point trace · multi traces',
-  '                 reach, angle (or drag the ● handle), count, spread, stop on impact',
+  '                 reach, angle, count, spread, stop on impact',
+  '                 the ● handle: its direction is the angle, its distance the reach',
   'm / b            shortcuts: cycle motion / toggle breathe',
   'tab / shift-tab  cycle through everything under the cursor (incl. field edges)',
   '[ ]              layer down / up (order within a role)',
   '↑ ↓ ← →          nudge a semitone along the pitch axis (shift: an octave)',
   'delete           remove selection',
   'c                capture last 30 s (WAV + patch/seed/edit log)',
+  'n                minimap on / off · click or drag in it to move the view',
   'mixer / vol      levels, mute, solo, FX returns · master level (drag/scroll)',
   't                tap tempo · wheel over bpm / root / scale / seed',
   'timeline strip   drag to preview the past · release to branch',

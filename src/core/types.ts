@@ -55,9 +55,10 @@ export interface SoundObj {
 export type FieldShape = { r: number } | { w: number; h: number };
 
 /**
- * One axis of an XY field: the value at the left/bottom edge (min) and the
- * right/top edge (max). `to` is a built-in target (xy.ts XY_TARGETS) or
- * `param:<key>` for a sound parameter, normalised 0..1 over its range.
+ * One axis of a map field: the value at its low end (min) and high end (max),
+ * e.g. the left and right edges of an XY field. `to` is a built-in target
+ * (placement.ts XY_TARGETS) or `param:<key>` for a sound parameter,
+ * normalised 0..1 over its range.
  */
 export interface Axis {
   to: string;
@@ -65,10 +66,8 @@ export interface Axis {
   max: number;
 }
 
-export interface Axes {
-  x?: Axis;
-  y?: Axis;
-}
+/** Keyed by the map type's axis keys (xy: x, y · radial: r · sweep: t · tri: a, b, c). */
+export type Axes = Partial<Record<string, Axis>>;
 
 export interface FieldObj {
   id: string;
@@ -80,7 +79,7 @@ export interface FieldObj {
   layer: number;
   handles: Record<string, number>;
   motion?: Motion;
-  /** XY fields only: what position inside the field controls. */
+  /** Map fields only: what position inside the field controls. */
   axes?: Axes;
   /** Mixer: FX bus return level in dB (default 0). */
   trim?: number;
@@ -258,7 +257,8 @@ export interface FxProcessor {
 interface FieldTypeBase {
   id: string;
   label: string;
-  shape: 'circle' | 'rect';
+  /** A triangle is stored as { r }: the circumradius, one corner straight up. */
+  shape: 'circle' | 'rect' | 'triangle';
   glyph: string;
   handles: HandleSpec[];
   defaultShape: FieldShape;
@@ -284,10 +284,25 @@ export interface FxType extends FieldTypeBase {
   createProcessor(ctx: FieldContext): FxProcessor;
 }
 
+export interface MapAxisSpec {
+  key: string;
+  /** Row label in the UI, and the names of the low and high ends. */
+  label: string;
+  lo: string;
+  hi: string;
+}
+
 /** Maps position to placement (pitch, pan…). Read by the engine directly, no hooks. */
 export interface MapType extends FieldTypeBase {
   role: 'map';
+  axes: MapAxisSpec[];
   defaultAxes: Axes;
+  /**
+   * Point (dx, dy) from the centre of a field w × h (pose scale applied).
+   * Returns false when outside; otherwise writes, for each axis in order, the
+   * offset from the axis centre and its half length into out[2i], out[2i + 1].
+   */
+  locate(w: number, h: number, dx: number, dy: number, out: number[]): boolean;
 }
 
 export type FieldType = GeneratorType | TransformerType | FxType | MapType;

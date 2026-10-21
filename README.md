@@ -2,7 +2,7 @@
 
 # GENER8
 
-A generative music instrument on an infinite canvas. You place **sounds**, overlap them with **fields**, and let proximity, motion and ripples do the rest. There are no cables, tracks or patterns. Where things sit *is* the patch, and **XY fields** decide what position means.
+A generative music instrument on an infinite canvas. You place **sounds**, overlap them with **fields**, and let proximity, motion and ripples do the rest. There are no cables, tracks or patterns. Where things sit *is* the patch, and **map fields** decide what position means.
 
 It runs in the browser on custom DSP (no samples, no native Web Audio nodes), and every render is **bit-identical from a single seed**.
 
@@ -26,7 +26,7 @@ Press **space** to start audio. The ambient demo loads first. **examples ▾** i
 
 Opening a link loads the patch but never starts audio. Press space or ▶ to hear it. Pasting a new link into an open tab works too. The patch you had before is kept in `localStorage` under `gener8.patch.prev`.
 
-Links are treated as untrusted. A patch from a link is size-capped, decompressed with a hard byte limit, and rebuilt from a whitelist with every number checked and clamped (`src/core/sanitise.ts`). Links are limited to 24 sounds and 12 fields, the tested scale target, plus up to 8 XY fields. A link with an unknown sound or field type is refused with a message rather than half-loaded, and a bad link never replaces your current patch.
+Links are treated as untrusted. A patch from a link is size-capped, decompressed with a hard byte limit, and rebuilt from a whitelist with every number checked and clamped (`src/core/sanitise.ts`). Links are limited to 24 sounds and 12 fields, the tested scale target, plus up to 8 map fields. A link with an unknown sound or field type is refused with a message rather than half-loaded, and a bad link never replaces your current patch.
 
 ## How it works
 
@@ -38,14 +38,25 @@ Links are treated as untrusted. A patch from a link is size-capped, decompressed
 | amber | **generator** | Triggers notes on the sounds inside it. |
 | teal | **transformer** | Changes those notes (thins, transposes, harmonises, stretches…). |
 | violet | **fx** | Processes the audio (filter, tape, delay, chorus, reverb, shimmer). |
-| steel | **xy** | Maps position inside it to pitch, pan, level, ripple reach/angle/spread, or a sound parameter. |
+| steel | **map** | Maps position inside it to pitch, pan, level, ripple reach/angle/spread, or a sound parameter. |
 
-**XY fields give the canvas its meaning.** An XY field is a resizable rectangle with an x and a y axis. Each axis has a target and a value at each edge, and a sound inside the field takes the value at its position. Typical uses:
+**Map fields give the canvas its meaning.** Each has one or more axes. An axis has a target and a value at each end, and a sound inside the field takes the value at its position.
+
+| | shape | axes |
+|---|---|---|
+| **xy** ⊹ | rectangle (resizes from the corner) | x left → right, y bottom → top |
+| **radial** ◎ | circle | centre → edge: a spotlight, e.g. louder in the middle |
+| **sweep** ↻ | circle | once round clockwise from the top. Orbit a sound inside it for a cycling melody. |
+| **tri** △ | triangle | a, b, c: each from the opposite edge to its corner, blended like a colour triangle |
+
+Typical uses of an XY field:
 - The usual stage: y is pitch (up is higher, snapped to the key) and x is pan. Every bundled example has one, and **new** starts with one.
 - A wide, gentle pan field (say 4000 units wide, L50 to R50), so sounds can sit far apart without ripples reaching each other or being panned hard.
 - A small field over a few sounds that maps x to filter cutoff and y to level.
 
-Fields can overlap. For each target, the highest layer wins, so a small field can override part of a big one. A sound outside every XY field plays middle C, centred. XY fields can move and breathe like anything else, which modulates whatever they map. They sit under everything, so you select one by its edge or its label (or with Tab), and its axes are set in the bar below it.
+Map fields can overlap. For each target, the highest layer wins, so a small field can override part of a big one. A sound outside every map field plays middle C, centred. Map fields can move and breathe like anything else, which modulates whatever they map. They sit under everything, so you select one by its edge or its label (or with Tab), and its axes are set in the bar below it.
+
+With room to sprawl, the **minimap** in the top-right corner shows the whole patch and the current view. Click or drag in it to move the view, scroll over it to zoom, and press `n` to hide it.
 
 A sound's size is its loudness and, with its reach, how far its retriggers travel.
 
@@ -58,12 +69,12 @@ A sound's size is its loudness and, with its reach, how far its retriggers trave
 | | |
 |---|---|
 | **ripple** | an expanding ring (the default) |
-| **point** | one trace fired at **angle** (0° is up, 90° is right). Drag the ● handle to aim it. |
+| **point** | one trace fired at **angle** (0° is up, 90° is right) |
 | **multi** | **count** traces fanned across **spread** around the angle. At 360° they're spaced evenly all the way round. |
 | **reach** | how far it travels, as a multiple of the sound's size (default ×6). 0 never retriggers. |
 | **stop on impact** | the ring, or each trace, ends at the first listener it reaches |
 
-A trace hits a listener when it passes through the listener's body.
+A trace hits a listener when it passes through the listener's body. A selected sound has a ● handle: its direction is the angle and its distance is the reach, so you aim and size the retrigger in one drag. Drag it onto the sound to turn retriggers off. If a map field overrides the angle or reach at that spot, the handle's tag says so.
 
 ## Elements
 
@@ -73,7 +84,7 @@ A trace hits a listener when it passes through the listener's body.
 | **Generators** | pulse (Euclidean) · drift (random walk) · arp · rain · strum · grid (cellular automaton) |
 | **Transformers** | probability · transpose · quantise · harmony · humanise · hold · ratchet · every Nth |
 | **FX** | filter · tape · tape delay · chorus · reverb · shimmer |
-| **Maps** | xy |
+| **Maps** | xy · radial · sweep · tri |
 
 ## Controls
 
@@ -87,6 +98,7 @@ A trace hits a listener when it passes through the listener's body.
 | tab / shift-tab | cycle through everything under the cursor, including field edges |
 | double-click or zoom into a sound | open its internals (oscillators, filter, ADSR) |
 | pinch / ⌘-scroll | zoom · two-finger / right-drag / space-drag: pan |
+| minimap | click or drag to move the view, scroll to zoom · `n` shows / hides it |
 | ↑ ↓ ← → | nudge a semitone along the pitch axis under the sound (shift: an octave) |
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
@@ -138,7 +150,7 @@ docs/          patch metamodel (Ecore) and its diagram
 
 ## Patch metamodel
 
-Patches are plain JSON, and their structure is also described as an Eclipse Ecore metamodel: [`docs/gener8.ecore`](docs/gener8.ecore). It covers the patch, key and scale, shapes, the four motion kinds, XY fields and their axes, ripple settings, and every sound and field type.
+Patches are plain JSON, and their structure is also described as an Eclipse Ecore metamodel: [`docs/gener8.ecore`](docs/gener8.ecore). It covers the patch, key and scale, shapes, the four motion kinds, map fields and their axes, ripple settings, and every sound and field type.
 
 The current format is version 2. Version 1 patches, which had a fixed y = pitch and x = pan, still load: old files, share links, seed links and captures all get a stage XY field that reproduces the old mapping bit for bit, so they sound exactly as they did. The diagram below was generated from it with the [Model Viewer](https://gcoulby.github.io/model-viewer/).
 
