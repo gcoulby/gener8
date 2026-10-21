@@ -62,7 +62,9 @@ A sound's size is its loudness and, with its reach, how far its retriggers trave
 
 **Processing order** is fixed by role: generators → transformers → sound → fx. Within a role, the layer order (`[` `]`) decides.
 
-**Motion is modulation.** Any object can breathe, orbit, drift or follow a path, so a sound sliding through a filter field gets a sweep and a breathing field changes intensity. There is no separate modulation matrix.
+**Motion is modulation.** Any object can breathe, orbit, drift, follow a path or **bounce** (drop from a height, bounce lower and lower, rest on its spot, repeat). A sound sliding through a filter field gets a sweep, and a breathing field changes intensity. There is no separate modulation matrix.
+
+**Groups:** any object can **follow** another. Click ⛓ follow… in the bar below it, then click the leader. The follower then rides along with the leader's motion and breathing, on top of its own. Give a generator orbit motion and have its sounds, transformer and FX follow it, and the whole rig moves as one. Dragging a leader moves its followers with it, and chains work (a follows b follows c).
 
 **Ripples:** every note sends out a retrigger that travels at a tempo-synced speed. Hollow sounds it reaches answer, delayed by distance, so layout alone gives you call-and-response. Chain depth and per-sound refractory periods keep feedback in check. Each sound sets its own retrigger in the bar below it:
 
@@ -95,7 +97,7 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | drag from palette | place a sound or field |
 | drag object | move it (alt-drag duplicates) |
 | handles | ▪ size · ◔ character (drag up/down) |
-| select anything | the motion bar appears: breathe / orbit / drift / path, with drag-or-scroll values; sounds add a retrigger row, XY fields an x and a y row (click the target for a menu, or scroll it to step through) |
+| select anything | the motion bar appears: breathe / orbit / drift / path / bounce, plus ⛓ follow, with drag-or-scroll values; sounds add a retrigger row, XY fields an x and a y row (click the target for a menu, or scroll it to step through) |
 | tab / shift-tab | cycle through everything under the cursor, including field edges |
 | double-click or zoom into a sound | open its internals (oscillators, filter, ADSR) |
 | pinch / ⌘-scroll | zoom · two-finger / right-drag / space-drag: pan |
@@ -129,6 +131,7 @@ The DSP is plain TypeScript in `src/core/`, shared unchanged by the AudioWorklet
 | `npm run stress` | renders 24 sounds × 12 fields for 60 s and reports speed against real time |
 | `npm run render patch.json 60 out.wav` | offline render |
 | `npm run golden` | regenerate reference hashes after an intended sound change |
+| `npm run model-svg` | regenerate `docs/gener8-model.svg` from `docs/gener8.ecore` |
 | `npm run generator-golden` | regenerate seed → patch hashes (only when adding a generator version; v1 is frozen) |
 
 Tests run on Node's built-in runner with native TypeScript (Node ≥ 22.18). The only dependencies are dev ones: Vite, TypeScript and `@types/node`.
@@ -151,9 +154,9 @@ docs/          patch metamodel (Ecore) and its diagram
 
 ## Patch metamodel
 
-Patches are plain JSON, and their structure is also described as an Eclipse Ecore metamodel: [`docs/gener8.ecore`](docs/gener8.ecore). It covers the patch, key and scale, shapes, the four motion kinds, map fields and their axes, ripple settings, and every sound and field type.
+Patches are plain JSON, and their structure is also described as an Eclipse Ecore metamodel: [`docs/gener8.ecore`](docs/gener8.ecore). It covers the patch, key and scale, shapes, the motion kinds, follow (groups), map fields and their axes, ripple settings, and every sound and field type.
 
-The current format is version 2. Version 1 patches, which had a fixed y = pitch and x = pan, still load: old files, share links, seed links and captures all get a stage XY field that reproduces the old mapping bit for bit, so they sound exactly as they did. The diagram below was generated from it with the [Model Viewer](https://gcoulby.github.io/model-viewer/).
+The current format is version 2. Version 1 patches, which had a fixed y = pitch and x = pan, still load: old files, share links, seed links and captures all get a stage XY field that reproduces the old mapping bit for bit, so they sound exactly as they did. The diagram below is generated from it by `npm run model-svg` (`scripts/model-svg.ts`), so after changing the metamodel, rerun that and commit both files. Hover a class in the SVG to see its notes. The original diagram was made with the [Model Viewer](https://gcoulby.github.io/model-viewer/).
 
 [![GENER8 patch metamodel](docs/gener8-model.svg)](docs/gener8-model.svg)
 

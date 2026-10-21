@@ -14,6 +14,7 @@ import type {
   NoteEvent,
   ParamSpec,
   Patch,
+  PatchObject,
   SoundObj,
   SoundType,
   Voice,
@@ -30,7 +31,7 @@ import {
   VOICE_BUDGET,
 } from './constants.ts';
 import { applyEdit, byLayer, clone, normalizePatch } from './patch.ts';
-import { pose, type Pose } from './motion.ts';
+import { followPose, type Pose } from './motion.ts';
 import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
 import { hash32, rand, strHash } from './rand.ts';
@@ -160,6 +161,8 @@ export class Engine {
   private soundList: SoundRT[] = [];
   private fieldList: FieldRT[] = [];
   private maps: MapPose[] = [];
+  private byId = new Map<string, PatchObject>();
+  private lookup = (id: string) => this.byId.get(id);
   private ripples: Ripple[] = [];
   private future: NoteEvent[] = [];
   private fresh: NoteEvent[] = [];
@@ -273,6 +276,8 @@ export class Engine {
   private sync(): void {
     this.dirty = false;
     const objs = this.patch.objects.slice().sort(byLayer);
+    this.byId.clear();
+    for (const o of objs) this.byId.set(o.id, o);
     const seenS = new Set<string>();
     const seenF = new Set<string>();
     const sl: SoundRT[] = [];
@@ -420,7 +425,7 @@ export class Engine {
 
     // 1. Motion
     for (const f of this.fieldList) {
-      pose(f.obj, beat, seed, f.pose);
+      followPose(f.obj, beat, seed, this.lookup, f.pose);
       const d = shapeDims(f.obj.shape, f.pose.scale);
       f.ctx.w = d.w;
       f.ctx.h = d.h;
@@ -431,7 +436,7 @@ export class Engine {
       f.members.length = 0;
     }
     for (const s of this.soundList) {
-      pose(s.obj, beat, seed, s.pose);
+      followPose(s.obj, beat, seed, this.lookup, s.pose);
       placeSound(s.pose.x, s.pose.y, this.maps, s.obj, s.place);
       if (s.xyKeys.length || s.place.pk.length) this.applyXYParams(s);
       s.rootIndex = nearestIndex(s.place.pitch, keyRoot, this.steps);

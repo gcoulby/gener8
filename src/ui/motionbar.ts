@@ -16,7 +16,9 @@ import { FONT_SMALL, INK } from './theme.ts';
 export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256];
 
 export type MotionAction =
-  | { kind: 'toggle'; what: 'breathe' | 'orbit' | 'drift' | 'path' }
+  | { kind: 'toggle'; what: 'breathe' | 'orbit' | 'drift' | 'path' | 'bounce' }
+  | { kind: 'follow' }
+  | { kind: 'unfollow' }
   | { kind: 'value'; key: ValueKey }
   | { kind: 'mode' }
   | { kind: 'rmode'; mode: NonNullable<RippleSpec['mode']> }
@@ -31,6 +33,8 @@ export type ValueKey =
   | 'pos.amplitude'
   | 'pos.period'
   | 'pos.rate'
+  | 'pos.height'
+  | 'pos.bounces'
   | 'ripple.reach'
   | 'ripple.angle'
   | 'ripple.count'
@@ -122,6 +126,23 @@ function noteRow(app: App, o: PatchObject): Item[] {
   return row;
 }
 
+/** Following another object (its motion moves this one), or pick one to follow. */
+function followRow(app: App, o: PatchObject): Item[] {
+  const n = app.followersOf(o.id).length;
+  const lead: Item[] = n ? [{ text: `leads ${n}`, action: { kind: 'label' }, dim: true }] : [];
+  if (app.followPick === o.id) return [{ text: 'group', action: { kind: 'label' } }, { text: 'click the object to follow… (esc cancels)', action: { kind: 'label' }, dim: true }];
+  const leader = o.follow && app.obj(o.follow);
+  if (leader) {
+    return [
+      { text: 'group', action: { kind: 'label' } },
+      { text: `⛓ follows ${leader.id}`, action: { kind: 'follow' }, active: true },
+      { text: '× unfollow', action: { kind: 'unfollow' } },
+      ...lead,
+    ];
+  }
+  return [{ text: 'group', action: { kind: 'label' } }, { text: '⛓ follow…', action: { kind: 'follow' } }, ...lead];
+}
+
 function rows(app: App, o: PatchObject): Item[][] {
   const m = o.motion ?? {};
   const pos = m.pos?.type;
@@ -131,7 +152,9 @@ function rows(app: App, o: PatchObject): Item[][] {
       { text: '◯ orbit', action: { kind: 'toggle', what: 'orbit' }, active: pos === 'orbit' },
       { text: '≈ drift', action: { kind: 'toggle', what: 'drift' }, active: pos === 'drift' },
       { text: '⌇ path', action: { kind: 'toggle', what: 'path' }, active: pos === 'path' },
+      { text: '⤓ bounce', action: { kind: 'toggle', what: 'bounce' }, active: pos === 'bounce' },
     ],
+    followRow(app, o),
   ];
   if (m.breathe) {
     out.push([
@@ -158,6 +181,13 @@ function rows(app: App, o: PatchObject): Item[][] {
       { text: 'path', action: { kind: 'toggle', what: 'path' }, active: true },
       { text: `every ${p.periodBeats} beats`, action: { kind: 'value', key: 'pos.period' }, value: true },
       { text: p.mode, action: { kind: 'mode' }, value: true },
+    ]);
+  } else if (p?.type === 'bounce') {
+    out.push([
+      { text: 'bounce', action: { kind: 'toggle', what: 'bounce' }, active: true },
+      { text: `height ${Math.round(p.height)}`, action: { kind: 'value', key: 'pos.height' }, value: true },
+      { text: `${p.bounces} bounces`, action: { kind: 'value', key: 'pos.bounces' }, value: true },
+      { text: `every ${p.periodBeats} beats`, action: { kind: 'value', key: 'pos.period' }, value: true },
     ]);
   }
   if (o.kind === 'sound') out.push(noteRow(app, o));
@@ -245,7 +275,8 @@ export function motionHitAt(app: App, mx: number, my: number): MotionHit | null 
   return null;
 }
 
-const DEFAULTS: Record<'orbit' | 'drift' | 'path', PosMotion> = {
+const DEFAULTS: Record<'orbit' | 'drift' | 'path' | 'bounce', PosMotion> = {
+  bounce: { type: 'bounce', height: 120, bounces: 4, periodBeats: 8 },
   orbit: { type: 'orbit', radius: 80, periodBeats: 16, phase: 0 },
   drift: { type: 'drift', amplitude: 60, rateBeats: 8 },
   path: { type: 'path', points: [[0, 0], [120, 60], [0, 120], [-120, 60]], periodBeats: 32, mode: 'loop' },
@@ -388,6 +419,7 @@ export function toggleEdit(app: App, o: PatchObject, a: MotionAction, dir = 1): 
   if (a.kind === 'rmode' && o.kind === 'sound') {
     return { op: 'set', id: o.id, path: ['ripple', 'mode'], value: a.mode === 'ripple' ? null : a.mode };
   }
+  if (a.kind === 'unfollow') return { op: 'set', id: o.id, path: ['follow'], value: null };
   if (a.kind === 'rstop' && o.kind === 'sound') {
     return { op: 'set', id: o.id, path: ['ripple', 'stop'], value: o.ripple?.stop ? null : true };
   }
@@ -428,6 +460,10 @@ export function readValue(o: PatchObject, key: ValueKey): number {
       return p?.periodBeats ?? 16;
     case 'pos.rate':
       return p?.rateBeats ?? 8;
+    case 'pos.height':
+      return p?.height ?? 0;
+    case 'pos.bounces':
+      return p?.bounces ?? 4;
   }
   if (key === 'sound.note') return o.kind === 'sound' ? (o.note ?? 60) : 60;
   if (key.startsWith('ripple.')) {
@@ -453,7 +489,10 @@ export function stepValue(o: PatchObject, key: ValueKey, start: number, steps: n
       return Math.round(Math.min(0.9, Math.max(0, start + fine * 0.005)) * 100) / 100;
     case 'pos.radius':
     case 'pos.amplitude':
+    case 'pos.height':
       return Math.round(Math.min(4000, Math.max(5, start + fine)));
+    case 'pos.bounces':
+      return clampTo(Math.round(start + steps), 0, 12);
     case 'breathe.period':
     case 'pos.period':
     case 'pos.rate':
@@ -495,6 +534,8 @@ export function valueEdit(o: PatchObject, key: ValueKey, v: number): Edit {
     'pos.amplitude': ['motion', 'pos', 'amplitude'],
     'pos.period': ['motion', 'pos', 'periodBeats'],
     'pos.rate': ['motion', 'pos', 'rateBeats'],
+    'pos.height': ['motion', 'pos', 'height'],
+    'pos.bounces': ['motion', 'pos', 'bounces'],
   };
   return { op: 'set', id: o.id, path: path[key], value: v };
 }

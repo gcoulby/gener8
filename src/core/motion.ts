@@ -1,5 +1,6 @@
 // Motion is closed-form in beats: no integration state, so it is scrubbable,
 // deterministic and tempo-synced. Offsets are relative to the object's home x, y.
+// An object that follows another adds its leader's motion offset and breathing.
 
 import type { PatchObject, Vec2 } from './types.ts';
 import { cosTurns, sinTurns } from './dspmath.ts';
@@ -39,6 +40,55 @@ function pathPoint(pts: Vec2[], u: number, closed: boolean, out: Pose): void {
   out.y += catmull(a[1], b[1], c[1], d[1], t);
 }
 
+/** Fraction of a bounce cycle spent moving; the rest it sits on the ground. */
+const BOUNCE_ACTIVE = 0.75;
+/** Each bounce reaches this fraction of the previous one's height. */
+const BOUNCE_KEEP = 0.45;
+
+/** Height above home at phase u in [0, 1) of a bounce cycle: a drop, then n ever-lower hops, then rest. */
+export function bounceHeight(height: number, n: number, u: number): number {
+  // segment durations go with √height (free fall); the drop is half a hop
+  let total = 1;
+  let h = 1;
+  for (let k = 0; k < n; k++) {
+    h *= BOUNCE_KEEP;
+    total += 2 * Math.sqrt(h);
+  }
+  let t = (u / BOUNCE_ACTIVE) * total;
+  if (t >= total) return 0;
+  if (t < 1) return height * (1 - t * t);
+  t -= 1;
+  h = 1;
+  for (let k = 0; k < n; k++) {
+    h *= BOUNCE_KEEP;
+    const half = Math.sqrt(h);
+    if (t < 2 * half) {
+      const x = (t - half) / half;
+      return height * h * (1 - x * x);
+    }
+    t -= 2 * half;
+  }
+  return 0;
+}
+
+const MAX_FOLLOW = 8;
+const leaderPose: Pose[] = Array.from({ length: MAX_FOLLOW }, () => ({ x: 0, y: 0, scale: 1 }));
+
+/**
+ * pose() plus whatever the object follows: the leader's offset from its home is
+ * added and its scale multiplied in. `lookup` finds objects by id.
+ */
+export function followPose(obj: PatchObject, beat: number, seed: number, lookup: (id: string) => PatchObject | undefined, out: Pose, depth = 0): Pose {
+  pose(obj, beat, seed, out);
+  const leader = obj.follow && depth < MAX_FOLLOW ? lookup(obj.follow) : undefined;
+  if (!leader || leader === obj) return out;
+  const lp = followPose(leader, beat, seed, lookup, leaderPose[depth], depth + 1);
+  out.x += lp.x - leader.x;
+  out.y += lp.y - leader.y;
+  out.scale *= lp.scale;
+  return out;
+}
+
 export function pose(obj: PatchObject, beat: number, seed: number, out: Pose): Pose {
   out.x = obj.x;
   out.y = obj.y;
@@ -61,6 +111,10 @@ export function pose(obj: PatchObject, beat: number, seed: number, out: Pose): P
       const t = beat / Math.max(0.25, p.rateBeats);
       out.x += p.amplitude * fbm(seed, h, 11, t);
       out.y += p.amplitude * fbm(seed, h, 23, t);
+    } else if (p.type === 'bounce') {
+      let u = beat / Math.max(0.25, p.periodBeats);
+      u -= Math.floor(u);
+      out.y += bounceHeight(p.height, p.bounces, u);
     }
   }
   const b = m.breathe;

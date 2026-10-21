@@ -15,7 +15,8 @@
     "generator-golden": "node scripts/generator-golden.ts",
     "make-stress": "node scripts/make-stress.ts",
     "render": "node scripts/render.ts",
-    "render-capture": "node scripts/render-capture.ts"
+    "render-capture": "node scripts/render-capture.ts",
+    "model-svg": "node scripts/model-svg.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

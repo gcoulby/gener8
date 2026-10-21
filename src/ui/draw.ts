@@ -3,7 +3,7 @@ import type { Axis, FieldObj, PatchObject, Role, SoundObj } from '../core/types.
 import { PPQ, RIPPLE_SPEED, MIDI_MAX, MIDI_MIN } from '../core/constants.ts'
 import { byLayer } from '../core/patch.ts'
 import { angleTurns, depthAt, isCircle, shapeDims } from '../core/geometry.ts'
-import { pose } from '../core/motion.ts'
+import { followPose } from '../core/motion.ts'
 import { soundTypes } from '../core/sounds/registry.ts'
 import { fieldTypes, isMap, mapTypeOf } from '../core/fields/registry.ts'
 import { triCorner } from '../core/fields/maps.ts'
@@ -45,6 +45,7 @@ export function draw(app: App): void {
   for (const o of objs) if (o.kind === 'field' && !isMap(o)) drawField(app, o)
   drawRipples(app)
   drawCauses(app)
+  drawFollowLinks(app)
   for (const o of objs) if (o.kind === 'sound') drawSound(app, o)
 
   const sel = app.obj(app.sel)
@@ -662,6 +663,28 @@ function drawRipples(app: App): void {
   }
 }
 
+/** Group links for the selection: to what it follows, and from what follows it. */
+function drawFollowLinks(app: App): void {
+  const sel = app.sel
+  if (!sel) return
+  const g = app.g
+  g.strokeStyle = 'rgba(233,228,218,0.4)'
+  g.lineWidth = 1
+  g.setLineDash([1, 4])
+  g.beginPath()
+  for (const o of app.view.objects) {
+    if (!o.follow || (o.id !== sel && o.follow !== sel)) continue
+    const leader = app.obj(o.follow)
+    if (!leader) continue
+    const [ax, ay] = app.w2s(app.poseOf(o).x, app.poseOf(o).y)
+    const [bx, by] = app.w2s(app.poseOf(leader).x, app.poseOf(leader).y)
+    g.moveTo(ax, ay)
+    g.lineTo(bx, by)
+  }
+  g.stroke()
+  g.setLineDash([])
+}
+
 function drawCauses(app: App): void {
   const g = app.g
   for (const c of app.causes) {
@@ -808,7 +831,7 @@ function drawMotionGuide(app: App, o: PatchObject): void {
     g.setLineDash([3, 5])
     g.beginPath()
     for (let i = 0; i <= 128; i++) {
-      pose(o, app.beat + (period * i) / 128, app.view.seed, tmp)
+      followPose(o, app.beat + (period * i) / 128, app.view.seed, app.lookup, tmp)
       const [x, y] = app.w2s(tmp.x, tmp.y)
       if (i === 0) g.moveTo(x, y)
       else g.lineTo(x, y)
@@ -1013,7 +1036,9 @@ const HELP = [
   'retrigger        sounds: ripple ring · point trace · multi traces',
   '                 reach, fall-off, angle, count, spread, stop on impact',
   '                 the ● handle: its direction is the angle, its distance the reach',
-  'm / b            shortcuts: cycle motion / toggle breathe',
+  'm / b            shortcuts: cycle motion (orbit, drift, path, bounce) / toggle breathe',
+  'group ⛓          follow…, then click a leader: its motion and breathing carry this too',
+  '                 dragging a leader moves its followers with it',
   'tab / shift-tab  cycle through everything under the cursor (incl. field edges)',
   '[ ]              layer down / up (order within a role)',
   '↑ ↓ ← →          nudge a semitone along the pitch axis (shift: an octave)',

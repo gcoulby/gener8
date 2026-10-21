@@ -1,7 +1,7 @@
 import type { Edit, EventRecord, FieldObj, MapType, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
 import { PPQ, SR, CAPTURE_SECONDS, MIDI_MAX, MIDI_MIN, RIPPLE_SPEED } from '../core/constants.ts';
 import { applyEdit, byLayer, classicStage, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
-import { pose, type Pose } from '../core/motion.ts';
+import { followPose, type Pose } from '../core/motion.ts';
 import { angleTurns, depthAt, isCircle } from '../core/geometry.ts';
 import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
 import { fieldTypes, defaultHandles, isMap, mapTypeOf } from '../core/fields/registry.ts';
@@ -58,7 +58,7 @@ export interface GridVis {
   t: number;
 }
 
-export type HandleKind = 'size' | 'char' | 'mradius' | 'mamp' | 'mpoint' | 'ripple';
+export type HandleKind = 'size' | 'char' | 'mradius' | 'mamp' | 'mheight' | 'mpoint' | 'ripple';
 
 export interface HandlePos {
   kind: HandleKind;
@@ -145,6 +145,9 @@ export class App {
   showMinimap = readFlag(MINIMAP_KEY, true);
   /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
   axisMenu: AxisMenu | null = null;
+  /** Picking a leader for this object: the next click on an object sets its follow. */
+  followPick: string | null = null;
+  readonly lookup = (id: string): PatchObject | undefined => this.view.objects.find((o) => o.id === id);
   menuHits: MenuHit[] = [];
   mixerScroll = 0;
   mixerHits: MixerHit[] = [];
@@ -452,7 +455,7 @@ export class App {
         p = { x: 0, y: 0, scale: 1 };
         this.poses.set(o.id, p);
       }
-      pose(o, this.beat, v.seed, p);
+      followPose(o, this.beat, v.seed, this.lookup, p);
       seen.add(o.id);
     }
     for (const k of this.poses.keys()) if (!seen.has(k)) this.poses.delete(k);
@@ -541,6 +544,7 @@ export class App {
       const [hx, hy] = this.w2s(o.x, o.y);
       if (m.type === 'orbit') out.push({ kind: 'mradius', x: hx + m.radius * z, y: hy });
       else if (m.type === 'drift') out.push({ kind: 'mamp', x: hx + m.amplitude * z, y: hy });
+      else if (m.type === 'bounce') out.push({ kind: 'mheight', x: hx, y: hy - m.height * z });
       else if (m.type === 'path')
         m.points.forEach((pt, i) => {
           const [px, py] = this.w2s(o.x + pt[0], o.y + pt[1]);
@@ -664,6 +668,46 @@ export class App {
 
   // ---------- objects ----------
 
+  /** Everything that follows id, directly or down a chain. */
+  followersOf(id: string): PatchObject[] {
+    const out: PatchObject[] = [];
+    const seen = new Set([id]);
+    for (let frontier = [id]; frontier.length; ) {
+      const next: string[] = [];
+      for (const o of this.patch.objects) {
+        if (o.follow && frontier.includes(o.follow) && !seen.has(o.id)) {
+          seen.add(o.id);
+          out.push(o);
+          next.push(o.id);
+        }
+      }
+      frontier = next;
+    }
+    return out;
+  }
+
+  /** Move an object, and its followers by the same amount, so a group moves together. */
+  private moveGroup(id: string, x: number, y: number, coalesce: boolean): void {
+    const o = this.patch.objects.find((q) => q.id === id);
+    if (!o) return;
+    const dx = x - o.x;
+    const dy = y - o.y;
+    const send = (e: Edit) => (coalesce ? this.commitCoalesced(`move:${e.op === 'move' ? e.id : ''}`, e) : this.commit(e));
+    send({ op: 'move', id, x, y });
+    if (dx || dy) for (const f of this.followersOf(id)) send({ op: 'move', id: f.id, x: f.x + dx, y: f.y + dy });
+  }
+
+  private setFollow(id: string, leader: string): void {
+    if (id === leader) return;
+    // no loops: the leader mustn't already follow this object
+    if (this.followersOf(id).some((f) => f.id === leader)) {
+      this.toast(`${leader} already follows ${id}`);
+      return;
+    }
+    this.commit({ op: 'set', id, path: ['follow'], value: leader });
+    this.toast(`${id} follows ${leader} · give ${leader} motion to move them together`);
+  }
+
   private maxLayer(): number {
     return this.patch.objects.reduce((m, o) => Math.max(m, o.layer), 0);
   }
@@ -701,6 +745,7 @@ export class App {
     else if (cur === 'orbit') next = { type: 'drift', amplitude: 60, rateBeats: 8 };
     else if (cur === 'drift')
       next = { type: 'path', points: [[0, 0], [120, 60], [0, 120], [-120, 60]], periodBeats: 32, mode: 'loop' };
+    else if (cur === 'path') next = { type: 'bounce', height: 120, bounces: 4, periodBeats: 8 };
     else next = null;
     this.commit({ op: 'set', id, path: ['motion', 'pos'], value: next });
     this.toast(next ? `motion: ${next.type}` : 'motion: none');
@@ -821,6 +866,13 @@ export class App {
     }
 
     const hit = this.hitTest(mx, my);
+    if (this.followPick) {
+      // picking a leader: an object sets it, anything else cancels
+      if (hit?.kind === 'object') this.setFollow(this.followPick, hit.id);
+      else if (!(hit?.kind === 'motion' && hit.hit.action.kind === 'follow')) this.toast('follow cancelled');
+      this.followPick = null;
+      return;
+    }
     this.downAt = { x: mx, y: my, id: hit?.kind === 'object' ? hit.id : null, wasSel: hit?.kind === 'object' && hit.id === this.sel, touch };
     if (this.examplesOpen && !(hit?.kind === 'ui' && (hit.id === 'examples' || hit.id.startsWith('example:')))) {
       this.examplesOpen = false;
@@ -874,6 +926,10 @@ export class App {
         const a = hit.hit.action;
         if (a.kind === 'axis') {
           openAxisMenu(this, o, a.axis, hit.hit);
+          return;
+        }
+        if (a.kind === 'follow') {
+          this.followPick = o.id;
           return;
         }
         if (a.kind === 'value') {
@@ -944,12 +1000,9 @@ export class App {
         this.cam.x = d.cx - (mx - d.sx) / this.cam.zoom;
         this.cam.y = d.cy + (my - d.sy) / this.cam.zoom;
         return;
-      case 'move': {
-        const x = Math.round(wx + d.dx);
-        const y = Math.round(wy + d.dy);
-        this.commitCoalesced('move:' + d.id, { op: 'move', id: d.id, x, y });
+      case 'move':
+        this.moveGroup(d.id, Math.round(wx + d.dx), Math.round(wy + d.dy), true);
         return;
-      }
       case 'handle':
         this.dragHandle(d, mx, my, wx, wy);
         return;
@@ -1020,6 +1073,9 @@ export class App {
         this.commitCoalesced(key, { op: 'set', id: o.id, path: ['handles', d.h.key!], value: Math.round(v * 1000) / 1000 });
         return;
       }
+      case 'mheight':
+        this.commitCoalesced(key, { op: 'set', id: o.id, path: ['motion', 'pos', 'height'], value: Math.round(Math.max(5, wy - o.y)) });
+        return;
       case 'mradius':
       case 'mamp': {
         const r = Math.round(Math.max(5, Math.hypot(wx - o.x, wy - o.y)));
@@ -1442,7 +1498,8 @@ export class App {
     switch (e.key) {
       case 'Escape':
         this.pinned = null;
-        if (this.axisMenu) this.axisMenu = null;
+        if (this.followPick) this.followPick = null;
+        else if (this.axisMenu) this.axisMenu = null;
         else if (this.examplesOpen) this.examplesOpen = false;
         else if (this.scrub) this.scrub.cancelled = true;
         else if (this.panel) this.panel = null;
@@ -1525,7 +1582,7 @@ export class App {
         const step = Math.max(1, Math.round(semi * (e.shiftKey ? 12 : 1)));
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? step : e.key === 'ArrowDown' ? -step : 0;
-        this.commit({ op: 'move', id: o.id, x: o.x + dx, y: o.y + dy });
+        this.moveGroup(o.id, o.x + dx, o.y + dy, false);
         return;
       }
     }

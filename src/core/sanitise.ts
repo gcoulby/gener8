@@ -41,6 +41,7 @@ const MASTER = [-60, 12];
 const BREATHE_AMOUNT = [0, 0.9];
 const MOTION_DIST = [0, 4000];
 const MIN_BEATS = 0.25;
+const MAX_BOUNCES = 12;
 
 type Obj = Record<string, unknown>;
 
@@ -109,6 +110,8 @@ function posMotion(input: unknown, limits: typeof SHARE_LIMITS): PosMotion {
       return { type: 'orbit', radius: clamp(num(m.radius, 'orbit'), MOTION_DIST[0], MOTION_DIST[1]), periodBeats: beats(m.periodBeats, 'orbit'), phase: clamp(num(m.phase ?? 0, 'orbit'), -1, 1) };
     case 'drift':
       return { type: 'drift', amplitude: clamp(num(m.amplitude, 'drift'), MOTION_DIST[0], MOTION_DIST[1]), rateBeats: beats(m.rateBeats, 'drift') };
+    case 'bounce':
+      return { type: 'bounce', height: clamp(num(m.height, 'bounce'), MOTION_DIST[0], MOTION_DIST[1]), bounces: Math.round(clamp(num(m.bounces, 'bounce'), 0, MAX_BOUNCES)), periodBeats: beats(m.periodBeats, 'bounce') };
     case 'path': {
       if (!Array.isArray(m.points) || m.points.length < 1 || m.points.length > limits.MAX_PATH_POINTS) fail('bad path');
       const points = (m.points as unknown[]).map((p): Vec2 => {
@@ -189,11 +192,14 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
   const layer = clamp(int(o.layer, `${id} layer`, -Infinity, Infinity), 0, 999);
   const mo = motion(o.motion, limits);
   const trim = o.trim === undefined ? undefined : clamp(num(o.trim, id), TRIM[0], TRIM[1]);
+  // checked against the other ids once every object is built
+  const follow = o.follow === undefined ? undefined : typeof o.follow === 'string' && ID_RE.test(o.follow) ? o.follow : fail(`bad ${id} follow`);
 
   if (o.kind === 'sound') {
     const t = soundTypes[type] ?? fail(`unknown sound "${type.slice(0, 24)}" · needs a newer GENER8`);
     const s: SoundObj = { id, kind: 'sound', type, x, y, size: clamp(num(o.size, id), SOUND_SIZE[0], SOUND_SIZE[1]), layer, params: values(o.params, t.params, `${id} params`) };
     if (mo) s.motion = mo;
+    if (follow) s.follow = follow;
     const rp = ripple(o.ripple);
     if (rp) s.ripple = rp;
     if (o.note !== undefined) s.note = Math.round(clamp(num(o.note, id), MIDI_MIN, MIDI_MAX));
@@ -207,6 +213,7 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
     const handles = values(o.handles, t.handles.map((h) => ({ key: h.key, min: 0, max: 1 })), `${id} handles`);
     const f: FieldObj = { id, kind: 'field', type, x, y, shape: shape(o.shape), layer, handles };
     if (mo) f.motion = mo;
+    if (follow) f.follow = follow;
     if (t.role === 'map') {
       if ((t.shape === 'rect') !== !isCircle(f.shape)) fail(`bad ${id} shape`);
       const ax = axes(o.axes, t);
@@ -251,6 +258,8 @@ export function sanitisePatch(input: unknown, limits = SHARE_LIMITS): Patch {
     if (ids.has(o.id)) fail('duplicate object id');
     ids.add(o.id);
   }
+  // a follow must name another object in the patch; anything else is dropped
+  for (const o of objects) if (o.follow !== undefined && (o.follow === o.id || !ids.has(o.follow))) delete o.follow;
 
   const built: Patch = { format: 'gener8.patch', version: p.version as 1 | 2, seed, tempo, key: { root, scale }, objects };
   if (p.master !== undefined) built.master = clamp(num(p.master, 'master'), MASTER[0], MASTER[1]);

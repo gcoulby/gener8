@@ -58,6 +58,7 @@ function stageField(objs: PatchObject[], id?: string): FieldObj {
     let ey = 0;
     if (m?.type === 'orbit') ex = ey = Math.abs(m.radius);
     else if (m?.type === 'drift') ex = ey = Math.abs(m.amplitude);
+    else if (m?.type === 'bounce') ey = Math.abs(m.height);
     else if (m?.type === 'path')
       for (const pt of m.points) {
         // a Catmull-Rom curve can overshoot its points a little

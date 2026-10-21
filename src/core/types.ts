@@ -5,7 +5,9 @@ export type Vec2 = [number, number];
 export type PosMotion =
   | { type: 'orbit'; radius: number; periodBeats: number; phase: number }
   | { type: 'path'; points: Vec2[]; periodBeats: number; mode: 'loop' | 'pingpong' }
-  | { type: 'drift'; amplitude: number; rateBeats: number };
+  | { type: 'drift'; amplitude: number; rateBeats: number }
+  /** Drops from `height`, bounces `bounces` times, each lower, rests on its home spot, repeats every periodBeats. */
+  | { type: 'bounce'; height: number; bounces: number; periodBeats: number };
 
 export interface Breathe {
   amount: number;
@@ -15,6 +17,16 @@ export interface Breathe {
 export interface Motion {
   pos?: PosMotion;
   breathe?: Breathe;
+}
+
+/** Shared by sounds and fields. */
+interface Placed {
+  /**
+   * Id of an object to ride along with: its motion offset is added to this
+   * object's position and its breathing multiplies this object's scale. A
+   * leader with motion moves the whole group. Chains are followed a few deep.
+   */
+  follow?: string;
 }
 
 /**
@@ -40,7 +52,7 @@ export interface RippleSpec {
   stop?: boolean;
 }
 
-export interface SoundObj {
+export interface SoundObj extends Placed {
   id: string;
   kind: 'sound';
   type: string;
@@ -76,7 +88,7 @@ export interface Axis {
 /** Keyed by the map type's axis keys (xy: x, y · radial: r · sweep: t · tri: a, b, c). */
 export type Axes = Partial<Record<string, Axis>>;
 
-export interface FieldObj {
+export interface FieldObj extends Placed {
   id: string;
   kind: 'field';
   type: string;
