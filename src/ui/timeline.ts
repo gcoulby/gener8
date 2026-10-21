@@ -1,4 +1,5 @@
-import { EXAMPLES, fmtTime, type App } from './app.ts';
+import { fmtTime, type App } from './app.ts';
+import { EXAMPLES } from './examples.ts';
 import { CAPTURE_SECONDS, HISTORY_SECONDS, SR } from '../core/constants.ts';
 import { NOTE_NAMES, SCALE_LABELS } from '../core/music.ts';
 import { FONT, INK, rgba } from './theme.ts';
@@ -6,7 +7,6 @@ import { FONT, INK, rgba } from './theme.ts';
 /** Height of one bar row (the desktop bar is one row). */
 export const STRIP_H = 30;
 const READOUT_W = 540;
-const IO_W = 250;
 
 type Item = [string, string];
 
@@ -15,6 +15,9 @@ function ioItems(app: App): Item[] {
     ['new', 'new'],
     ['open', 'open'],
     ['save', 'save'],
+    ['random', 'random'],
+    ['seedentry', 'seed…'],
+    ['share', 'share'],
     ['examples', app.examplesOpen ? 'examples ▴' : 'examples ▾'],
   ];
 }
@@ -60,19 +63,20 @@ export function barLayout(app: App): BarLayout {
   g.font = FONT;
   if (!app.mobile) {
     const y = app.H - STRIP_H;
-    const x1 = Math.max(IO_W + 120, app.W - READOUT_W);
     const items: Placed[] = [];
     let x = 14;
     for (const [id, label] of ioItems(app)) {
       items.push({ id, label, x, y });
       x += g.measureText(label).width + 14;
     }
+    const x0 = x + 12;
+    const x1 = Math.max(x0 + 120, app.W - READOUT_W);
     x = x1 + 16;
     for (const [id, label] of readoutItems(app)) {
       items.push({ id, label, x, y });
       x += g.measureText(label).width + 14;
     }
-    return { h: STRIP_H, strip: { x0: IO_W, x1, y }, items };
+    return { h: STRIP_H, strip: { x0, x1, y }, items };
   }
   const gap = 18;
   const all = [...readoutItems(app), ...ioItems(app)];

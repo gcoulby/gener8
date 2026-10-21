@@ -17,6 +17,17 @@ Press **space** to start audio. The ambient demo loads first. **examples ▾** i
 
 **On a phone or tablet** the layout adapts: tap ▶ to start, **+** opens the palette, pinch to zoom, drag empty space to pan, tap a selected object again to step down through what's under it, and double-tap a sound for its internals.
 
+## Sharing
+
+**share** copies a link. Everything is in the URL fragment (`#…`), which browsers never send to a server.
+
+- **Seed links** (`#s=3041872655&g=1`) are used when the patch is exactly what the generator builds from its seed, i.e. you pressed **random** or typed a seed and haven't changed anything since. They are short and stay valid forever: `g` is the generator version, and old versions are kept.
+- **Patch links** (`#p=…`) are used for everything else. The patch JSON is deflated and base64url-encoded, about 1–2k characters for a typical patch.
+
+Opening a link loads the patch but never starts audio. Press space or ▶ to hear it. Pasting a new link into an open tab works too. The patch you had before is kept in `localStorage` under `gener8.patch.prev`.
+
+Links are treated as untrusted. A patch from a link is size-capped, decompressed with a hard byte limit, and rebuilt from a whitelist with every number checked and clamped (`src/core/sanitise.ts`). Links are limited to 24 sounds and 12 fields, the tested scale target. A link with an unknown sound or field type is refused with a message rather than half-loaded, and a bad link never replaces your current patch.
+
 ## How it works
 
 **Sounds** are synth voices. **Fields** are regions that affect any sound inside them. How deep a sound sits in a field sets how strongly that field acts on it, and overlap and proximity are the only relationships.
@@ -66,7 +77,10 @@ Press **space** to start audio. The ambient demo loads first. **examples ▾** i
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |
 | vol | master level (drag or scroll) |
 | mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
-| bottom bar | new · open · save · examples |
+| bottom bar | new · open · save · random · seed… · share · examples |
+| r / random | a new patch from a random seed (asks again before replacing an edited patch) |
+| seed… | type a seed: a number, or any text (hashed to a number) |
+| share | copy a link to the current patch |
 | h / ? | help |
 
 Mixer levels, mutes and solos are stored in the patch, so they're part of every capture and replay.
@@ -86,6 +100,7 @@ The DSP is plain TypeScript in `src/core/`, shared unchanged by the AudioWorklet
 | `npm run stress` | renders 24 sounds × 12 fields for 60 s and reports speed against real time |
 | `npm run render patch.json 60 out.wav` | offline render |
 | `npm run golden` | regenerate reference hashes after an intended sound change |
+| `npm run generator-golden` | regenerate seed → patch hashes (only when adding a generator version; v1 is frozen) |
 
 Tests run on Node's built-in runner with native TypeScript (Node ≥ 22.18). The only dependencies are dev ones: Vite, TypeScript and `@types/node`.
 

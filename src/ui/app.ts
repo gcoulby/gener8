@@ -6,6 +6,10 @@ import { depthAt, isCircle } from '../core/geometry.ts';
 import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
 import { fieldTypes, defaultHandles } from '../core/fields/registry.ts';
 import { SCALE_ORDER } from '../core/music.ts';
+import { generatePatch, generators } from '../core/generate.ts';
+import { strHash } from '../core/rand.ts';
+import { buildShare, isDisposable, linkErrorMessage, parseHash, resolveLink } from './share.ts';
+import { BG, FONT, INK } from './theme.ts';
 import { AudioBridge } from './audio.ts';
 import { History } from './history.ts';
 import { download, encodeWav } from './wav.ts';
@@ -15,28 +19,7 @@ import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
 import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, type MixerHit } from './mixer.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import { motionHitAt, readValue, stepValue, toggleEdit, valueEdit, type MotionHit, type ValueKey } from './motionbar.ts';
-import demoPatch from '../../patches/demo.json';
-import stressPatch from '../../patches/stress-24x12.json';
-import rhythmicPatch from '../../patches/rhythmic.json';
-import tapePatch from '../../patches/tape.json';
-import loopsPatch from '../../patches/loops.json';
-import rainfallPatch from '../../patches/rainfall.json';
-import cellsPatch from '../../patches/cells.json';
-import choirPatch from '../../patches/choir.json';
-import bloomPatch from '../../patches/bloom.json';
-
-/** Bundled patches, in menu order; `key` is an optional shift-shortcut. */
-export const EXAMPLES: { id: string; label: string; key?: string; patch: unknown }[] = [
-  { id: 'ambient', label: 'ambient', key: 'D', patch: demoPatch },
-  { id: 'tape', label: 'tape', key: 'T', patch: tapePatch },
-  { id: 'loops', label: 'loops (airports)', patch: loopsPatch },
-  { id: 'rainfall', label: 'rainfall', patch: rainfallPatch },
-  { id: 'bloom', label: 'bloom', patch: bloomPatch },
-  { id: 'choir', label: 'choir (motion)', patch: choirPatch },
-  { id: 'cells', label: 'cells (automaton)', patch: cellsPatch },
-  { id: 'rhythmic', label: 'rhythmic', key: 'R', patch: rhythmicPatch },
-  { id: 'stress', label: 'stress 24×12', key: 'X', patch: stressPatch },
-];
+import { EXAMPLES } from './examples.ts';
 
 export interface Pulse {
   t: number;
@@ -101,6 +84,8 @@ type Drag =
   | { kind: 'panel'; key: string; data: any };
 
 const STORE_KEY = 'gener8.patch.v2';
+/** Where the stored patch goes when a link replaces it. */
+const PREV_KEY = 'gener8.patch.prev';
 export const HANDLE_ZOOM = 0.6;
 
 export class App {
@@ -153,6 +138,9 @@ export class App {
   toastMsg = '';
   toastT = 0;
   private taps: number[] = [];
+  /** Replacing an edited patch needs a second press before this time. */
+  private confirmUntil = 0;
+  private seedInput: HTMLInputElement | null = null;
   private spaceDown = false;
   private sendQueue = new Map<string, Edit>();
   private saveTimer = 0;
@@ -160,10 +148,70 @@ export class App {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.g = canvas.getContext('2d')!;
-    this.patch = this.loadStored() ?? normalizePatch(demoPatch);
+    // Precedence: a link, then the stored patch, then the demo. Seed links build
+    // synchronously so the old patch never flashes; patch links decode async.
+    const link = parseHash(location.hash);
+    const seeded = link?.kind === 'seed' && generators[link.gen] ? generatePatch(link.seed, link.gen) : null;
+    if (seeded) this.stashPrev(false);
+    this.patch = seeded ?? this.loadStored() ?? normalizePatch(EXAMPLES[0].patch);
     this.resize();
     this.bind();
+    if (seeded) {
+      this.stripHash();
+      this.fitView();
+      this.queueSave();
+      this.toastLoaded();
+    } else if (link) void this.loadFromHash();
+    window.addEventListener('hashchange', () => void this.loadFromHash());
     requestAnimationFrame(this.frame);
+  }
+
+  /** Load the patch named by location.hash, if any. Never starts audio; a bad link keeps the current patch. */
+  async loadFromHash(): Promise<void> {
+    const hash = location.hash;
+    if (hash.length < 2) return;
+    const link = parseHash(hash);
+    // strip it either way, so a reload doesn't repeat it
+    this.stripHash();
+    if (!link) {
+      this.toast('bad link');
+      return;
+    }
+    try {
+      const p = await resolveLink(link);
+      this.stashPrev(true);
+      this.load(p, '');
+      this.fitView();
+      this.toastLoaded();
+    } catch (err) {
+      this.toast(linkErrorMessage(err));
+    }
+  }
+
+  private toastLoaded(): void {
+    const n = (k: string) => this.patch.objects.filter((o) => o.kind === k).length;
+    this.toast(`loaded shared patch · ${n('sound')} sounds, ${n('field')} fields · ${this.mobile ? 'tap ▶' : 'press space'}`);
+  }
+
+  private stripHash(): void {
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  /**
+   * Keep the stored patch in gener8.patch.prev before a link replaces it. In an
+   * open tab (`flush`), save the live patch first so recent edits aren't lost.
+   */
+  private stashPrev(flush: boolean): void {
+    try {
+      if (flush) {
+        clearTimeout(this.saveTimer);
+        localStorage.setItem(STORE_KEY, JSON.stringify(this.patch));
+      }
+      const cur = localStorage.getItem(STORE_KEY);
+      if (cur) localStorage.setItem(PREV_KEY, cur);
+    } catch {
+      /* storage unavailable */
+    }
   }
 
   // ---------- model ----------
@@ -1021,6 +1069,17 @@ export class App {
       case 'examples':
         this.examplesOpen = !this.examplesOpen;
         return;
+      case 'random':
+        this.randomPatch();
+        return;
+      case 'seedentry':
+        // open on the click, not here: the pointerdown's default action would
+        // otherwise take focus straight back off the new input
+        this.canvas.addEventListener('click', () => this.openSeedEntry(), { once: true });
+        return;
+      case 'share':
+        void this.share();
+        return;
       case 'mixer':
         this.mixerOpen = !this.mixerOpen;
         return;
@@ -1030,6 +1089,129 @@ export class App {
       this.examplesOpen = false;
       if (ex) this.load(ex.patch, `loaded ${ex.label}`);
     }
+  }
+
+  /**
+   * True when it's fine to replace the current patch. An edited patch needs a
+   * second press within 3 s: before audio starts there is no history to branch
+   * back to, and autosave would overwrite the stored patch within a second.
+   */
+  private confirmReplace(): boolean {
+    if (isDisposable(this.patch) || performance.now() < this.confirmUntil) {
+      this.confirmUntil = 0;
+      return true;
+    }
+    this.confirmUntil = performance.now() + 3000;
+    this.toast('this replaces your edited patch · press again to confirm');
+    return false;
+  }
+
+  randomPatch(): void {
+    if (!this.confirmReplace()) return;
+    this.loadSeed(crypto.getRandomValues(new Uint32Array(1))[0]);
+  }
+
+  private loadSeed(seed: number): void {
+    this.load(generatePatch(seed), 'seed ' + seed);
+    this.fitView();
+  }
+
+  /** Centre the camera on the patch, zooming out if needed but never in past 1. */
+  fitView(): void {
+    const objs = this.patch.objects;
+    if (!objs.length) return;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const o of objs) {
+      const hw = o.kind === 'sound' ? o.size / 2 : isCircle(o.shape) ? o.shape.r : o.shape.w / 2;
+      const hh = o.kind === 'sound' ? o.size / 2 : isCircle(o.shape) ? o.shape.r : o.shape.h / 2;
+      x0 = Math.min(x0, o.x - hw);
+      x1 = Math.max(x1, o.x + hw);
+      y0 = Math.min(y0, o.y - hh);
+      y1 = Math.max(y1, o.y + hh);
+    }
+    const margin = 60;
+    const z = Math.min(this.W / (x1 - x0 + 2 * margin), (this.H - this.barH) / (y1 - y0 + 2 * margin));
+    this.cam = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 - this.barH / 2 / Math.min(1, Math.max(0.15, z)), zoom: Math.min(1, Math.max(0.15, z)) };
+  }
+
+  /** Seed text → uint32: digits within range are used as is, anything else is hashed. */
+  static parseSeed(text: string): number {
+    const t = text.trim();
+    if (/^\d{1,10}$/.test(t) && Number(t) <= 4294967295) return Number(t);
+    return strHash(t) >>> 0;
+  }
+
+  /** A small DOM input over the bar: the canvas has no text entry of its own. */
+  openSeedEntry(): void {
+    if (this.seedInput) {
+      this.seedInput.focus();
+      return;
+    }
+    const hit = this.uiHits.find((u) => u.id === 'seedentry');
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.maxLength = 32;
+    inp.value = String(this.patch.seed);
+    inp.spellcheck = false;
+    inp.autocomplete = 'off';
+    inp.setAttribute('aria-label', 'seed');
+    const st = inp.style;
+    st.position = 'fixed';
+    st.left = Math.max(8, Math.min((hit?.x ?? 14) - 2, this.W - 168)) + 'px';
+    st.bottom = this.H - (hit?.y ?? this.H - this.barH) + 6 + 'px';
+    st.width = '150px';
+    st.padding = '5px 8px';
+    st.font = this.mobile ? FONT.replace(/^\d+px/, '16px') : FONT;
+    st.color = INK;
+    st.background = BG;
+    st.border = '1px solid rgba(233,228,218,0.3)';
+    st.borderRadius = '4px';
+    st.outline = 'none';
+    this.seedInput = inp;
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      this.seedInput = null;
+      inp.remove();
+    };
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') close();
+      else if (e.key === 'Enter') {
+        if (!inp.value.trim()) return close();
+        if (!this.confirmReplace()) return;
+        const seed = App.parseSeed(inp.value);
+        close();
+        this.loadSeed(seed);
+      }
+    });
+    inp.addEventListener('blur', close);
+    document.body.appendChild(inp);
+    inp.focus();
+    inp.select();
+  }
+
+  private async share(): Promise<void> {
+    let r: { url: string; kind: 'seed' | 'patch' };
+    try {
+      r = await buildShare(this.patch);
+    } catch (err) {
+      this.toast("can't share: " + linkErrorMessage(err));
+      return;
+    }
+    if (!(await copyText(r.url))) {
+      history.replaceState(null, '', r.url);
+      this.toast('could not copy · the link is in the address bar');
+      return;
+    }
+    const n = r.url.length;
+    let msg = 'link copied · ' + (r.kind === 'seed' ? 'seed link' : `${n < 1000 ? n : (n / 1000).toFixed(1) + 'k'} chars`);
+    if (n > 2000) msg += ' · long, some chat apps may cut it';
+    this.toast(msg);
   }
 
   savePatch(): void {
@@ -1061,6 +1243,8 @@ export class App {
   }
 
   private onKey(e: KeyboardEvent): void {
+    // typing in the seed box must not trigger shortcuts (c captures, t taps tempo…)
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key === 's') {
       e.preventDefault();
@@ -1129,6 +1313,9 @@ export class App {
       case 't':
         this.tap();
         return;
+      case 'r':
+        this.randomPatch();
+        return;
       case 'h':
       case '?':
         this.showHelp = !this.showHelp;
@@ -1166,6 +1353,32 @@ export class App {
       }
     }
   }
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to the textarea fallback */
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  ta.remove();
+  return ok;
 }
 
 export function fmtTime(sec: number): string {
