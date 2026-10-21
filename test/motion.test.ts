@@ -6,8 +6,9 @@ import { sanitisePatch } from '../src/core/sanitise.ts';
 import { renderOffline } from '../src/core/render.ts';
 import { hashAudio, loadPatch } from './util.ts';
 
-test('bounce: drops from the height, each hop lower, then rests on the ground', () => {
+test('bounce: drops and bounces lower to the ground, then the same in reverse back to the top', () => {
   assert.equal(bounceHeight(100, 3, 0), 100);
+  assert.equal(bounceHeight(100, 3, 0.5), 0, 'touches down half way');
   const peaks: number[] = [];
   let prev = 100;
   let rising = false;
@@ -18,17 +19,19 @@ test('bounce: drops from the height, each hop lower, then rests on the ground', 
     rising = h > prev;
     prev = h;
   }
-  assert.equal(peaks.length, 3, `peaks ${peaks}`);
-  for (let i = 1; i < peaks.length; i++) assert.ok(peaks[i] < peaks[i - 1]);
-  for (let u = 0.76; u < 1; u += 0.01) assert.equal(bounceHeight(100, 3, u), 0, 'resting');
-  assert.ok(bounceHeight(100, 0, 0.5) > 0 && bounceHeight(100, 0, 0.8) === 0, 'no bounces: one slow drop, then rest');
+  assert.equal(peaks.length, 6, `peaks ${peaks}`);
+  for (let i = 1; i < 3; i++) assert.ok(peaks[i] < peaks[i - 1], 'lower and lower');
+  for (let i = 3; i < 6; i++) assert.ok(Math.abs(peaks[i] - peaks[5 - i]) < 0.5, 'then mirrored');
+  for (const u of [0.1, 0.23, 0.37, 0.44]) assert.ok(Math.abs(bounceHeight(100, 3, u) - bounceHeight(100, 3, 1 - u)) < 1e-9, `symmetric at ${u}`);
+  assert.ok(bounceHeight(100, 3, 0.999) > 99, 'rises back to the top: no jump when it repeats');
+  assert.ok(bounceHeight(100, 0, 0.25) > 0 && bounceHeight(100, 0, 0.5) === 0, 'no bounces: down and back up');
 });
 
 test('bounce motion moves the object up from its home and repeats each period', () => {
   const o: PatchObject = { id: 's', kind: 'sound', type: 'pluck', x: 10, y: 20, size: 40, layer: 0, params: {}, motion: { pos: { type: 'bounce', height: 80, bounces: 2, periodBeats: 4 } } };
   const p = { x: 0, y: 0, scale: 1 };
   assert.deepEqual(pose(o, 0, 1, p), { x: 10, y: 100, scale: 1 });
-  assert.equal(pose(o, 3.5, 1, p).y, 20);
+  assert.equal(pose(o, 2, 1, p).y, 20);
   assert.equal(pose(o, 4, 1, p).y, 100);
 });
 

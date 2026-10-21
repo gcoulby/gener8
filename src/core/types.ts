@@ -6,7 +6,7 @@ export type PosMotion =
   | { type: 'orbit'; radius: number; periodBeats: number; phase: number }
   | { type: 'path'; points: Vec2[]; periodBeats: number; mode: 'loop' | 'pingpong' }
   | { type: 'drift'; amplitude: number; rateBeats: number }
-  /** Drops from `height`, bounces `bounces` times, each lower, rests on its home spot, repeats every periodBeats. */
+  /** Drops from `height` and bounces `bounces` times, each lower, to its home spot; then the same in reverse back up. One cycle every periodBeats. */
   | { type: 'bounce'; height: number; bounces: number; periodBeats: number };
 
 export interface Breathe {

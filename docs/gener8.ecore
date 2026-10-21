@@ -90,7 +90,7 @@
   </eClassifiers>
   <eClassifiers xsi:type="ecore:EClass" name="BounceMotion" eSuperTypes="#//PositionMotion">
       <eAnnotations source="http://www.eclipse.org/emf/2002/GenModel">
-        <details key="documentation" value="Drops from height above home, bounces the given number of times (each reaching 0.45 of the last height, timed like free fall), then rests on home for the last quarter of the period and starts again."/>
+        <details key="documentation" value="Over the first half of the period it drops from height above home and bounces the given number of times (each reaching 0.45 of the last height, timed like free fall) until it touches down; the second half is the same in reverse, hopping back up to the top, so the cycle repeats without a jump."/>
       </eAnnotations>
       <eAnnotations source="http://gener8.app/ecore/json">
         <details key="type" value="bounce"/>

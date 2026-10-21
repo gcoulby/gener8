@@ -40,13 +40,20 @@ function pathPoint(pts: Vec2[], u: number, closed: boolean, out: Pose): void {
   out.y += catmull(a[1], b[1], c[1], d[1], t);
 }
 
-/** Fraction of a bounce cycle spent moving; the rest it sits on the ground. */
-const BOUNCE_ACTIVE = 0.75;
 /** Each bounce reaches this fraction of the previous one's height. */
 const BOUNCE_KEEP = 0.45;
 
-/** Height above home at phase u in [0, 1) of a bounce cycle: a drop, then n ever-lower hops, then rest. */
+/**
+ * Height above home at phase u in [0, 1) of a bounce cycle. The first half
+ * drops from the height and bounces n times, each lower, until it touches down;
+ * the second half is the same in reverse, so it hops back up to the top.
+ */
 export function bounceHeight(height: number, n: number, u: number): number {
+  return bounceDrop(height, n, u < 0.5 ? u * 2 : (1 - u) * 2);
+}
+
+/** The drop and ever-lower hops, spread over v in [0, 1]. */
+function bounceDrop(height: number, n: number, v: number): number {
   // segment durations go with √height (free fall); the drop is half a hop
   let total = 1;
   let h = 1;
@@ -54,7 +61,7 @@ export function bounceHeight(height: number, n: number, u: number): number {
     h *= BOUNCE_KEEP;
     total += 2 * Math.sqrt(h);
   }
-  let t = (u / BOUNCE_ACTIVE) * total;
+  let t = v * total;
   if (t >= total) return 0;
   if (t < 1) return height * (1 - t * t);
   t -= 1;

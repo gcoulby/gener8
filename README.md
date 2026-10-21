@@ -62,7 +62,7 @@ A sound's size is its loudness and, with its reach, how far its retriggers trave
 
 **Processing order** is fixed by role: generators → transformers → sound → fx. Within a role, the layer order (`[` `]`) decides.
 
-**Motion is modulation.** Any object can breathe, orbit, drift, follow a path or **bounce** (drop from a height, bounce lower and lower, rest on its spot, repeat). A sound sliding through a filter field gets a sweep, and a breathing field changes intensity. There is no separate modulation matrix.
+**Motion is modulation.** Any object can breathe, orbit, drift, follow a path or **bounce** (drop from a height and bounce lower and lower onto its spot, then the same in reverse back up to the top). A sound sliding through a filter field gets a sweep, and a breathing field changes intensity. There is no separate modulation matrix.
 
 **Groups:** any object can **follow** another. Click ⛓ follow… in the bar below it, then click the leader. The follower then rides along with the leader's motion and breathing, on top of its own. Give a generator orbit motion and have its sounds, transformer and FX follow it, and the whole rig moves as one. Dragging a leader moves its followers with it, and chains work (a follows b follows c).
 
