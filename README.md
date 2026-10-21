@@ -104,11 +104,13 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | double-click or zoom into a sound | open its internals (oscillators, filter, ADSR) |
 | pinch / ⌘-scroll | zoom · two-finger / right-drag / space-drag: pan |
 | minimap | click or drag to move the view, scroll to zoom · `n` shows / hides it |
+| l | lit (everything at full brightness) or reactive (lit by nearness to the cursor) |
 | ↑ ↓ ← → | nudge a semitone along the pitch axis under the sound (shift: an octave). Where no map sets pitch, ↑ ↓ change the sound's own note. |
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |
 | shift-C / render… | render the patch from a fresh start for up to 1 h (e.g. `5`, `90s`, `1:00:00`), faster than real time in a worker; click again to cancel |
+| shift-V / video… | the same render as an MP4 of the whole window, e.g. `5`, `90s 60fps`, `1:00:00 4k` (default 1080p, 30 fps); click again to cancel |
 | vol | master level (drag or scroll) |
 | mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
 | bottom bar | new · open · save · random · seed… · share · examples |
@@ -139,7 +141,7 @@ The DSP is plain TypeScript in `src/core/`, shared unchanged by the AudioWorklet
 | `npm run model-svg` | regenerate `docs/gener8-model.svg` from `docs/gener8.ecore` |
 | `npm run generator-golden` | regenerate seed → patch hashes (only when adding a generator version; v1 is frozen) |
 
-Tests run on Node's built-in runner with native TypeScript (Node ≥ 22.18). The only dependencies are dev ones: Vite, TypeScript and `@types/node`.
+Tests run on Node's built-in runner with native TypeScript (Node ≥ 22.18). The one runtime dependency is [mediabunny](https://mediabunny.dev), for MP4 muxing in video renders, and it loads only when one starts. The rest are dev dependencies: Vite, TypeScript and `@types/node`.
 
 ## Adding a sound or field type
 

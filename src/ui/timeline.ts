@@ -6,7 +6,7 @@ import { FONT, INK, rgba } from './theme.ts';
 
 /** Height of one bar row (the desktop bar is one row). */
 export const STRIP_H = 30;
-const READOUT_W = 620;
+const READOUT_W = 680;
 
 type Item = [string, string];
 
@@ -25,15 +25,22 @@ function ioItems(app: App): Item[] {
 function readoutItems(app: App): Item[] {
   const p = app.patch;
   const items: Item[] = [
-    ['play', app.audio.started ? (app.audio.running ? '❚❚' : '▶') : '▶'],
+    ['play', app.headless || (app.audio.started && app.audio.running) ? '❚❚' : '▶'],
     ['vol', `vol ${fmtDb(p.master ?? 0)}`],
     ['tempo', `${Math.round(p.tempo)} bpm`],
     ['root', NOTE_NAMES[p.key.root]],
     ['scale', SCALE_LABELS[p.key.scale] ?? p.key.scale],
     ['seed', `seed ${p.seed}`],
   ];
-  if (!app.mobile) items.push(['voices', `${app.audio.voices}v`]);
-  items.push(['mixer', app.mixerOpen ? 'mixer ▾' : 'mixer ▴'], ['capture', '● capture'], ['render', app.render ? `render ${Math.floor(app.render.progress * 100)}%` : 'render…'], ['docs', 'docs'], ['help', '?']);
+  if (!app.mobile) items.push(['voices', `${app.voices}v`]);
+  items.push(
+    ['mixer', app.mixerOpen ? 'mixer ▾' : 'mixer ▴'],
+    ['capture', '● capture'],
+    ['render', app.render ? `render ${Math.floor(app.render.progress * 100)}%` : 'render…'],
+    ['video', app.video ? `video ${Math.floor(app.video.progress * 100)}%` : 'video…'],
+    ['docs', 'docs'],
+    ['help', '?'],
+  );
   return items;
 }
 
@@ -177,7 +184,7 @@ export function drawTimeline(app: App): void {
     const hov = app.hover?.kind === 'ui' && app.hover.id === it.id;
     const on = (it.id === 'examples' && app.examplesOpen) || (it.id === 'mixer' && app.mixerOpen);
     g.fillStyle =
-      it.id === 'capture' || (it.id === 'render' && app.render)
+      it.id === 'capture' || (it.id === 'render' && app.render) || (it.id === 'video' && app.video)
         ? `rgba(240,90,90,${hov ? 1 : 0.7})`
         : `rgba(233,228,218,${hov || on ? 1 : it.id === 'voices' ? 0.3 : 0.6})`;
     g.fillText(it.label, it.x, it.y + h / 2);

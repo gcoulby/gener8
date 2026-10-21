@@ -42,6 +42,14 @@ The same render from the command line:
 npm run render patch.json 3600 out.wav
 ```
 
+## Video
+
+To get a video, for YouTube say, press <kbd>shift</kbd>+<kbd>V</kbd> or **video…**. Type a length as for a render, optionally followed by a frame rate and a size: `5` is five minutes at 1080p and 30 fps, `90s 60fps` is 90 seconds at 60 fps, and `1:00:00 4k` is an hour in 4K. The sizes are `720p`, `1080p`, `1440p` and `4k`, all 16:9. 30 fps suits the slow motion of most patches and halves the render time and file size compared with 60 fps.
+
+The video shows the whole window, not only the canvas: the palette, minimap, bar and timeline, plus anything open, such as the mixer or a selected object's bar. It frames the patch as your window does now, widened or narrowed to 16:9. As with a render, the patch plays from a fresh start, faster than real time and in the background. The sound comes from the same render as the picture, so the two stay in step. Everything is drawn [lit](shortcuts.md), at full brightness, because there's no cursor in the video.
+
+In Chrome and Edge, you choose where to save the MP4 first, and it's written straight to disk as it renders. In other browsers it downloads when it's done. You also get a JSON file with the patch and seed. Expect roughly 3.5 GB for an hour at 1080p and 30 fps. The video is H.264 with AAC audio, falling back to other codecs where the browser can't encode those. The audio is compressed, so it isn't bit-identical to a WAV render. Use **render…** when you want the exact audio.
+
 ## Saving, opening and new
 
 | | |

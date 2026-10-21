@@ -16,6 +16,8 @@ import { AudioBridge } from './audio.ts';
 import { History } from './history.ts';
 import { download, encodeWav } from './wav.ts';
 import { RenderJob } from './renderjob.ts';
+import { fmtVideoSpec, openSink, parseVideoSpec, VIDEO_DEFAULT, VideoJob, type VideoSpec } from './video.ts';
+import type { Tele } from '../worklet/protocol.ts';
 import { draw } from './draw.ts';
 import { paletteHit, type PaletteItem } from './palette.ts';
 import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
@@ -101,9 +103,20 @@ const STORE_KEY = 'gener8.patch.v2';
 /** Where the stored patch goes when a link replaces it. */
 const PREV_KEY = 'gener8.patch.prev';
 const MINIMAP_KEY = 'gener8.minimap';
+const LIT_KEY = 'gener8.lit';
 export const HANDLE_ZOOM = 0.6;
 /** Far enough out to see the whole canvas (±8000, see sanitise.ts XY). */
 const MIN_ZOOM = 0.05;
+
+/** A copy of the App that only draws, for video frames (see video.ts). */
+export interface Headless {
+  patch: Patch;
+  W: number;
+  H: number;
+  dpr: number;
+  /** The live App: its view and open panels are what the video shows. */
+  from: App;
+}
 
 export class App {
   readonly canvas: HTMLCanvasElement;
@@ -123,6 +136,11 @@ export class App {
   history: History | null = null;
   /** Offline render in progress (see startRender). */
   render: RenderJob | null = null;
+  /** Video render in progress (see startVideo). */
+  video: VideoJob | null = null;
+  /** Drawing video frames: no input, no audio, playing from the start. */
+  readonly headless: boolean;
+  voices = 0;
   pending: EventRecord[] = [];
   pulses = new Map<string, Pulse>();
   ripples: RippleVis[] = [];
@@ -147,6 +165,8 @@ export class App {
   paletteOpen = false;
   mixerOpen = false;
   showMinimap = readFlag(MINIMAP_KEY, true);
+  /** Everything at full brightness, instead of lit by nearness to the cursor. */
+  lit = readFlag(LIT_KEY, false);
   readonly docs = new DocsViewer();
   /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
   axisMenu: AxisMenu | null = null;
@@ -172,13 +192,33 @@ export class App {
   private confirmUntil = 0;
   private entryInput: HTMLInputElement | null = null;
   private renderSeconds = 300;
+  private videoSpec: VideoSpec = VIDEO_DEFAULT;
   private spaceDown = false;
   private sendQueue = new Map<string, Edit>();
   private saveTimer = 0;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, headless?: Headless) {
     this.canvas = canvas;
     this.g = canvas.getContext('2d')!;
+    this.headless = !!headless;
+    if (headless) {
+      const { from } = headless;
+      this.patch = headless.patch;
+      this.W = headless.W;
+      this.H = headless.H;
+      this.dpr = headless.dpr;
+      this.mobile = from.mobile;
+      this.history = new History(this.patch);
+      this.lit = true;
+      this.cam = { ...from.cam };
+      this.sel = this.patch.objects.some((o) => o.id === from.sel) ? from.sel : null;
+      this.panel = this.sel && from.panel?.id === this.sel ? { ...from.panel } : null;
+      this.paletteOpen = from.paletteOpen;
+      this.mixerOpen = from.mixerOpen;
+      this.mixerScroll = from.mixerScroll;
+      this.showMinimap = from.showMinimap;
+      return;
+    }
     // Precedence: a link, then the stored patch, then the demo. Seed links build
     // synchronously so the old patch never flashes; patch links decode async.
     const link = parseHash(location.hash);
@@ -347,13 +387,7 @@ export class App {
     if (this.audio.started) return;
     this.flushSends();
     this.history = new History(this.patch);
-    this.audio.onTele = (t) => {
-      this.history?.ingest(t.edits, t.events, t.sample);
-      for (const e of t.events) this.pending.push(e);
-      if (this.pending.length > 4000) this.pending.splice(0, this.pending.length - 4000);
-      for (const id in t.meters) this.meterLevel.set(id, Math.max(this.meterLevel.get(id) ?? 0, t.meters[id]));
-      for (const v of t.visuals) this.grids.set(v.id, { ...(v.data as Omit<GridVis, 't'>), t: performance.now() });
-    };
+    this.audio.onTele = (t) => this.ingest(t, performance.now());
     try {
       await this.audio.start(this.patch);
     } catch (err) {
@@ -388,6 +422,16 @@ export class App {
     this.toast(`captured ${Math.round(r.left.length / SR)} s → ${name}.wav + .json`);
   }
 
+  /** Telemetry from the engine: events wait in `pending` until they are heard (see activate). */
+  ingest(t: Tele, now: number): void {
+    this.history?.ingest(t.edits, t.events, t.sample);
+    this.voices = t.voices;
+    for (const e of t.events) this.pending.push(e);
+    if (this.pending.length > 4000) this.pending.splice(0, this.pending.length - 4000);
+    for (const id in t.meters) this.meterLevel.set(id, Math.max(this.meterLevel.get(id) ?? 0, t.meters[id]));
+    for (const v of t.visuals) this.grids.set(v.id, { ...(v.data as Omit<GridVis, 't'>), t: now });
+  }
+
   /**
    * Render the current patch from a fresh start, as a reload + play would sound,
    * faster than real time in a worker. Downloads WAV + patch JSON when done.
@@ -416,19 +460,58 @@ export class App {
     this.toast(`rendered ${fmtTime(seconds)} → ${name}.wav + .json`);
   }
 
+  /**
+   * Render the patch from a fresh start as an MP4 of the whole window, in the
+   * background. The file is chosen first, while the Enter still counts as a click.
+   */
+  async startVideo(spec: VideoSpec): Promise<void> {
+    this.video?.cancel();
+    this.video = null;
+    const patch = clone(this.patch);
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    let sink;
+    try {
+      sink = await openSink(`gener8-video-${stamp}`);
+    } catch (err) {
+      this.toast('video failed: ' + (err as Error).message);
+      return;
+    }
+    if (!sink) return;
+    const job = new VideoJob(this, patch, spec, sink);
+    this.video = job;
+    this.toast(`rendering video ${fmtVideoSpec(spec)} from the start · click video to cancel`);
+    try {
+      await job.done;
+    } catch (err) {
+      if (this.video === job) this.video = null;
+      this.toast('video failed: ' + (err as Error).message);
+      return;
+    }
+    if (this.video !== job) return;
+    this.video = null;
+    const meta = { format: 'gener8.video', version: 1, sampleRate: SR, ...spec, seed: patch.seed, patch };
+    download(new Blob([JSON.stringify(meta)], { type: 'application/json' }), `${sink.name}.json`);
+    this.toast(`rendered video ${fmtVideoSpec(spec)} → ${sink.name}.mp4 + .json`);
+  }
+
   // ---------- frame ----------
 
   private frame = (now: number): void => {
-    this.now = now;
     this.flushSends();
     if (this.audio.started) {
       const a = this.audio.audibleSample();
       this.tickNow = Math.max(0, this.audio.tickAt(a));
       this.activate(a, now);
     }
-    this.beat = this.tickNow / PPQ;
-    for (const [id, v] of this.meterLevel) this.meterLevel.set(id, v * 0.88);
     requestAnimationFrame(this.frame);
+    this.paint(now, 0.88);
+  };
+
+  /** Draw one frame at time `now` (ms); `decay` is how far the meters fall since the last. */
+  paint(now: number, decay: number): void {
+    this.now = now;
+    this.beat = this.tickNow / PPQ;
+    for (const [id, v] of this.meterLevel) this.meterLevel.set(id, v * decay);
     this.computePoses();
     this.autoPanel();
     try {
@@ -438,9 +521,10 @@ export class App {
       if (!this.drawFailed) console.error('draw failed', err);
       this.drawFailed = true;
     }
-  };
+  }
 
-  private activate(audible: number, now: number): void {
+  /** Bring in the events heard by engine sample `audible`. */
+  activate(audible: number, now: number): void {
     let i = 0;
     const p = this.pending;
     while (i < p.length && p[i].sample <= audible) {
@@ -1320,6 +1404,15 @@ export class App {
         // on the click, like seedentry below
         this.canvas.addEventListener('click', () => this.openRenderEntry(), { once: true });
         return;
+      case 'video':
+        if (this.video) {
+          this.video.cancel();
+          this.video = null;
+          this.toast('video cancelled');
+          return;
+        }
+        this.canvas.addEventListener('click', () => this.openVideoEntry(), { once: true });
+        return;
       case 'help':
         this.showHelp = !this.showHelp;
         return;
@@ -1446,6 +1539,18 @@ export class App {
       }
       this.renderSeconds = Math.min(sec, RENDER_MAX_SECONDS);
       void this.startRender(this.renderSeconds);
+    });
+  }
+
+  openVideoEntry(): void {
+    this.openEntry('video', fmtVideoSpec(this.videoSpec), 'video: length, then optional 60fps / 720p / 1440p / 4k', 24, (v) => {
+      const spec = parseVideoSpec(v, App.parseDuration, this.videoSpec);
+      if (!spec) {
+        this.toast('video: e.g. 5, 90s 60fps, 1:00:00 4k');
+        return false;
+      }
+      this.videoSpec = { ...spec, seconds: Math.min(spec.seconds, RENDER_MAX_SECONDS) };
+      void this.startVideo(this.videoSpec);
     });
   }
 
@@ -1629,6 +1734,11 @@ export class App {
         this.showMinimap = !this.showMinimap;
         writeFlag(MINIMAP_KEY, this.showMinimap);
         return;
+      case 'l':
+        this.lit = !this.lit;
+        writeFlag(LIT_KEY, this.lit);
+        this.toast(this.lit ? 'lit: everything at full brightness' : 'reactive: lit by the cursor');
+        return;
       case 't':
         this.tap();
         return;
@@ -1655,6 +1765,10 @@ export class App {
       case 'C':
         e.preventDefault(); // keep the C out of the input this opens
         this.openRenderEntry();
+        return;
+      case 'V':
+        e.preventDefault();
+        this.openVideoEntry();
         return;
       case 'X': {
         const ex = EXAMPLES.find((x) => x.key === e.key)!;

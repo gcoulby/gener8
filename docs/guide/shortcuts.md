@@ -16,8 +16,10 @@
 | <kbd>m</kbd> | Cycle motion: orbit, drift, path, bounce, none. |
 | <kbd>b</kbd> | Toggle breathe. |
 | <kbd>n</kbd> | Show or hide the minimap. |
+| <kbd>l</kbd> | Switch between **reactive**, where things light up as the cursor nears them, and **lit**, where everything is at full brightness. Videos are always lit. |
 | <kbd>c</kbd> | Capture the last 30 seconds. |
 | <kbd>shift</kbd>+<kbd>C</kbd> | Render the patch from a fresh start, up to an hour. |
+| <kbd>shift</kbd>+<kbd>V</kbd> | Render the patch from a fresh start as a video of the whole window (see [Video](mixing.md#video)). |
 | <kbd>t</kbd> | Tap tempo. |
 | <kbd>r</kbd> | Random patch. |
 | <kbd>⌘S</kbd> / <kbd>⌘O</kbd> | Save / open a patch file. |

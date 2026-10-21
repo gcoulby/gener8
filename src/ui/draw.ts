@@ -178,7 +178,7 @@ function drawLogo(app: App): void {
 }
 
 function dim(app: App, sx: number, sy: number, id: string): number {
-  if (!app.mouse.inside || id === app.sel || app.drag) return 1
+  if (app.lit || !app.mouse.inside || id === app.sel || app.drag) return 1
   if (
     (app.hover?.kind === 'object' || app.hover?.kind === 'handle') &&
     app.hover.id === id
@@ -1108,6 +1108,8 @@ const HELP = [
   'c                capture last 30 s (WAV + patch/seed/edit log)',
   'shift-C / render render the patch from a fresh start, up to 1 h (e.g. 5, 90s, 1:00:00)',
   '                 faster than real time; click render again to cancel',
+  'shift-V / video  the same as a video of the whole window (e.g. 5, 90s 60fps, 10m 4k)',
+  'l                lit: everything at full brightness · reactive: lit by the cursor',
   'n                minimap on / off · click or drag in it to move the view',
   'mixer / vol      levels, mute, solo, FX returns · master level (drag/scroll)',
   't                tap tempo · wheel over bpm / root / scale / seed',

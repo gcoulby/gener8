@@ -10,7 +10,6 @@ export class AudioBridge {
   private base = 0;
   private last = { sample: 0, tick: 0, tempo: 96 };
   private captureWaiter: ((r: CaptureReply) => void) | null = null;
-  voices = 0;
   onTele: (t: Tele) => void = () => {};
 
   get started(): boolean {
@@ -64,7 +63,6 @@ export class AudioBridge {
     if (m.type === 'tele') {
       this.base = m.base;
       this.last = { sample: m.sample, tick: m.tick, tempo: m.tempo };
-      this.voices = m.voices;
       this.onTele(m);
     } else if (m.type === 'capture') {
       this.captureWaiter?.(m);
