@@ -7,6 +7,12 @@
   "root": 0,
   "scale": "lydian"
  },
+ "info": {
+   "title": "Cells",
+   "artist": "GENER8",
+   "genre": "generative",
+   "notes": "A cellular automaton grid plays the voices that sit on it, with probability and a pulse, into delay and reverb."
+ },
  "objects": [
     { "id": "xy1", "kind": "field", "type": "xy", "x": 0, "y": 0, "shape": { "w": 1600, "h": 720 }, "layer": 0, "handles": {}, "axes": { "x": { "to": "pan", "min": -1, "max": 1 }, "y": { "to": "pitch", "min": 24, "max": 96 } } },
   {

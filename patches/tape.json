@@ -4,6 +4,12 @@
   "seed": 77,
   "tempo": 72,
   "key": { "root": 9, "scale": "dorian" },
+  "info": {
+    "title": "Tape",
+    "artist": "GENER8",
+    "genre": "ambient",
+    "notes": "Rain and strum fields play FM, additive and pad voices through harmony and humanise, and everything goes through a worn tape, chorus and shimmer."
+  },
   "objects": [
     { "id": "xy1", "kind": "field", "type": "xy", "x": 0, "y": 0, "shape": { "w": 1600, "h": 720 }, "layer": 0, "handles": {}, "axes": { "x": { "to": "pan", "min": -1, "max": 1 }, "y": { "to": "pitch", "min": 24, "max": 96 } } },
     { "id": "f1", "kind": "field", "type": "shimmer", "x": 0, "y": 0, "shape": { "r": 650 }, "layer": 0, "handles": { "size": 0.7, "shimmer": 0.35 } },

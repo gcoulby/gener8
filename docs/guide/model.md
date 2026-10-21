@@ -20,7 +20,11 @@ Drag to pan, <kbd>⌘</kbd>-scroll or pinch to zoom, double-click to zoom in (<k
 
 ### Patch
 
-The root. It holds the `seed`, `tempo`, the `key` (a root note and a `Scale`) and the list of `objects`. `version` is 2. Version 1 patches, which had a fixed y = pitch and x = pan, are upgraded when they load: they get a stage XY field that reproduces the old mapping exactly.
+The root. It holds the `seed`, `tempo`, the `key` (a root note and a `Scale`), an optional `master` level in dB and the list of `objects`. `version` is 2. Version 1 patches, which had a fixed y = pitch and x = pan, are upgraded when they load: they get a stage XY field that reproduces the old mapping exactly.
+
+### PatchInfo
+
+Optional: who made the patch and what it is. Its `title`, `artist`, `genre`, `url` and `notes` are plain text, and every one is optional. It's shown when the patch is opened and never changes the sound (see [Patch info](mixing.md#patch-info)).
 
 ### SceneObject
 
@@ -28,17 +32,17 @@ Everything on the canvas is a `SceneObject`: it has an `id`, a position `x`, `y`
 
 There are two branches:
 
-- **Sound**: makes audio. It has a `size`, a `note` for when no map sets pitch, and optional `RippleSettings`. Below it, `EventSound`s (subtractive, FM, pluck, percussion) play notes that end, and `SustainedSound`s (pad, drone, additive, noise) swell and fade as they enter and leave generators. Their attributes are the knobs in the [internals panel](sounds.md).
+- **Sound**: makes audio. It has a `size`, a `note` for when no map sets pitch, and optional `RippleSettings`. Below it, `EventSound`s (subtractive, FM, pluck, percussion, macro, bass) play notes that end, and `SustainedSound`s (pad, drone, additive, noise) swell and fade as they enter and leave generators. Their attributes are the knobs in the [internals panel](sounds.md).
 - **Field**: acts on the sounds inside its `Shape` (a `Circle` or a `Rectangle`). Its subclasses are the four roles, and each concrete field's attributes are its handles, stored 0 to 1.
 
 ### Fields by role
 
 | Abstract class | Concrete fields | See |
 |---|---|---|
-| `GeneratorField` | pulse, drift, arp, rain, strum, grid | [Generators](fields.md#generators-amber) |
-| `TransformerField` | probability, transpose, quantise, harmony, humanise, hold, ratchet, every-nth | [Transformers](fields.md#transformers-teal-dashed) |
-| `FxField` → `InsertFx` | filter, tape: processed per sound | [FX](fields.md#fx-violet) |
-| `FxField` → `BusFx` | delay, chorus, reverb, shimmer: shared sends | [FX](fields.md#fx-violet) |
+| `GeneratorField` | pulse, drift, arp, rain, strum, grid, phase, chords, turing, topo, plinko, wave, bounce, poly | [Generators](fields.md#generators-amber) |
+| `TransformerField` | probability, transpose, quantise, harmony, humanise, hold, ratchet, every-nth, canon, mirror | [Transformers](fields.md#transformers-teal-dashed) |
+| `FxField` → `InsertFx` | filter, tape, resonator, tremolo, lofi: processed per sound | [FX](fields.md#fx-violet) |
+| `FxField` → `BusFx` | delay, chorus, reverb, shimmer, freeze: shared sends | [FX](fields.md#fx-violet) |
 | `MapField` | XY, radial, sweep, tri | [Map fields](maps.md) |
 
 ### Map fields and axes

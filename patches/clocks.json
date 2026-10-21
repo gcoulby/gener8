@@ -8,6 +8,12 @@
     "scale": "majorPentatonic"
   },
   "master": 2,
+  "info": {
+    "title": "Clocks",
+    "artist": "GENER8",
+    "genre": "generative",
+    "notes": "Polyrhythm: four modal voices at two to six hits a cycle, with mirror. A ball bounces on a grain voice, two plucks phase against each other, and a wave sweeps a row of chimes."
+  },
   "objects": [
     {
       "id": "xy1",

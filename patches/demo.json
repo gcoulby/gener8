@@ -4,6 +4,12 @@
   "seed": 2024,
   "tempo": 64,
   "key": { "root": 2, "scale": "major" },
+  "info": {
+    "title": "Ambient",
+    "artist": "GENER8",
+    "genre": "ambient",
+    "notes": "An arpeggio of four synth voices over a pad and a drone. Probability thins the notes, drift moves the pitches, and a pulse and a filter give it shape. Leave it running."
+  },
   "objects": [
     { "id": "xy1", "kind": "field", "type": "xy", "x": 0, "y": 0, "shape": { "w": 1600, "h": 720 }, "layer": 0, "handles": {}, "axes": { "x": { "to": "pan", "min": -1, "max": 1 }, "y": { "to": "pitch", "min": 24, "max": 96 } } },
     { "id": "f1", "kind": "field", "type": "reverb", "x": 0, "y": 0, "shape": { "r": 700 }, "layer": 0, "handles": { "size": 0.85, "damping": 0.55 } },

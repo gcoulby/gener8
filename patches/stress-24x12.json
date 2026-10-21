@@ -7,6 +7,12 @@
     "root": 2,
     "scale": "dorian"
   },
+  "info": {
+    "title": "Stress 24×12",
+    "artist": "GENER8",
+    "genre": "test",
+    "notes": "A load test: 24 sounds and 12 fields. Watch the voices count in the bar."
+  },
   "objects": [
     {
       "id": "f1",

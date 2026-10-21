@@ -4,6 +4,12 @@
   "seed": 1234,
   "tempo": 96,
   "key": { "root": 0, "scale": "minorPentatonic" },
+  "info": {
+    "title": "Rhythmic",
+    "artist": "GENER8",
+    "genre": "electronic",
+    "notes": "A pulse drives percussion, plucks and a synth voice. Probability and drift keep it moving, with a filter, delay and reverb, over a drone and a pad."
+  },
   "objects": [
     { "id": "xy1", "kind": "field", "type": "xy", "x": 0, "y": 0, "shape": { "w": 1600, "h": 720 }, "layer": 0, "handles": {}, "axes": { "x": { "to": "pan", "min": -1, "max": 1 }, "y": { "to": "pitch", "min": 24, "max": 96 } } },
     { "id": "f1", "kind": "field", "type": "reverb", "x": 60, "y": 0, "shape": { "r": 420 }, "layer": 0, "handles": { "size": 0.6, "damping": 0.45 } },

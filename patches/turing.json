@@ -8,6 +8,12 @@
     "scale": "minor"
   },
   "master": 2,
+  "info": {
+    "title": "Turing Machine",
+    "artist": "GENER8",
+    "genre": "generative",
+    "notes": "A Turing machine loop that slowly changes its mind, played on vowel, fold and grain voices and a bass. A canon echoes the vowel a fifth up, and mirror answers the grain."
+  },
   "objects": [
     {
       "id": "xy1",
