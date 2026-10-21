@@ -1,0 +1,271 @@
+{
+  "format": "gener8.patch",
+  "version": 2,
+  "seed": 808,
+  "tempo": 104,
+  "key": {
+    "root": 7,
+    "scale": "dorian"
+  },
+  "master": 1,
+  "objects": [
+    {
+      "id": "xy1",
+      "kind": "field",
+      "type": "xy",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "w": 1600,
+        "h": 720
+      },
+      "layer": 0,
+      "handles": {},
+      "axes": {
+        "x": {
+          "to": "pan",
+          "min": -1,
+          "max": 1
+        },
+        "y": {
+          "to": "pitch",
+          "min": 24,
+          "max": 96
+        }
+      }
+    },
+    {
+      "id": "f1",
+      "kind": "field",
+      "type": "reverb",
+      "x": -1150,
+      "y": 0,
+      "shape": {
+        "r": 420
+      },
+      "layer": 1,
+      "handles": {
+        "size": 0.2,
+        "damping": 0.6
+      }
+    },
+    {
+      "id": "f2",
+      "kind": "field",
+      "type": "topo",
+      "x": -1150,
+      "y": 0,
+      "shape": {
+        "w": 320,
+        "h": 320
+      },
+      "layer": 2,
+      "handles": {
+        "density": 0.7,
+        "chaos": 0.12
+      }
+    },
+    {
+      "id": "f3",
+      "kind": "field",
+      "type": "lofi",
+      "x": -1247,
+      "y": -71,
+      "shape": {
+        "r": 130
+      },
+      "layer": 3,
+      "handles": {
+        "bits": 0.5,
+        "rate": 0.35
+      }
+    },
+    {
+      "id": "s1",
+      "kind": "sound",
+      "type": "percussion",
+      "x": -1088,
+      "y": 66,
+      "size": 56,
+      "layer": 101,
+      "params": {
+        "tone": 0.65,
+        "decay": 0.3,
+        "sweep": 1.5,
+        "color": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      },
+      "note": 36
+    },
+    {
+      "id": "s2",
+      "kind": "sound",
+      "type": "percussion",
+      "x": -1119,
+      "y": -95,
+      "size": 44,
+      "layer": 102,
+      "params": {
+        "tone": 0.65,
+        "decay": 0.3,
+        "sweep": 1.5,
+        "color": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      },
+      "note": 55
+    },
+    {
+      "id": "s3",
+      "kind": "sound",
+      "type": "macro",
+      "x": -1207,
+      "y": 19,
+      "size": 34,
+      "layer": 103,
+      "params": {
+        "model": 5,
+        "harmonics": 0.6,
+        "timbre": 0.8,
+        "morph": 0.3,
+        "decay": 0.12,
+        "colour": 0.2
+      },
+      "ripple": {
+        "reach": 0
+      },
+      "note": 96
+    },
+    {
+      "id": "f4",
+      "kind": "field",
+      "type": "delay",
+      "x": 120,
+      "y": -40,
+      "shape": {
+        "r": 420
+      },
+      "layer": 4,
+      "handles": {
+        "time": 0.5,
+        "feedback": 0.35
+      }
+    },
+    {
+      "id": "f5",
+      "kind": "field",
+      "type": "turing",
+      "x": -120,
+      "y": -150,
+      "shape": {
+        "r": 170
+      },
+      "layer": 5,
+      "handles": {
+        "length": 1,
+        "change": 0
+      }
+    },
+    {
+      "id": "f6",
+      "kind": "field",
+      "type": "tape",
+      "x": -120,
+      "y": -150,
+      "shape": {
+        "r": 170
+      },
+      "layer": 6,
+      "handles": {
+        "age": 0.6,
+        "wobble": 0.25
+      }
+    },
+    {
+      "id": "s4",
+      "kind": "sound",
+      "type": "bass",
+      "x": -120,
+      "y": -210,
+      "size": 50,
+      "layer": 104,
+      "params": {
+        "wave": 0.55,
+        "sub": 0.6,
+        "glide": 0.04,
+        "drive": 0.5,
+        "cutoff": 260,
+        "res": 0.5,
+        "env": 3,
+        "fdecay": 0.18,
+        "a": 0.003,
+        "d": 0.25,
+        "s": 0.4,
+        "r": 0.15
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "f7",
+      "kind": "field",
+      "type": "poly",
+      "x": 200,
+      "y": 60,
+      "shape": {
+        "r": 170
+      },
+      "layer": 7,
+      "handles": {
+        "cycle": 0.5,
+        "max": 0.3
+      }
+    },
+    {
+      "id": "s5",
+      "kind": "sound",
+      "type": "macro",
+      "x": 230,
+      "y": 100,
+      "size": 32,
+      "layer": 105,
+      "params": {
+        "model": 1,
+        "harmonics": 0.3,
+        "timbre": 0.5,
+        "morph": 0.65,
+        "decay": 0.4,
+        "colour": 0.7
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s6",
+      "kind": "sound",
+      "type": "fm",
+      "x": 130,
+      "y": 40,
+      "size": 30,
+      "layer": 106,
+      "params": {
+        "ratio": 3.5,
+        "index": 2,
+        "indexDecay": 0.6,
+        "sustainIndex": 0.05,
+        "a": 0.002,
+        "d": 1.2,
+        "s": 0,
+        "r": 3
+      },
+      "ripple": {
+        "reach": 0
+      }
+    }
+  ]
+}

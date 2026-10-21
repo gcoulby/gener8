@@ -9,6 +9,11 @@ import rainfallPatch from '../../patches/rainfall.json' with { type: 'json' };
 import cellsPatch from '../../patches/cells.json' with { type: 'json' };
 import choirPatch from '../../patches/choir.json' with { type: 'json' };
 import bloomPatch from '../../patches/bloom.json' with { type: 'json' };
+import plinkoPatch from '../../patches/plinko.json' with { type: 'json' };
+import turingPatch from '../../patches/turing.json' with { type: 'json' };
+import progressionPatch from '../../patches/progression.json' with { type: 'json' };
+import breaksPatch from '../../patches/breaks.json' with { type: 'json' };
+import clocksPatch from '../../patches/clocks.json' with { type: 'json' };
 
 /** Bundled patches, in menu order; `key` is an optional shift-shortcut. */
 export const EXAMPLES: { id: string; label: string; key?: string; patch: unknown }[] = [
@@ -19,6 +24,11 @@ export const EXAMPLES: { id: string; label: string; key?: string; patch: unknown
   { id: 'bloom', label: 'bloom', patch: bloomPatch },
   { id: 'choir', label: 'choir (motion)', patch: choirPatch },
   { id: 'cells', label: 'cells (automaton)', patch: cellsPatch },
+  { id: 'plinko', label: 'plinko', patch: plinkoPatch },
+  { id: 'turing', label: 'turing machine', patch: turingPatch },
+  { id: 'progression', label: 'progression (chords)', patch: progressionPatch },
+  { id: 'breaks', label: 'breaks (topo)', patch: breaksPatch },
+  { id: 'clocks', label: 'clocks (polyrhythm)', patch: clocksPatch },
   { id: 'rhythmic', label: 'rhythmic', key: 'R', patch: rhythmicPatch },
   { id: 'stress', label: 'stress 24×12', key: 'X', patch: stressPatch },
 ];

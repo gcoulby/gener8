@@ -1462,7 +1462,7 @@ export class App {
     if (id.startsWith('example:')) {
       const ex = EXAMPLES.find((x) => 'example:' + x.id === id);
       this.examplesOpen = false;
-      if (ex) this.load(ex.patch, `loaded ${ex.label}`);
+      if (ex) this.loadExample(ex);
     }
   }
 
@@ -1481,6 +1481,12 @@ export class App {
     return false;
   }
 
+  /** Load a bundled example and frame it, wherever the view had wandered. */
+  private loadExample(ex: (typeof EXAMPLES)[number]): void {
+    this.load(ex.patch, `loaded ${ex.label}`);
+    this.fitView();
+  }
+
   randomPatch(): void {
     if (!this.confirmReplace()) return;
     this.loadSeed(crypto.getRandomValues(new Uint32Array(1))[0]);
@@ -1493,9 +1499,11 @@ export class App {
 
   /** Centre the camera on the patch, zooming out if needed but never in past 1. */
   fitView(): void {
-    // XY fields are background: fit to what sits on them, unless they're all there is
+    // Fit to what plays: sounds and generators. FX and transformer washes (a
+    // big reverb) and XY fields are background, used only if nothing else is there.
     const all = this.patch.objects;
-    const objs = all.some((o) => !isMap(o)) ? all.filter((o) => !isMap(o)) : all;
+    const plays = all.filter((o) => o.kind === 'sound' || fieldTypes[o.type]?.role === 'generator');
+    const objs = plays.length ? plays : all.some((o) => !isMap(o)) ? all.filter((o) => !isMap(o)) : all;
     if (!objs.length) return;
     let x0 = Infinity;
     let y0 = Infinity;
@@ -1772,8 +1780,7 @@ export class App {
         this.openVideoEntry();
         return;
       case 'X': {
-        const ex = EXAMPLES.find((x) => x.key === e.key)!;
-        this.load(ex.patch, `loaded ${ex.label}`);
+        this.loadExample(EXAMPLES.find((x) => x.key === e.key)!);
         return;
       }
       case 'ArrowUp':

@@ -1,0 +1,473 @@
+{
+  "format": "gener8.patch",
+  "version": 2,
+  "seed": 2401,
+  "tempo": 84,
+  "key": {
+    "root": 2,
+    "scale": "minorPentatonic"
+  },
+  "master": 3,
+  "objects": [
+    {
+      "id": "xy1",
+      "kind": "field",
+      "type": "xy",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "w": 1600,
+        "h": 720
+      },
+      "layer": 0,
+      "handles": {},
+      "axes": {
+        "x": {
+          "to": "pan",
+          "min": -1,
+          "max": 1
+        },
+        "y": {
+          "to": "pitch",
+          "min": 24,
+          "max": 96
+        }
+      }
+    },
+    {
+      "id": "f1",
+      "kind": "field",
+      "type": "reverb",
+      "x": 0,
+      "y": 40,
+      "shape": {
+        "r": 700
+      },
+      "layer": 1,
+      "handles": {
+        "size": 0.75,
+        "damping": 0.45
+      }
+    },
+    {
+      "id": "f2",
+      "kind": "field",
+      "type": "resonator",
+      "x": 0,
+      "y": -140,
+      "shape": {
+        "r": 200
+      },
+      "layer": 2,
+      "handles": {
+        "decay": 0.45,
+        "mix": 0.35
+      }
+    },
+    {
+      "id": "f3",
+      "kind": "field",
+      "type": "plinko",
+      "x": 0,
+      "y": 40,
+      "shape": {
+        "w": 440,
+        "h": 560
+      },
+      "layer": 3,
+      "handles": {
+        "drop": 0.25,
+        "snap": 0
+      }
+    },
+    {
+      "id": "s1",
+      "kind": "sound",
+      "type": "macro",
+      "x": -30,
+      "y": 240,
+      "size": 36,
+      "layer": 101,
+      "params": {
+        "model": 6,
+        "harmonics": 0.35,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s2",
+      "kind": "sound",
+      "type": "macro",
+      "x": 40,
+      "y": 240,
+      "size": 36,
+      "layer": 102,
+      "params": {
+        "model": 7,
+        "harmonics": 0.55,
+        "timbre": 0.45,
+        "morph": 0,
+        "decay": 2.5,
+        "colour": 0.6
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s3",
+      "kind": "sound",
+      "type": "macro",
+      "x": -110,
+      "y": 160,
+      "size": 36,
+      "layer": 103,
+      "params": {
+        "model": 6,
+        "harmonics": 0.65,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s4",
+      "kind": "sound",
+      "type": "macro",
+      "x": 0,
+      "y": 160,
+      "size": 36,
+      "layer": 104,
+      "params": {
+        "model": 6,
+        "harmonics": 0.43,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s5",
+      "kind": "sound",
+      "type": "macro",
+      "x": 100,
+      "y": 160,
+      "size": 36,
+      "layer": 105,
+      "params": {
+        "model": 7,
+        "harmonics": 0.55,
+        "timbre": 0.45,
+        "morph": 0,
+        "decay": 2.5,
+        "colour": 0.6
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s6",
+      "kind": "sound",
+      "type": "macro",
+      "x": -150,
+      "y": 80,
+      "size": 36,
+      "layer": 106,
+      "params": {
+        "model": 6,
+        "harmonics": 0.35,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s7",
+      "kind": "sound",
+      "type": "macro",
+      "x": -50,
+      "y": 80,
+      "size": 36,
+      "layer": 107,
+      "params": {
+        "model": 6,
+        "harmonics": 0.5,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s8",
+      "kind": "sound",
+      "type": "macro",
+      "x": 60,
+      "y": 80,
+      "size": 36,
+      "layer": 108,
+      "params": {
+        "model": 7,
+        "harmonics": 0.55,
+        "timbre": 0.45,
+        "morph": 0,
+        "decay": 2.5,
+        "colour": 0.6
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s9",
+      "kind": "sound",
+      "type": "macro",
+      "x": 150,
+      "y": 80,
+      "size": 36,
+      "layer": 109,
+      "params": {
+        "model": 6,
+        "harmonics": 0.43,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s10",
+      "kind": "sound",
+      "type": "macro",
+      "x": -100,
+      "y": 0,
+      "size": 36,
+      "layer": 110,
+      "params": {
+        "model": 6,
+        "harmonics": 0.57,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s11",
+      "kind": "sound",
+      "type": "macro",
+      "x": 10,
+      "y": 0,
+      "size": 36,
+      "layer": 111,
+      "params": {
+        "model": 7,
+        "harmonics": 0.55,
+        "timbre": 0.45,
+        "morph": 0,
+        "decay": 2.5,
+        "colour": 0.6
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s12",
+      "kind": "sound",
+      "type": "macro",
+      "x": 120,
+      "y": 0,
+      "size": 36,
+      "layer": 112,
+      "params": {
+        "model": 6,
+        "harmonics": 0.5,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s13",
+      "kind": "sound",
+      "type": "macro",
+      "x": -170,
+      "y": -80,
+      "size": 36,
+      "layer": 113,
+      "params": {
+        "model": 6,
+        "harmonics": 0.65,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s14",
+      "kind": "sound",
+      "type": "macro",
+      "x": -60,
+      "y": -80,
+      "size": 36,
+      "layer": 114,
+      "params": {
+        "model": 7,
+        "harmonics": 0.55,
+        "timbre": 0.45,
+        "morph": 0,
+        "decay": 2.5,
+        "colour": 0.6
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s15",
+      "kind": "sound",
+      "type": "macro",
+      "x": 50,
+      "y": -80,
+      "size": 36,
+      "layer": 115,
+      "params": {
+        "model": 6,
+        "harmonics": 0.57,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s16",
+      "kind": "sound",
+      "type": "macro",
+      "x": 160,
+      "y": -80,
+      "size": 36,
+      "layer": 116,
+      "params": {
+        "model": 6,
+        "harmonics": 0.35,
+        "timbre": 0.4,
+        "morph": 0.35,
+        "decay": 3,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s17",
+      "kind": "sound",
+      "type": "bass",
+      "x": -40,
+      "y": -200,
+      "size": 44,
+      "layer": 117,
+      "params": {
+        "wave": 0.15,
+        "sub": 0.7,
+        "glide": 0.08,
+        "drive": 0.3,
+        "cutoff": 160,
+        "res": 0.25,
+        "env": 2,
+        "fdecay": 0.3,
+        "a": 0.003,
+        "d": 0.6,
+        "s": 0.3,
+        "r": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s18",
+      "kind": "sound",
+      "type": "bass",
+      "x": 70,
+      "y": -205,
+      "size": 40,
+      "layer": 118,
+      "params": {
+        "wave": 0.15,
+        "sub": 0.7,
+        "glide": 0.08,
+        "drive": 0.3,
+        "cutoff": 160,
+        "res": 0.25,
+        "env": 2,
+        "fdecay": 0.3,
+        "a": 0.003,
+        "d": 0.6,
+        "s": 0.3,
+        "r": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s19",
+      "kind": "sound",
+      "type": "pad",
+      "x": 0,
+      "y": -260,
+      "size": 34,
+      "layer": 119,
+      "params": {
+        "tone": 600,
+        "motion": 0.6,
+        "spread": 14,
+        "attack": 6,
+        "release": 12,
+        "floor": 0.4
+      }
+    }
+  ]
+}

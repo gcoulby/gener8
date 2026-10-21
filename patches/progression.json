@@ -1,0 +1,238 @@
+{
+  "format": "gener8.patch",
+  "version": 2,
+  "seed": 1066,
+  "tempo": 66,
+  "key": {
+    "root": 3,
+    "scale": "lydian"
+  },
+  "master": 3,
+  "objects": [
+    {
+      "id": "xy1",
+      "kind": "field",
+      "type": "xy",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "w": 1600,
+        "h": 720
+      },
+      "layer": 0,
+      "handles": {},
+      "axes": {
+        "x": {
+          "to": "pan",
+          "min": -1,
+          "max": 1
+        },
+        "y": {
+          "to": "pitch",
+          "min": 24,
+          "max": 96
+        }
+      }
+    },
+    {
+      "id": "f1",
+      "kind": "field",
+      "type": "reverb",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "r": 800
+      },
+      "layer": 1,
+      "handles": {
+        "size": 0.85,
+        "damping": 0.35
+      }
+    },
+    {
+      "id": "f2",
+      "kind": "field",
+      "type": "freeze",
+      "x": 120,
+      "y": 120,
+      "shape": {
+        "r": 300
+      },
+      "layer": 2,
+      "handles": {
+        "size": 0.65,
+        "density": 0.4
+      }
+    },
+    {
+      "id": "f3",
+      "kind": "field",
+      "type": "chords",
+      "x": 0,
+      "y": -170,
+      "shape": {
+        "r": 330
+      },
+      "layer": 3,
+      "handles": {
+        "every": 0.33,
+        "colour": 0.5
+      }
+    },
+    {
+      "id": "f4",
+      "kind": "field",
+      "type": "tremolo",
+      "x": -157,
+      "y": -338,
+      "shape": {
+        "r": 110
+      },
+      "layer": 4,
+      "handles": {
+        "rate": 0.25,
+        "depth": 0.5
+      }
+    },
+    {
+      "id": "f5",
+      "kind": "field",
+      "type": "hold",
+      "x": 0,
+      "y": -170,
+      "shape": {
+        "r": 330
+      },
+      "layer": 5,
+      "handles": {
+        "length": 0.25
+      }
+    },
+    {
+      "id": "s1",
+      "kind": "sound",
+      "type": "bass",
+      "x": 8,
+      "y": -110,
+      "size": 46,
+      "layer": 101,
+      "params": {
+        "wave": 0.1,
+        "sub": 0.8,
+        "glide": 0.25,
+        "drive": 0.15,
+        "cutoff": 140,
+        "res": 0.2,
+        "env": 1.2,
+        "fdecay": 0.6,
+        "a": 0.02,
+        "d": 1.5,
+        "s": 0.6,
+        "r": 1.2
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s2",
+      "kind": "sound",
+      "type": "macro",
+      "x": 190,
+      "y": -232,
+      "size": 38,
+      "layer": 102,
+      "params": {
+        "model": 7,
+        "harmonics": 0.7,
+        "timbre": 0.35,
+        "morph": 0.85,
+        "decay": 6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s3",
+      "kind": "sound",
+      "type": "macro",
+      "x": 125,
+      "y": -398,
+      "size": 38,
+      "layer": 103,
+      "params": {
+        "model": 7,
+        "harmonics": 0.7,
+        "timbre": 0.35,
+        "morph": 0.85,
+        "decay": 6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s4",
+      "kind": "sound",
+      "type": "macro",
+      "x": -175,
+      "y": -74,
+      "size": 38,
+      "layer": 104,
+      "params": {
+        "model": 7,
+        "harmonics": 0.7,
+        "timbre": 0.35,
+        "morph": 0.85,
+        "decay": 6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s5",
+      "kind": "sound",
+      "type": "macro",
+      "x": -165,
+      "y": 57,
+      "size": 38,
+      "layer": 105,
+      "params": {
+        "model": 7,
+        "harmonics": 0.7,
+        "timbre": 0.35,
+        "morph": 0.85,
+        "decay": 6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s6",
+      "kind": "sound",
+      "type": "macro",
+      "x": -157,
+      "y": -338,
+      "size": 34,
+      "layer": 106,
+      "params": {
+        "model": 2,
+        "harmonics": 0.4,
+        "timbre": 0.35,
+        "morph": 0.2,
+        "decay": 5,
+        "colour": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      }
+    }
+  ]
+}

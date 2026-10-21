@@ -1,0 +1,343 @@
+{
+  "format": "gener8.patch",
+  "version": 2,
+  "seed": 1200,
+  "tempo": 92,
+  "key": {
+    "root": 0,
+    "scale": "majorPentatonic"
+  },
+  "master": 2,
+  "objects": [
+    {
+      "id": "xy1",
+      "kind": "field",
+      "type": "xy",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "w": 1600,
+        "h": 720
+      },
+      "layer": 0,
+      "handles": {},
+      "axes": {
+        "x": {
+          "to": "pan",
+          "min": -1,
+          "max": 1
+        },
+        "y": {
+          "to": "pitch",
+          "min": 24,
+          "max": 96
+        }
+      }
+    },
+    {
+      "id": "f1",
+      "kind": "field",
+      "type": "shimmer",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "r": 800
+      },
+      "layer": 1,
+      "handles": {
+        "size": 0.6,
+        "shimmer": 0.3
+      }
+    },
+    {
+      "id": "f2",
+      "kind": "field",
+      "type": "poly",
+      "x": -280,
+      "y": 0,
+      "shape": {
+        "r": 240
+      },
+      "layer": 2,
+      "handles": {
+        "cycle": 0.75,
+        "max": 0.67
+      }
+    },
+    {
+      "id": "s1",
+      "kind": "sound",
+      "type": "macro",
+      "x": -271,
+      "y": 29,
+      "size": 36,
+      "layer": 101,
+      "params": {
+        "model": 6,
+        "harmonics": 0.85,
+        "timbre": 0.45,
+        "morph": 0.45,
+        "decay": 1.6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s2",
+      "kind": "sound",
+      "type": "macro",
+      "x": -194,
+      "y": -28,
+      "size": 36,
+      "layer": 102,
+      "params": {
+        "model": 6,
+        "harmonics": 0.55,
+        "timbre": 0.45,
+        "morph": 0.45,
+        "decay": 1.6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s3",
+      "kind": "sound",
+      "type": "macro",
+      "x": -326,
+      "y": -143,
+      "size": 36,
+      "layer": 103,
+      "params": {
+        "model": 6,
+        "harmonics": 0.4,
+        "timbre": 0.45,
+        "morph": 0.45,
+        "decay": 1.6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s4",
+      "kind": "sound",
+      "type": "macro",
+      "x": -475,
+      "y": 63,
+      "size": 36,
+      "layer": 104,
+      "params": {
+        "model": 6,
+        "harmonics": 0.2,
+        "timbre": 0.45,
+        "morph": 0.45,
+        "decay": 1.6,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "f3",
+      "kind": "field",
+      "type": "mirror",
+      "x": -150,
+      "y": -110,
+      "shape": {
+        "r": 110
+      },
+      "layer": 3,
+      "handles": {
+        "axis": 0.55,
+        "share": 1
+      }
+    },
+    {
+      "id": "f4",
+      "kind": "field",
+      "type": "bounce",
+      "x": 330,
+      "y": 70,
+      "shape": {
+        "r": 110
+      },
+      "layer": 4,
+      "handles": {
+        "every": 0.67,
+        "bounce": 0.6
+      }
+    },
+    {
+      "id": "s5",
+      "kind": "sound",
+      "type": "macro",
+      "x": 340,
+      "y": 80,
+      "size": 38,
+      "layer": 105,
+      "params": {
+        "model": 4,
+        "harmonics": 0.5,
+        "timbre": 0.6,
+        "morph": 0.2,
+        "decay": 0.3,
+        "colour": 0.6
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "f5",
+      "kind": "field",
+      "type": "phase",
+      "x": 330,
+      "y": -180,
+      "shape": {
+        "r": 170
+      },
+      "layer": 5,
+      "handles": {
+        "motif": 0.5,
+        "spread": 0.8
+      }
+    },
+    {
+      "id": "s6",
+      "kind": "sound",
+      "type": "pluck",
+      "x": 320,
+      "y": -160,
+      "size": 38,
+      "layer": 106,
+      "params": {
+        "decay": 3,
+        "bright": 0.4,
+        "damp": 0.3
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s7",
+      "kind": "sound",
+      "type": "pluck",
+      "x": 420,
+      "y": -230,
+      "size": 36,
+      "layer": 107,
+      "params": {
+        "decay": 3,
+        "bright": 0.5,
+        "damp": 0.3
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "f6",
+      "kind": "field",
+      "type": "wave",
+      "x": 110,
+      "y": 215,
+      "shape": {
+        "w": 520,
+        "h": 80
+      },
+      "layer": 6,
+      "handles": {
+        "period": 0.75,
+        "back": 1
+      }
+    },
+    {
+      "id": "s8",
+      "kind": "sound",
+      "type": "macro",
+      "x": -100,
+      "y": 215,
+      "size": 26,
+      "layer": 108,
+      "params": {
+        "model": 6,
+        "harmonics": 0.95,
+        "timbre": 0.35,
+        "morph": 0.6,
+        "decay": 2,
+        "colour": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s9",
+      "kind": "sound",
+      "type": "macro",
+      "x": 40,
+      "y": 215,
+      "size": 26,
+      "layer": 109,
+      "params": {
+        "model": 6,
+        "harmonics": 0.95,
+        "timbre": 0.35,
+        "morph": 0.6,
+        "decay": 2,
+        "colour": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s10",
+      "kind": "sound",
+      "type": "macro",
+      "x": 180,
+      "y": 215,
+      "size": 26,
+      "layer": 110,
+      "params": {
+        "model": 6,
+        "harmonics": 0.95,
+        "timbre": 0.35,
+        "morph": 0.6,
+        "decay": 2,
+        "colour": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s11",
+      "kind": "sound",
+      "type": "macro",
+      "x": 320,
+      "y": 215,
+      "size": 26,
+      "layer": 111,
+      "params": {
+        "model": 6,
+        "harmonics": 0.95,
+        "timbre": 0.35,
+        "morph": 0.6,
+        "decay": 2,
+        "colour": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      }
+    }
+  ]
+}

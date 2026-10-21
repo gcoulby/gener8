@@ -68,7 +68,7 @@ In Chrome and Edge, you choose where to save the MP4 first, and it's written str
 | **new** | Start an empty stage (keeps the tempo, key and seed). |
 | **random** (<kbd>r</kbd>) | A new patch from a random seed. |
 | **seed…** | Type a seed: a number, or any text. |
-| **examples ▾** | The bundled demos. |
+| **examples ▾** | The bundled demos, framed in the window as they load. |
 
 Your patch is also saved in the browser as you go. Replacing an edited patch asks you to press again to confirm.
 

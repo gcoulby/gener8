@@ -1,0 +1,243 @@
+{
+  "format": "gener8.patch",
+  "version": 2,
+  "seed": 1937,
+  "tempo": 96,
+  "key": {
+    "root": 9,
+    "scale": "minor"
+  },
+  "master": 2,
+  "objects": [
+    {
+      "id": "xy1",
+      "kind": "field",
+      "type": "xy",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "w": 1600,
+        "h": 720
+      },
+      "layer": 0,
+      "handles": {},
+      "axes": {
+        "x": {
+          "to": "pan",
+          "min": -1,
+          "max": 1
+        },
+        "y": {
+          "to": "pitch",
+          "min": 24,
+          "max": 96
+        }
+      }
+    },
+    {
+      "id": "f1",
+      "kind": "field",
+      "type": "reverb",
+      "x": 0,
+      "y": 0,
+      "shape": {
+        "r": 750
+      },
+      "layer": 1,
+      "handles": {
+        "size": 0.55,
+        "damping": 0.5
+      }
+    },
+    {
+      "id": "f2",
+      "kind": "field",
+      "type": "delay",
+      "x": -40,
+      "y": 80,
+      "shape": {
+        "r": 420
+      },
+      "layer": 2,
+      "handles": {
+        "time": 0.33,
+        "feedback": 0.45
+      }
+    },
+    {
+      "id": "f3",
+      "kind": "field",
+      "type": "turing",
+      "x": -60,
+      "y": 60,
+      "shape": {
+        "r": 230
+      },
+      "layer": 3,
+      "handles": {
+        "length": 0.43,
+        "change": 0.12
+      }
+    },
+    {
+      "id": "f4",
+      "kind": "field",
+      "type": "canon",
+      "x": 56,
+      "y": 270,
+      "shape": {
+        "r": 110
+      },
+      "layer": 4,
+      "handles": {
+        "delay": 0.6,
+        "interval": 0.67
+      }
+    },
+    {
+      "id": "f5",
+      "kind": "field",
+      "type": "probability",
+      "x": -60,
+      "y": 60,
+      "shape": {
+        "r": 230
+      },
+      "layer": 5,
+      "handles": {
+        "bias": 0.5
+      }
+    },
+    {
+      "id": "f6",
+      "kind": "field",
+      "type": "mirror",
+      "x": -210,
+      "y": 20,
+      "shape": {
+        "r": 120
+      },
+      "layer": 6,
+      "handles": {
+        "axis": 0.5,
+        "share": 0.6
+      }
+    },
+    {
+      "id": "f7",
+      "kind": "field",
+      "type": "tape",
+      "x": -60,
+      "y": -90,
+      "shape": {
+        "r": 140
+      },
+      "layer": 7,
+      "handles": {
+        "age": 0.5,
+        "wobble": 0.3
+      }
+    },
+    {
+      "id": "s1",
+      "kind": "sound",
+      "type": "macro",
+      "x": 12,
+      "y": 191,
+      "size": 30,
+      "layer": 101,
+      "params": {
+        "model": 0,
+        "harmonics": 0.45,
+        "timbre": 0.3,
+        "morph": 0.25,
+        "decay": 0.9,
+        "colour": 0.5
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s2",
+      "kind": "sound",
+      "type": "macro",
+      "x": 54,
+      "y": 23,
+      "size": 28,
+      "layer": 102,
+      "params": {
+        "model": 3,
+        "harmonics": 0.6,
+        "timbre": 0.35,
+        "morph": 0.2,
+        "decay": 0.6,
+        "colour": 0.7
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s3",
+      "kind": "sound",
+      "type": "macro",
+      "x": -148,
+      "y": 43,
+      "size": 28,
+      "layer": 103,
+      "params": {
+        "model": 4,
+        "harmonics": 0.4,
+        "timbre": 0.5,
+        "morph": 0.3,
+        "decay": 0.7,
+        "colour": 0.4
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s4",
+      "kind": "sound",
+      "type": "bass",
+      "x": -60,
+      "y": -110,
+      "size": 34,
+      "layer": 104,
+      "params": {
+        "wave": 0.4,
+        "sub": 0.6,
+        "glide": 0.12,
+        "drive": 0.4,
+        "cutoff": 200,
+        "res": 0.4,
+        "env": 2.8,
+        "fdecay": 0.22,
+        "a": 0.003,
+        "d": 0.3,
+        "s": 0.5,
+        "r": 0.2
+      },
+      "ripple": {
+        "reach": 0
+      }
+    },
+    {
+      "id": "s5",
+      "kind": "sound",
+      "type": "drone",
+      "x": 120,
+      "y": -230,
+      "size": 34,
+      "layer": 105,
+      "params": {
+        "tone": 600,
+        "spread": 8,
+        "drift": 10,
+        "sub": 0.5
+      }
+    }
+  ]
+}
