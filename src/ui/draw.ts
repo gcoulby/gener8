@@ -1201,6 +1201,7 @@ const HELP = [
   't                tap tempo · wheel over bpm / root / scale / seed',
   'timeline strip   drag to preview the past · release to branch',
   '⌘S / ⌘O / drop   save / open patch JSON',
+  'i / info…        title, artist, genre, link, notes · shown when the patch is opened',
   'r / random       new patch from a random seed',
   'seed…            type a seed (a number, or any text)',
   'share            copy a link to this patch (seed link when unedited)',

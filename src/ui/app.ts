@@ -15,6 +15,7 @@ import { BG, FONT, INK } from './theme.ts';
 import { AudioBridge } from './audio.ts';
 import { History } from './history.ts';
 import { download, encodeWav } from './wav.ts';
+import { InfoDialog, infoFileName, readAuthor, signInfo, writeAuthor } from './info.ts';
 import { RenderJob } from './renderjob.ts';
 import { openSink, VideoJob } from './video.ts';
 import { fmtRenderSpec, fmtTime, fmtVideoSpec, parseRenderSpec, parseVideoSpec, RENDER_DEFAULT, VIDEO_DEFAULT, type RenderSpec, type VideoSpec } from './takespec.ts';
@@ -173,6 +174,7 @@ export class App {
   /** Everything at full brightness, instead of lit by nearness to the cursor. */
   lit = readFlag(LIT_KEY, false);
   readonly docs = new DocsViewer();
+  readonly infoDialog = new InfoDialog();
   /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
   axisMenu: AxisMenu | null = null;
   /** Picking a leader for this object: the next click on an object sets its follow. */
@@ -274,6 +276,7 @@ export class App {
       this.load(p, '');
       this.fitView();
       this.toastLoaded();
+      this.showInfo();
     } catch (err) {
       this.toast(linkErrorMessage(err));
     }
@@ -358,16 +361,43 @@ export class App {
     }
   }
 
-  load(p: unknown, label: string): void {
+  /** False (with a toast) when `p` isn't a patch. */
+  load(p: unknown, label: string): boolean {
     try {
       const patch = normalizePatch(p);
       this.commit({ op: 'load', patch });
       this.sel = null;
       this.panel = null;
       this.toast(label);
+      return true;
     } catch (err) {
       this.toast('could not load: ' + (err as Error).message);
+      return false;
     }
+  }
+
+  /** Open a patch file's text, then show its info if it has some. */
+  private loadFile(f: File): void {
+    f.text()
+      .then((t) => JSON.parse(t))
+      .then(
+        (p) => this.load(p, `loaded ${f.name}`) && this.showInfo(),
+        () => this.toast(`could not load: ${f.name} isn't JSON`),
+      );
+  }
+
+  /** The patch's info card, if it has info. */
+  showInfo(): void {
+    const info = this.patch.info;
+    if (info) this.infoDialog.show(info, () => this.editInfo());
+  }
+
+  editInfo(): void {
+    this.infoDialog.edit(this.patch.info, readAuthor(), (info, remember) => {
+      if (remember) writeAuthor({ artist: info.artist?.trim() || undefined, url: info.url?.trim() || undefined });
+      this.commit({ op: 'info', value: info });
+      this.toast(this.patch.info ? 'patch info saved' : 'patch info cleared');
+    });
   }
 
   toast(msg: string): void {
@@ -946,7 +976,7 @@ export class App {
     c.addEventListener('drop', (e) => {
       e.preventDefault();
       const f = e.dataTransfer?.files[0];
-      if (f) f.text().then((t) => this.load(JSON.parse(t), `loaded ${f.name}`));
+      if (f) this.loadFile(f);
     });
   }
 
@@ -1441,6 +1471,10 @@ export class App {
       case 'save':
         this.savePatch();
         return;
+      case 'info':
+        // on the click, like seedentry below, so the dialog keeps the focus
+        this.canvas.addEventListener('click', () => this.editInfo(), { once: true });
+        return;
       case 'examples':
         this.examplesOpen = !this.examplesOpen;
         return;
@@ -1634,9 +1668,14 @@ export class App {
   }
 
   savePatch(): void {
+    // sign it with your remembered details, where it has no artist yet
+    const info = this.patch.info;
+    const signed = signInfo(info, readAuthor());
+    if (signed !== info) this.commit({ op: 'info', value: signed! });
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
-    download(new Blob([JSON.stringify(this.patch, null, 2)], { type: 'application/json' }), `gener8-${stamp}.json`);
-    this.toast('patch saved');
+    const name = infoFileName(this.patch.info) || `gener8-${stamp}`;
+    download(new Blob([JSON.stringify(this.patch, null, 2)], { type: 'application/json' }), `${name}.json`);
+    this.toast(signed !== info ? `patch saved · signed ${signed!.artist}` : 'patch saved');
   }
 
   openPatch(): void {
@@ -1645,7 +1684,7 @@ export class App {
     inp.accept = '.json,application/json';
     inp.onchange = () => {
       const f = inp.files?.[0];
-      if (f) f.text().then((t) => this.load(JSON.parse(t), `loaded ${f.name}`));
+      if (f) this.loadFile(f);
     };
     inp.click();
   }
@@ -1768,9 +1807,6 @@ export class App {
       case '0':
         this.cam = { x: 0, y: 0, zoom: 1 };
         return;
-      case 'D':
-      case 'T':
-      case 'R':
       case 'C':
         e.preventDefault(); // keep the C out of the input this opens
         this.openRenderEntry();
@@ -1779,6 +1815,13 @@ export class App {
         e.preventDefault();
         this.openVideoEntry();
         return;
+      case 'i':
+        e.preventDefault(); // keep the i out of the title field
+        this.editInfo();
+        return;
+      case 'D':
+      case 'T':
+      case 'R':
       case 'X': {
         this.loadExample(EXAMPLES.find((x) => x.key === e.key)!);
         return;

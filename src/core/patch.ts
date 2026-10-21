@@ -1,4 +1,4 @@
-import type { Edit, FieldObj, Patch, PatchObject } from './types.ts';
+import type { Edit, FieldObj, Patch, PatchInfo, PatchObject } from './types.ts';
 import { MIDI_MAX, MIDI_MIN, STAGE_HALF, UNITS_PER_SEMITONE } from './constants.ts';
 
 export function clone<T>(v: T): T {
@@ -31,6 +31,9 @@ export function normalizePatch(input: unknown): Patch {
     key: p.key && typeof p.key === 'object' ? p.key : d.key,
     objects: Array.isArray(p.objects) ? p.objects : [],
   } as Patch;
+  const info = cleanInfo(p.info);
+  if (info) out.info = info;
+  else delete out.info;
   if (p.version !== 2) out.objects.push(stageField(out.objects));
   return out;
 }
@@ -144,9 +147,37 @@ export function applyEdit(p: Patch, e: Edit): Patch {
     case 'master':
       p.master = Math.min(12, Math.max(-60, e.value));
       return p;
+    case 'info': {
+      const info = cleanInfo(e.value);
+      if (info) p.info = info;
+      else delete p.info;
+      return p;
+    }
     case 'load':
       return normalizePatch(e.patch);
   }
+}
+
+/** Longest text kept in each info field. */
+export const INFO_MAX: Record<keyof PatchInfo, number> = { title: 80, artist: 80, genre: 40, url: 200, notes: 2000 };
+
+/**
+ * Info trimmed and cut to INFO_MAX, with non-strings, blanks and non-http(s)
+ * URLs dropped; undefined when nothing is left. Never throws.
+ */
+export function cleanInfo(input: unknown): PatchInfo | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const src = input as Record<string, unknown>;
+  const out: PatchInfo = {};
+  for (const k of Object.keys(INFO_MAX) as (keyof PatchInfo)[]) {
+    const v = src[k];
+    if (typeof v !== 'string') continue;
+    // one line, except the notes
+    const t = (k === 'notes' ? v.replace(/\r\n?/g, '\n') : v.replace(/\s+/g, ' ')).trim().slice(0, INFO_MAX[k]);
+    if (!t || (k === 'url' && !/^https?:\/\/\S+$/i.test(t))) continue;
+    out[k] = t;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export function nextId(p: Patch, prefix: string): string {

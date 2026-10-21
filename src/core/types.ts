@@ -111,6 +111,16 @@ export interface Key {
   scale: string;
 }
 
+/** Who made a patch and what it is: shown when it's opened. Every field is optional. */
+export interface PatchInfo {
+  title?: string;
+  artist?: string;
+  genre?: string;
+  /** http(s) only. */
+  url?: string;
+  notes?: string;
+}
+
 export interface Patch {
   format: 'gener8.patch';
   /** 2 since XY fields. Version 1 (fixed y = pitch, x = pan) is migrated on load. */
@@ -120,6 +130,7 @@ export interface Patch {
   key: Key;
   /** Master level in dB (default 0). */
   master?: number;
+  info?: PatchInfo;
   objects: PatchObject[];
 }
 
@@ -132,6 +143,7 @@ export type Edit =
   | { op: 'key'; value: Key }
   | { op: 'seed'; value: number }
   | { op: 'master'; value: number }
+  | { op: 'info'; value: PatchInfo }
   | { op: 'load'; patch: Patch };
 
 export interface LoggedEdit {

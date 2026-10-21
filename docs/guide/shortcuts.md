@@ -23,6 +23,7 @@
 | <kbd>t</kbd> | Tap tempo. |
 | <kbd>r</kbd> | Random patch. |
 | <kbd>⌘S</kbd> / <kbd>⌘O</kbd> | Save / open a patch file. |
+| <kbd>i</kbd> | Edit the patch info: title, artist and so on (see [Patch info](mixing.md#patch-info)). |
 | <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd> | Zoom in, zoom out, reset the view. |
 | <kbd>shift</kbd>+<kbd>D</kbd> <kbd>T</kbd> <kbd>R</kbd> <kbd>X</kbd> | The ambient, tape, rhythmic and stress examples. |
 

@@ -15,6 +15,7 @@ function ioItems(app: App): Item[] {
     ['new', 'new'],
     ['open', 'open'],
     ['save', 'save'],
+    ['info', 'info…'],
     ['random', 'random'],
     ['seedentry', 'seed…'],
     ['share', 'share'],

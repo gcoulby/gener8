@@ -63,7 +63,8 @@ In Chrome and Edge, you choose where to save the MP4 first, and it's written str
 
 | | |
 |---|---|
-| **save** (<kbd>⌘S</kbd>) | Download the patch as JSON. |
+| **save** (<kbd>⌘S</kbd>) | Download the patch as JSON, named after its title if it has one. |
+| **info…** (<kbd>i</kbd>) | Edit the patch info (see below). |
 | **open** (<kbd>⌘O</kbd>) | Load a patch file. You can also drop one on the canvas. |
 | **new** | Start an empty stage (keeps the tempo, key and seed). |
 | **random** (<kbd>r</kbd>) | A new patch from a random seed. |
@@ -71,6 +72,12 @@ In Chrome and Edge, you choose where to save the MP4 first, and it's written str
 | **examples ▾** | The bundled demos, framed in the window as they load. |
 
 Your patch is also saved in the browser as you go. Replacing an edited patch asks you to press again to confirm.
+
+## Patch info
+
+**info…** (<kbd>i</kbd>) gives a patch a title, artist, genre, link and notes. Info is saved in the patch file and travels in share links. When you open a patch file or a link that has info, a card shows it first.
+
+Tick **remember my artist name and link** and they're kept in this browser. Every patch you save afterwards that has no artist yet is signed with them. A patch that already names an artist keeps it, so saving someone else's patch doesn't claim it as yours. Info isn't part of the sound: it never changes a render.
 
 ## Sharing
 

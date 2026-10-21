@@ -8,7 +8,7 @@ import { SCALE_ORDER } from './music.ts';
 import { MIDI_MAX, MIDI_MIN } from './constants.ts';
 import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
-import { normalizePatch } from './patch.ts';
+import { cleanInfo, normalizePatch } from './patch.ts';
 import { isCircle } from './geometry.ts';
 import { PARAM_PREFIX, RIPPLE_LIMITS, targetOf } from './placement.ts';
 
@@ -263,6 +263,8 @@ export function sanitisePatch(input: unknown, limits = SHARE_LIMITS): Patch {
 
   const built: Patch = { format: 'gener8.patch', version: p.version as 1 | 2, seed, tempo, key: { root, scale }, objects };
   if (p.master !== undefined) built.master = clamp(num(p.master, 'master'), MASTER[0], MASTER[1]);
+  const info = cleanInfo(p.info);
+  if (info) built.info = info;
   // Version 1 gets the stage XY field that reproduces its fixed mapping.
   const out = p.version === 2 ? built : normalizePatch(built);
   if (JSON.stringify(out).length > limits.MAX_JSON_CHARS) fail('patch is too large');
