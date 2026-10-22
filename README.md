@@ -109,13 +109,12 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | `[` `]` | layer down / up |
 | timeline strip | drag to preview the last 5 minutes, release to branch from there |
 | c / ● capture | save the last 30 s as WAV, plus the patch, seed and edit log |
-| shift-C / render… | render the patch from a fresh start for up to 1 h (e.g. `5`, `90s fade`, `1:00:00 in:2s out:30s`), faster than real time in a worker; click again to cancel |
-| shift-V / video… | the same render as an MP4 of the whole window, e.g. `5`, `90s 60fps fade`, `1:00:00 4k out:30s` (default 1080p, 30 fps), or `short` for a 1080 × 1920 one-minute portrait video of just the elements; click again to cancel |
-| vol | master level (drag or scroll) |
+| shift-C / render ▾ | render the patch from a fresh start for up to 1 h: pick a length and fades, or type e.g. `5`, `90s fade`, `1:00:00 in:2s out:30s`; faster than real time in a worker; cancel from the same menu |
+| shift-V / render ▾ | the same render as an MP4 of the whole window, e.g. `5`, `90s 60fps fade`, `1:00:00 4k out:30s` (default 1080p, 30 fps), or `short` for a 1080 × 1920 one-minute portrait video of just the elements |
+| vol / bpm / seed | drag or scroll (shift: fine), or click and type; double-click vol for 0 dB |
 | mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
-| bottom bar | new · open · save · info… · random · seed… · share · examples |
+| patch ▾ | new · open · save · info… · share · random · new from a seed |
 | r / random | a new patch from a random seed (asks again before replacing an edited patch) |
-| seed… | type a seed: a number, or any text (hashed to a number) |
 | share | copy a link to the current patch |
 | h / ? | quick help |
 | g / docs | the full guide |

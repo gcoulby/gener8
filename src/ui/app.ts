@@ -7,22 +7,21 @@ import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
 import { fieldTypes, defaultHandles, isMap, mapTypeOf } from '../core/fields/registry.ts';
 import { governingAxis, newPlacement, placeSound, RIPPLE_LIMITS, rippleOf, type MapPose, type Placement } from '../core/placement.ts';
 import { triCorner } from '../core/fields/maps.ts';
-import { noteName, SCALE_ORDER } from '../core/music.ts';
+import { noteName } from '../core/music.ts';
 import { generatePatch, generators } from '../core/generate.ts';
-import { strHash } from '../core/rand.ts';
 import { buildShare, isDisposable, linkErrorMessage, parseHash, resolveLink } from './share.ts';
-import { BG, FONT, INK } from './theme.ts';
 import { AudioBridge } from './audio.ts';
 import { History } from './history.ts';
 import { download, encodeWav } from './wav.ts';
 import { InfoDialog, infoFileName, readAuthor, signInfo, writeAuthor } from './info.ts';
 import { RenderJob } from './renderjob.ts';
 import { openSink, VideoJob } from './video.ts';
-import { fmtRenderSpec, fmtTime, fmtVideoSpec, parseRenderSpec, parseVideoSpec, RENDER_DEFAULT, VIDEO_DEFAULT, type RenderSpec, type VideoSpec } from './takespec.ts';
+import { fmtRenderSpec, fmtTime, fmtVideoSpec, RENDER_DEFAULT, VIDEO_DEFAULT, type RenderSpec, type VideoSpec } from './takespec.ts';
 import type { Tele } from '../worklet/protocol.ts';
 import { draw } from './draw.ts';
 import { paletteHit, type PaletteItem } from './palette.ts';
 import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
+import { Bar, parseSeed } from './bar.ts';
 import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, type MixerHit } from './mixer.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import { axisTargetEdit, inAxisMenu, menuHitAt, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
@@ -77,7 +76,8 @@ export type Hit =
   | { kind: 'object'; id: string }
   | { kind: 'handle'; id: string; h: HandlePos }
   | { kind: 'palette'; item: PaletteItem }
-  | { kind: 'ui'; id: string }
+  /** The bar, outside the strip: its controls are DOM and take their own events. */
+  | { kind: 'bar' }
   | { kind: 'motion'; hit: MotionHit }
   | { kind: 'mixer'; hit: MixerHit }
   | { kind: 'mixerBg' }
@@ -94,7 +94,6 @@ type Drag =
   | { kind: 'scrub' }
   | { kind: 'mvalue'; id: string; key: ValueKey; start: number; sx: number }
   | { kind: 'fader'; id: string }
-  | { kind: 'vol'; sx: number; start: number }
   | { kind: 'mixerScroll'; sx: number; start: number }
   | { kind: 'pinch'; d0: number; z0: number; wx: number; wy: number }
   | { kind: 'minimap'; tf: MiniTf }
@@ -161,12 +160,12 @@ export class App {
   tickNow = 0;
   beat = 0;
   now = 0;
-  uiHits: { id: string; x: number; y: number; w: number; h: number }[] = [];
   motionHits: MotionHit[] = [];
-  examplesOpen = false;
   /** Touch device with a phone/tablet-sized screen: switches to the mobile layout. */
   mobile = false;
-  /** Height of the bottom bar (one row on desktop, wrapped rows on mobile). */
+  /** The bottom bar's controls (none in video frames). */
+  readonly bar: Bar | null = null;
+  /** Height of the bottom bar, set as it's drawn. */
   barH = STRIP_H;
   paletteOpen = false;
   mixerOpen = false;
@@ -197,9 +196,9 @@ export class App {
   private taps: number[] = [];
   /** Replacing an edited patch needs a second press before this time. */
   private confirmUntil = 0;
-  private entryInput: HTMLInputElement | null = null;
-  private renderSpec: RenderSpec = RENDER_DEFAULT;
-  private videoSpec: VideoSpec = VIDEO_DEFAULT;
+  /** What the render menu last rendered, which it starts from next time. */
+  renderSpec: RenderSpec = RENDER_DEFAULT;
+  videoSpec: VideoSpec = VIDEO_DEFAULT;
   private spaceDown = false;
   private sendQueue = new Map<string, Edit>();
   private saveTimer = 0;
@@ -241,6 +240,8 @@ export class App {
     this.patch = seeded ?? this.loadStored() ?? normalizePatch(EXAMPLES[0].patch);
     this.resize();
     this.bind();
+    this.bar = new Bar(this);
+    this.barH = this.bar.layout().h;
     if (seeded) {
       this.stripHash();
       this.fitView();
@@ -483,7 +484,7 @@ export class App {
     const patch = clone(this.patch);
     const job = new RenderJob(patch, spec.seconds, spec.fade);
     this.render = job;
-    this.toast(`rendering ${fmtRenderSpec(spec)} from the start · click render to cancel`);
+    this.toast(`rendering ${fmtRenderSpec(spec)} from the start · cancel it in the render menu`);
     let wav: Blob;
     try {
       wav = await job.done;
@@ -521,7 +522,7 @@ export class App {
     if (!sink) return;
     const job = new VideoJob(this, patch, spec, sink);
     this.video = job;
-    this.toast(`rendering video ${fmtVideoSpec(spec)} from the start · click video to cancel`);
+    this.toast(`rendering video ${fmtVideoSpec(spec)} from the start · cancel it in the render menu`);
     try {
       await job.done;
     } catch (err) {
@@ -539,6 +540,7 @@ export class App {
   // ---------- frame ----------
 
   private frame = (now: number): void => {
+    this.bar?.sync();
     this.flushSends();
     if (this.audio.started) {
       const a = this.audio.audibleSample();
@@ -727,7 +729,6 @@ export class App {
       const h = menuHitAt(this, mx, my);
       if (h) return { kind: 'menu', hit: h };
     }
-    for (const u of this.uiHits) if (mx >= u.x && mx <= u.x + u.w && my >= u.y && my <= u.y + u.h) return { kind: 'ui', id: u.id };
     if (this.mixerOpen) {
       const r = mixerRect(this);
       if (my >= r.y && my < r.y + r.h) {
@@ -741,10 +742,7 @@ export class App {
     if (mh) return { kind: 'motion', hit: mh };
     const pi = paletteHit(this, mx, my);
     if (pi) return { kind: 'palette', item: pi };
-    if (my > this.H - this.barH) {
-      for (const u of this.uiHits) if (mx >= u.x && mx <= u.x + u.w && my >= u.y && my <= u.y + u.h) return { kind: 'ui', id: u.id };
-      return inStrip(this, mx, my) ? { kind: 'strip' } : { kind: 'ui', id: 'none' };
-    }
+    if (my > this.H - this.barH) return inStrip(this, mx, my) ? { kind: 'strip' } : { kind: 'bar' };
     const v = this.view;
     if (this.cam.zoom >= HANDLE_ZOOM) {
       const cands = [this.sel, this.hover?.kind === 'object' ? this.hover.id : null, this.hover?.kind === 'handle' ? this.hover.id : null];
@@ -939,7 +937,7 @@ export class App {
     this.commit({ op: 'set', id: b.id, path: ['layer'], value: a.layer });
   }
 
-  private tap(): void {
+  tap(): void {
     const t = performance.now();
     this.taps = this.taps.filter((x) => t - x < 2500);
     this.taps.push(t);
@@ -1042,9 +1040,6 @@ export class App {
       return;
     }
     this.downAt = { x: mx, y: my, id: hit?.kind === 'object' ? hit.id : null, wasSel: hit?.kind === 'object' && hit.id === this.sel, touch };
-    if (this.examplesOpen && !(hit?.kind === 'ui' && (hit.id === 'examples' || hit.id.startsWith('example:')))) {
-      this.examplesOpen = false;
-    }
     if (!hit) {
       this.sel = null;
       this.drag = { kind: 'pan', sx: mx, sy: my, cx: this.cam.x, cy: this.cam.y };
@@ -1053,13 +1048,6 @@ export class App {
     switch (hit.kind) {
       case 'palette':
         this.drag = { kind: 'palette', item: hit.item };
-        return;
-      case 'ui':
-        if (hit.id === 'vol') {
-          this.drag = { kind: 'vol', sx: mx, start: this.patch.master ?? 0 };
-          return;
-        }
-        this.onUi(hit.id);
         return;
       case 'paletteToggle':
         this.paletteOpen = !this.paletteOpen;
@@ -1156,7 +1144,7 @@ export class App {
     if (!d) {
       if (this.pinned && !this.nearPin(mx, my)) this.pinned = null;
       this.hover = this.panel ? null : this.hitTest(mx, my);
-      this.canvas.style.cursor = this.hover && this.hover.kind !== 'strip' ? 'pointer' : 'default';
+      this.canvas.style.cursor = this.hover && this.hover.kind !== 'strip' && this.hover.kind !== 'bar' ? 'pointer' : 'default';
       return;
     }
     const [wx, wy] = this.s2w(mx, my);
@@ -1183,11 +1171,6 @@ export class App {
       case 'fader':
         this.commitCoalesced('fader:' + d.id, trimEdit(this, d.id, faderDbAt(this, my)));
         return;
-      case 'vol': {
-        const db = Math.round(Math.min(12, Math.max(-40, d.start + (mx - d.sx) / 6)) * 2) / 2;
-        this.commitCoalesced('vol', { op: 'master', value: db });
-        return;
-      }
       case 'mixerScroll':
         this.mixerScroll = d.start - (mx - d.sx);
         return;
@@ -1341,11 +1324,7 @@ export class App {
     e.preventDefault();
     const mx = e.offsetX;
     const my = e.offsetY;
-    if (my > this.H - this.barH) {
-      const u = this.uiHits.find((q) => mx >= q.x && mx <= q.x + q.w);
-      if (u) this.wheelUi(u.id, e.deltaY < 0 ? 1 : -1);
-      return;
-    }
+    if (my > this.H - this.barH) return;
     if (this.mixerOpen) {
       const r = mixerRect(this);
       if (my >= r.y && my < r.y + r.h) {
@@ -1415,89 +1394,40 @@ export class App {
     this.cam.y += wy - wy2;
   }
 
-  private onUi(id: string): void {
+  get playing(): boolean {
+    return this.headless || (this.audio.started && this.audio.running);
+  }
+
+  togglePlay(): void {
+    if (!this.audio.started) void this.ensureAudio();
+    else void this.audio.toggle();
+  }
+
+  /** The same patch with a different engine seed: the same parts, other chances. */
+  rerollSeed(): void {
+    this.commit({ op: 'seed', value: crypto.getRandomValues(new Uint32Array(1))[0] });
+  }
+
+  newPatch(): void {
     const p = this.patch;
-    switch (id) {
-      case 'play':
-        if (!this.audio.started) void this.ensureAudio();
-        else void this.audio.toggle();
-        return;
-      case 'scale': {
-        const i = SCALE_ORDER.indexOf(p.key.scale);
-        this.commit({ op: 'key', value: { ...p.key, scale: SCALE_ORDER[(i + 1) % SCALE_ORDER.length] } });
-        return;
-      }
-      case 'seed':
-        this.commit({ op: 'seed', value: (Math.random() * 1e6) | 0 });
-        return;
-      case 'tempo':
-        this.tap();
-        return;
-      case 'capture':
-        void this.capture();
-        return;
-      case 'render':
-        if (this.render) {
-          this.render.cancel();
-          this.render = null;
-          this.toast('render cancelled');
-          return;
-        }
-        // on the click, like seedentry below
-        this.canvas.addEventListener('click', () => this.openRenderEntry(), { once: true });
-        return;
-      case 'video':
-        if (this.video) {
-          this.video.cancel();
-          this.video = null;
-          this.toast('video cancelled');
-          return;
-        }
-        this.canvas.addEventListener('click', () => this.openVideoEntry(), { once: true });
-        return;
-      case 'help':
-        this.showHelp = !this.showHelp;
-        return;
-      case 'docs':
-        this.showHelp = false;
-        this.docs.open();
-        return;
-      case 'new':
-        this.load({ ...emptyPatch(), tempo: p.tempo, key: p.key, seed: p.seed, objects: [classicStage()] }, 'new patch · scrub the timeline to go back');
-        return;
-      case 'open':
-        this.openPatch();
-        return;
-      case 'save':
-        this.savePatch();
-        return;
-      case 'info':
-        // on the click, like seedentry below, so the dialog keeps the focus
-        this.canvas.addEventListener('click', () => this.editInfo(), { once: true });
-        return;
-      case 'examples':
-        this.examplesOpen = !this.examplesOpen;
-        return;
-      case 'random':
-        this.randomPatch();
-        return;
-      case 'seedentry':
-        // open on the click, not here: the pointerdown's default action would
-        // otherwise take focus straight back off the new input
-        this.canvas.addEventListener('click', () => this.openSeedEntry(), { once: true });
-        return;
-      case 'share':
-        void this.share();
-        return;
-      case 'mixer':
-        this.mixerOpen = !this.mixerOpen;
-        return;
-    }
-    if (id.startsWith('example:')) {
-      const ex = EXAMPLES.find((x) => 'example:' + x.id === id);
-      this.examplesOpen = false;
-      if (ex) this.loadExample(ex);
-    }
+    this.load({ ...emptyPatch(), tempo: p.tempo, key: p.key, seed: p.seed, objects: [classicStage()] }, 'new patch · scrub the timeline to go back');
+  }
+
+  openDocs(): void {
+    this.showHelp = false;
+    this.docs.open();
+  }
+
+  cancelRender(): void {
+    this.render?.cancel();
+    this.render = null;
+    this.toast('render cancelled');
+  }
+
+  cancelVideo(): void {
+    this.video?.cancel();
+    this.video = null;
+    this.toast('video cancelled');
   }
 
   /**
@@ -1516,15 +1446,24 @@ export class App {
   }
 
   /** Load a bundled example and frame it, wherever the view had wandered. */
-  private loadExample(ex: (typeof EXAMPLES)[number]): void {
+  loadExample(ex: (typeof EXAMPLES)[number]): void {
     if (!this.load(ex.patch, `loaded ${ex.label}`)) return;
     this.fitView();
     this.showInfo();
   }
 
-  randomPatch(): void {
-    if (!this.confirmReplace()) return;
+  /** A new patch from a random seed; false if it's waiting for a second press to replace an edited one. */
+  randomPatch(): boolean {
+    if (!this.confirmReplace()) return false;
     this.loadSeed(crypto.getRandomValues(new Uint32Array(1))[0]);
+    return true;
+  }
+
+  /** A new patch from typed seed text (see parseSeed); false as for randomPatch. */
+  seedPatch(text: string): boolean {
+    if (!this.confirmReplace()) return false;
+    this.loadSeed(parseSeed(text));
+    return true;
   }
 
   private loadSeed(seed: number): void {
@@ -1558,98 +1497,7 @@ export class App {
     this.cam = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 - this.barH / 2 / zoom, zoom };
   }
 
-  /** Seed text → uint32: digits within range are used as is, anything else is hashed. */
-  static parseSeed(text: string): number {
-    const t = text.trim();
-    if (/^\d{1,10}$/.test(t) && Number(t) <= 4294967295) return Number(t);
-    return strHash(t) >>> 0;
-  }
-
-  openSeedEntry(): void {
-    this.openEntry('seedentry', String(this.patch.seed), 'seed', 32, (v) => {
-      if (!this.confirmReplace()) return false;
-      this.loadSeed(App.parseSeed(v));
-    });
-  }
-
-  openRenderEntry(): void {
-    this.openEntry('render', fmtRenderSpec(this.renderSpec), 'render: length, then optional fade / fade:10s / in:2s out:20s', 28, (v) => {
-      const spec = parseRenderSpec(v, this.renderSpec);
-      if (!spec) {
-        this.toast('render: e.g. 5, 90s fade, 1:00:00 in:2s out:30s');
-        return false;
-      }
-      this.renderSpec = spec;
-      void this.startRender(spec);
-    });
-  }
-
-  openVideoEntry(): void {
-    this.openEntry('video', fmtVideoSpec(this.videoSpec), 'video: length, then optional 60fps / 720p / 1440p / 4k / short / fade / in:2s out:20s', 40, (v) => {
-      const spec = parseVideoSpec(v, this.videoSpec);
-      if (!spec) {
-        this.toast('video: e.g. 5, 90s 60fps fade, 1:00:00 4k out:30s');
-        return false;
-      }
-      this.videoSpec = spec;
-      void this.startVideo(spec);
-    });
-  }
-
-  /**
-   * A small DOM input over the bar item `anchor`: the canvas has no text entry
-   * of its own. Enter calls onEnter with the text; it closes unless that returns false.
-   */
-  private openEntry(anchor: string, value: string, label: string, maxLength: number, onEnter: (v: string) => boolean | void): void {
-    if (this.entryInput) {
-      this.entryInput.focus();
-      return;
-    }
-    const hit = this.uiHits.find((u) => u.id === anchor);
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.maxLength = maxLength;
-    inp.value = value;
-    inp.spellcheck = false;
-    inp.autocomplete = 'off';
-    inp.setAttribute('aria-label', label);
-    const st = inp.style;
-    // wide enough for the starting text (FONT is ~6.7px a character), within the window
-    const w = Math.min(this.W - 34, Math.max(150, (value.length + 4) * 6.7));
-    st.position = 'fixed';
-    st.left = Math.max(8, Math.min((hit?.x ?? 14) - 2, this.W - w - 18)) + 'px';
-    st.bottom = this.H - (hit?.y ?? this.H - this.barH) + 6 + 'px';
-    st.width = w + 'px';
-    st.padding = '5px 8px';
-    st.font = this.mobile ? FONT.replace(/^\d+px/, '16px') : FONT;
-    st.color = INK;
-    st.background = BG;
-    st.border = '1px solid rgba(233,228,218,0.3)';
-    st.borderRadius = '4px';
-    st.outline = 'none';
-    this.entryInput = inp;
-    let done = false;
-    const close = () => {
-      if (done) return;
-      done = true;
-      this.entryInput = null;
-      inp.remove();
-    };
-    inp.addEventListener('keydown', (e) => {
-      e.stopPropagation();
-      if (e.key === 'Escape') close();
-      else if (e.key === 'Enter') {
-        if (!inp.value.trim()) return close();
-        if (onEnter(inp.value) !== false) close();
-      }
-    });
-    inp.addEventListener('blur', close);
-    document.body.appendChild(inp);
-    inp.focus();
-    inp.select();
-  }
-
-  private async share(): Promise<void> {
+  async share(): Promise<void> {
     let r: { url: string; kind: 'seed' | 'patch' };
     try {
       r = await buildShare(this.patch);
@@ -1690,20 +1538,10 @@ export class App {
     inp.click();
   }
 
-  private wheelUi(id: string, dir: number): void {
-    const p = this.patch;
-    if (id === 'tempo') this.commit({ op: 'tempo', value: p.tempo + dir });
-    else if (id === 'root') this.commit({ op: 'key', value: { ...p.key, root: (p.key.root + dir + 12) % 12 } });
-    else if (id === 'scale') {
-      const i = SCALE_ORDER.indexOf(p.key.scale);
-      this.commit({ op: 'key', value: { ...p.key, scale: SCALE_ORDER[(i + dir + SCALE_ORDER.length) % SCALE_ORDER.length] } });
-    } else if (id === 'seed') this.commit({ op: 'seed', value: (p.seed + dir) >>> 0 });
-    else if (id === 'vol') this.commit({ op: 'master', value: Math.min(12, Math.max(-40, (p.master ?? 0) + dir)) });
-  }
-
   private onKey(e: KeyboardEvent): void {
-    // typing in the seed box must not trigger shortcuts (c captures, t taps tempo…)
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    // typing in a text box must not trigger shortcuts (c captures, t taps tempo…), nor keys meant for the bar's controls
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || this.bar?.owns(e.target)) return;
+    if (e.key === 'Escape' && this.bar?.close()) return;
     if (this.docs.isOpen) {
       if (e.key === 'Escape') this.docs.escape();
       return;
@@ -1738,8 +1576,7 @@ export class App {
     if (e.code === 'Space') {
       e.preventDefault();
       if (!this.spaceDown && !e.repeat) {
-        if (!this.audio.started) void this.ensureAudio();
-        else void this.audio.toggle();
+        this.togglePlay();
       }
       this.spaceDown = true;
       return;
@@ -1751,7 +1588,6 @@ export class App {
         this.pinned = null;
         if (this.followPick) this.followPick = null;
         else if (this.axisMenu) this.axisMenu = null;
-        else if (this.examplesOpen) this.examplesOpen = false;
         else if (this.scrub) this.scrub.cancelled = true;
         else if (this.panel) this.panel = null;
         else if (this.showHelp) this.showHelp = false;
@@ -1781,8 +1617,7 @@ export class App {
         void this.capture();
         return;
       case 'g':
-        this.showHelp = false;
-        this.docs.open();
+        this.openDocs();
         return;
       case 'n':
         this.showMinimap = !this.showMinimap;
@@ -1814,12 +1649,12 @@ export class App {
         this.cam = { x: 0, y: 0, zoom: 1 };
         return;
       case 'C':
-        e.preventDefault(); // keep the C out of the input this opens
-        this.openRenderEntry();
+        e.preventDefault(); // keep the C out of the spec field this focuses
+        this.bar?.open('render');
         return;
       case 'V':
         e.preventDefault();
-        this.openVideoEntry();
+        this.bar?.open('video');
         return;
       case 'i':
         e.preventDefault(); // keep the i out of the title field

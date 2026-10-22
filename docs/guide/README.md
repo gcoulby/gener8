@@ -8,7 +8,7 @@ GENER8 is a generative music instrument on an infinite canvas. You don't patch c
 2. Drag the canvas to look around. Scroll or pinch to zoom.
 3. Drag a sound into or out of an amber circle and hear it start or stop.
 4. Open **examples ▾** in the bottom bar to try the other demos.
-5. Press **random** for a patch built from a random seed.
+5. Press **random** in **patch ▾** for a patch built from a random seed.
 
 ## What's on screen
 
@@ -18,7 +18,7 @@ GENER8 is a generative music instrument on an infinite canvas. You don't patch c
 | Middle | The **canvas**. Everything here is part of the patch. |
 | Under a selection | The **selection bar**: motion, group, note, retrigger and axis controls for whatever you selected. |
 | Top right | The **minimap**: the whole patch and your view. Click or drag in it to move. |
-| Bottom | The **bar**: patch actions on the left; play, volume, tempo, key, seed, mixer, capture, render and help on the right. Above it is the **timeline strip**. |
+| Bottom | The **bar**: play, volume, tempo, key and seed on the left; mixer, capture, render, the patch and examples menus and help on the right. Along its top is the **timeline strip**. On a phone, **☰** opens everything else. |
 
 ## The colours mean roles
 

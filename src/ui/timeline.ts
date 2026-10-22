@@ -1,111 +1,32 @@
 import { fmtTime, type App } from './app.ts';
-import { EXAMPLES } from './examples.ts';
 import { CAPTURE_SECONDS, HISTORY_SECONDS, SR } from '../core/constants.ts';
 import { NOTE_NAMES, SCALE_LABELS } from '../core/music.ts';
 import { FONT, INK, rgba } from './theme.ts';
+import { fmtDb } from './bar.ts';
 
-/** Height of one bar row (the desktop bar is one row). */
+/** Height of the bar in a video frame, which has no DOM bar (see bar.ts). */
 export const STRIP_H = 30;
-const READOUT_W = 680;
-
-type Item = [string, string];
-
-function ioItems(app: App): Item[] {
-  return [
-    ['new', 'new'],
-    ['open', 'open'],
-    ['save', 'save'],
-    ['info', 'info…'],
-    ['random', 'random'],
-    ['seedentry', 'seed…'],
-    ['share', 'share'],
-    ['examples', app.examplesOpen ? 'examples ▴' : 'examples ▾'],
-  ];
-}
-
-function readoutItems(app: App): Item[] {
-  const p = app.patch;
-  const items: Item[] = [
-    ['play', app.headless || (app.audio.started && app.audio.running) ? '❚❚' : '▶'],
-    ['vol', `vol ${fmtDb(p.master ?? 0)}`],
-    ['tempo', `${Math.round(p.tempo)} bpm`],
-    ['root', NOTE_NAMES[p.key.root]],
-    ['scale', SCALE_LABELS[p.key.scale] ?? p.key.scale],
-    ['seed', `seed ${p.seed}`],
-  ];
-  if (!app.mobile) items.push(['voices', `${app.voices}v`]);
-  items.push(
-    ['mixer', app.mixerOpen ? 'mixer ▾' : 'mixer ▴'],
-    ['capture', '● capture'],
-    ['render', app.render ? `render ${Math.floor(app.render.progress * 100)}%` : 'render…'],
-    ['video', app.video ? `video ${Math.floor(app.video.progress * 100)}%` : 'video…'],
-    ['docs', 'docs'],
-    ['help', '?'],
-  );
-  return items;
-}
-
-export function fmtDb(db: number): string {
-  return `${db > 0 ? '+' : ''}${db.toFixed(db % 1 ? 1 : 0)} dB`;
-}
-
-interface Placed {
-  id: string;
-  label: string;
-  x: number;
-  y: number;
-}
 
 interface BarLayout {
   h: number;
-  strip: { x0: number; x1: number; y: number };
-  items: Placed[];
+  strip: { x0: number; x1: number; y: number; h: number };
 }
 
-/**
- * Desktop: one row (I/O · strip · readout). Mobile: the buttons wrap onto
- * rows above a full-width strip.
- */
+/** What a video frame shows in place of the bar's controls. */
+function readout(app: App): string {
+  const p = app.patch;
+  return `${Math.round(p.tempo)} bpm   ${NOTE_NAMES[p.key.root]} ${SCALE_LABELS[p.key.scale] ?? p.key.scale}   seed ${p.seed}   vol ${fmtDb(p.master ?? 0)}`;
+}
+
+/** The bar's height and the strip's place: from the DOM bar, or a read-only row in video frames. */
 export function barLayout(app: App): BarLayout {
-  const g = app.g;
-  g.font = FONT;
-  if (!app.mobile) {
-    const y = app.H - STRIP_H;
-    const items: Placed[] = [];
-    let x = 14;
-    for (const [id, label] of ioItems(app)) {
-      items.push({ id, label, x, y });
-      x += g.measureText(label).width + 14;
-    }
-    const x0 = x + 12;
-    const x1 = Math.max(x0 + 120, app.W - READOUT_W);
-    x = x1 + 16;
-    for (const [id, label] of readoutItems(app)) {
-      items.push({ id, label, x, y });
-      x += g.measureText(label).width + 14;
-    }
-    return { h: STRIP_H, strip: { x0, x1, y }, items };
-  }
-  const gap = 18;
-  const all = [...readoutItems(app), ...ioItems(app)];
-  const rows: Placed[][] = [[]];
-  let x = 14;
-  for (const [id, label] of all) {
-    const w = g.measureText(label).width;
-    if (x + w > app.W - 10 && rows[rows.length - 1].length) {
-      rows.push([]);
-      x = 14;
-    }
-    rows[rows.length - 1].push({ id, label, x, y: 0 });
-    x += w + gap;
-  }
-  const h = (rows.length + 1) * STRIP_H;
-  const top = app.H - h;
-  rows.forEach((r, i) => r.forEach((p) => (p.y = top + i * STRIP_H)));
-  return { h, strip: { x0: 12, x1: app.W - 12, y: app.H - STRIP_H }, items: rows.flat() };
+  if (app.bar) return app.bar.layout();
+  app.g.font = FONT;
+  const x0 = 14 + app.g.measureText(readout(app)).width + 24;
+  return { h: STRIP_H, strip: { x0, x1: app.W - 14, y: app.H - STRIP_H, h: STRIP_H } };
 }
 
-function stripBounds(app: App): { x0: number; x1: number; y: number } {
+function stripBounds(app: App): BarLayout['strip'] {
   return barLayout(app).strip;
 }
 
@@ -123,77 +44,29 @@ export function stripSampleAt(app: App, mx: number): number {
 }
 
 export function inStrip(app: App, mx: number, my: number): boolean {
-  const { x0, x1, y } = stripBounds(app);
-  return my >= y && mx >= x0 - 4 && mx <= x1 + 4;
-}
-
-function drawExamplesMenu(app: App, ax: number, y: number): void {
-  const g = app.g;
-  const itemH = app.mobile ? 34 : 24;
-  const w = 190;
-  const h = EXAMPLES.length * itemH + 8;
-  const left = Math.min(ax - 8, app.W - w - 8);
-  const top = y - h - 6;
-  g.fillStyle = 'rgba(14,14,18,0.96)';
-  g.strokeStyle = 'rgba(233,228,218,0.18)';
-  g.beginPath();
-  g.roundRect(left, top, w, h, 6);
-  g.fill();
-  g.stroke();
-  g.font = FONT;
-  g.textBaseline = 'middle';
-  EXAMPLES.forEach((ex, i) => {
-    const iy = top + 4 + i * itemH;
-    const id = 'example:' + ex.id;
-    const hov = app.hover?.kind === 'ui' && app.hover.id === id;
-    if (hov) {
-      g.fillStyle = 'rgba(233,228,218,0.08)';
-      g.fillRect(left + 4, iy, w - 8, itemH);
-    }
-    g.textAlign = 'left';
-    g.fillStyle = `rgba(233,228,218,${hov ? 1 : 0.75})`;
-    g.fillText(ex.label, left + 12, iy + itemH / 2);
-    if (!app.mobile && ex.key) {
-      g.textAlign = 'right';
-      g.fillStyle = 'rgba(233,228,218,0.3)';
-      g.fillText('⇧' + ex.key, left + w - 12, iy + itemH / 2);
-    }
-    app.uiHits.push({ id, x: left + 4, y: iy, w: w - 8, h: itemH });
-  });
+  const { x0, x1, y, h } = stripBounds(app);
+  return my >= y && my <= y + h && mx >= x0 - 4 && mx <= x1 + 4;
 }
 
 export function drawTimeline(app: App): void {
   const g = app.g;
   const L = barLayout(app);
   app.barH = L.h;
-  const { x0, x1, y } = L.strip;
-  const h = STRIP_H;
-  g.fillStyle = app.mobile ? 'rgba(11,11,14,0.92)' : 'rgba(255,255,255,0.025)';
+  const { x0, x1, y, h } = L.strip;
+  g.fillStyle = 'rgba(11,11,14,0.9)';
   g.fillRect(0, app.H - L.h, app.W, L.h);
-  if (app.mobile) {
-    g.fillStyle = 'rgba(255,255,255,0.025)';
-    g.fillRect(0, y, app.W, h);
-  }
-
-  // buttons
-  app.uiHits = [];
-  g.font = FONT;
-  g.textBaseline = 'middle';
-  g.textAlign = 'left';
-  for (const it of L.items) {
-    const w = g.measureText(it.label).width;
-    const hov = app.hover?.kind === 'ui' && app.hover.id === it.id;
-    const on = (it.id === 'examples' && app.examplesOpen) || (it.id === 'mixer' && app.mixerOpen);
-    g.fillStyle =
-      it.id === 'capture' || (it.id === 'render' && app.render) || (it.id === 'video' && app.video)
-        ? `rgba(240,90,90,${hov ? 1 : 0.7})`
-        : `rgba(233,228,218,${hov || on ? 1 : it.id === 'voices' ? 0.3 : 0.6})`;
-    g.fillText(it.label, it.x, it.y + h / 2);
-    if (it.id !== 'voices') app.uiHits.push({ id: it.id, x: it.x - 6, y: it.y, w: w + 12, h });
-  }
-  if (!app.mobile) {
-    g.fillStyle = 'rgba(233,228,218,0.1)';
-    g.fillRect(x0 - 10, y + 7, 1, h - 14);
+  g.fillStyle = 'rgba(233,228,218,0.08)';
+  g.fillRect(0, app.H - L.h, app.W, 1);
+  g.fillStyle = 'rgba(255,255,255,0.03)';
+  g.beginPath();
+  g.roundRect(x0 - 2, y, x1 - x0 + 4, h, 6);
+  g.fill();
+  if (!app.bar) {
+    g.font = FONT;
+    g.fillStyle = 'rgba(233,228,218,0.6)';
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.fillText(readout(app), 14, y + h / 2);
   }
 
   // strip
@@ -226,7 +99,8 @@ export function drawTimeline(app: App): void {
     g.fillStyle = 'rgba(233,228,218,0.35)';
     g.textAlign = 'left';
     g.textBaseline = 'middle';
-    g.fillText(app.mobile ? 'tap ▶ to start audio' : 'press space or click to start audio · h for help', x0, y + h / 2);
+    const msg = app.mobile ? 'tap ▶ to start audio' : 'press space or ▶ to start audio · h for help';
+    g.fillText(g.measureText(msg).width < x1 - x0 ? msg : msg.split(' · ')[0], x0 + 4, y + h / 2);
   }
 
   if (app.scrub && !app.scrub.cancelled) {
@@ -242,10 +116,5 @@ export function drawTimeline(app: App): void {
     const sx = Math.min(x1, Math.max(x0, app.mouse.x));
     g.fillStyle = 'rgba(233,228,218,0.4)';
     g.fillRect(sx, y, 1, h);
-  }
-
-  if (app.examplesOpen) {
-    const ex = app.uiHits.find((u) => u.id === 'examples');
-    if (ex) drawExamplesMenu(app, ex.x + 6, ex.y);
   }
 }
