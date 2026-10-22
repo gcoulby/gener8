@@ -6,6 +6,7 @@
 // on-screen keyboard. Video frames have no DOM: they draw a read-only bar.
 
 import type { App } from './app.ts';
+import { DISCORD_URL } from './docs.ts';
 import { EXAMPLES } from './examples.ts';
 import { DB_MAX, DB_MIN } from './mixer.ts';
 import { NOTE_NAMES, SCALE_LABELS, SCALE_ORDER } from '../core/music.ts';
@@ -36,10 +37,12 @@ const CSS = `
 .g8-bar .sep{width:1px;height:16px;background:rgba(233,228,218,.12);margin:0 4px;flex:none}
 .g8-bar .dim{color:rgba(233,228,218,.3);font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
 @media (min-width:1700px){.g8-bar:not(.mobile){grid-template-columns:auto minmax(240px,1fr) auto;grid-template-areas:"l s r";grid-template-rows:40px}.g8-bar:not(.mobile) .slot{margin:6px 0}}
-@media (max-width:1160px){.g8-bar:not(.mobile){grid-template-columns:auto 1fr;grid-template-areas:"s s" "l ." "r .";grid-template-rows:28px 40px 36px}.g8-bar:not(.mobile) .r{padding-bottom:4px}}
-.g8-bar button,.g8-pop button,.g8-num,.g8-sel{height:26px;padding:0 10px;border-radius:13px;border:1px solid rgba(233,228,218,.14);background:rgba(11,11,14,.7);color:rgba(233,228,218,.78);font:11px ${MONO};cursor:pointer;white-space:nowrap;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;outline:none}
-.g8-bar button:hover,.g8-pop button:hover,.g8-num:hover,.g8-sel:hover{background:rgba(233,228,218,.09);color:#e9e4da;border-color:rgba(233,228,218,.28)}
-.g8-bar button:focus-visible,.g8-pop button:focus-visible,.g8-num:focus-visible,.g8-sel:focus-visible{border-color:rgba(240,168,48,.8)}
+@media (max-width:1260px){.g8-bar:not(.mobile){grid-template-columns:auto 1fr;grid-template-areas:"s s" "l ." "r .";grid-template-rows:28px 40px 36px}.g8-bar:not(.mobile) .r{padding-bottom:4px}}
+.g8-bar button,.g8-pop button,.g8-bar a.ext,.g8-pop a.ext,.g8-num,.g8-sel{height:26px;padding:0 10px;border-radius:13px;border:1px solid rgba(233,228,218,.14);background:rgba(11,11,14,.7);color:rgba(233,228,218,.78);font:11px ${MONO};cursor:pointer;white-space:nowrap;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;outline:none}
+.g8-bar button:hover,.g8-pop button:hover,.g8-bar a.ext:hover,.g8-pop a.ext:hover,.g8-num:hover,.g8-sel:hover{background:rgba(233,228,218,.09);color:#e9e4da;border-color:rgba(233,228,218,.28)}
+.g8-bar button:focus-visible,.g8-pop button:focus-visible,.g8-bar a.ext:focus-visible,.g8-pop a.ext:focus-visible,.g8-num:focus-visible,.g8-sel:focus-visible{border-color:rgba(240,168,48,.8)}
+.g8-bar a.ext,.g8-pop a.ext{text-decoration:none;color:#9da5f7;border-color:rgba(88,101,242,.45)}
+.g8-bar a.ext:hover,.g8-pop a.ext:hover{color:#c4c9fb;border-color:rgba(88,101,242,.75);background:rgba(88,101,242,.14)}
 .g8-bar button.on,.g8-pop button.on{color:#f0a830;border-color:rgba(240,168,48,.6);background:rgba(240,168,48,.08)}
 .g8-bar button.rec,.g8-pop button.rec{color:rgba(240,110,110,.95);border-color:rgba(240,90,90,.35)}
 .g8-bar button.rec:hover,.g8-pop button.rec:hover{background:rgba(240,90,90,.12)}
@@ -68,7 +71,7 @@ const CSS = `
 .g8-pop h3{font:11px ${MONO};letter-spacing:.08em;text-transform:uppercase;color:rgba(233,228,218,.45);margin:14px 0 8px;font-weight:400;display:flex;justify-content:space-between;align-items:center}
 .g8-pop h3:first-child{margin-top:2px}
 .g8-pop .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
-.g8-pop .grid button{width:100%;justify-content:space-between}
+.g8-pop .grid button,.g8-pop .grid a.ext{width:100%;justify-content:space-between}
 .g8-pop .kbd{color:rgba(233,228,218,.3)}
 .g8-pop .list{display:flex;flex-direction:column;gap:2px}
 .g8-pop .list button{width:100%;justify-content:space-between;border-color:transparent;background:none;border-radius:6px;height:28px}
@@ -309,6 +312,16 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
+/** A link styled like a button, opening in a new tab. */
+function extLink(text: string, href: string, title?: string): HTMLAnchorElement {
+  const a = el('a', 'ext', text);
+  a.href = href;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  if (title) a.title = title;
+  return a;
+}
+
 function btn(text: string, onClick: () => void, cls?: string, title?: string): HTMLButtonElement {
   const b = el('button', cls, text);
   b.type = 'button';
@@ -465,7 +478,8 @@ export class Bar {
     for (const [b, id] of [[render, 'render'], [patch, 'patch'], [examples, 'examples']] as const) {
       this.syncers.push(() => void b.classList.toggle('on', this.pop?.id === id));
     }
-    r.append(voices, mixer, capture, render, sep(), patch, examples, help);
+    const discord = extLink('discord ↗', DISCORD_URL, 'join the GENER8 Discord: share patches, ask questions');
+    r.append(voices, mixer, capture, render, sep(), patch, examples, help, discord);
     this.root.append(l, this.slot, r);
   }
 
@@ -934,7 +948,7 @@ export class Bar {
     this.fillExamples(c);
     c.append(el('h3', undefined, 'help'));
     const help = el('div', 'grid');
-    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), btn('the guide', this.act(() => app.openDocs('start'))));
+    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), btn('the guide', this.act(() => app.openDocs('start'))), extLink('discord ↗', DISCORD_URL));
     c.append(help);
   }
 }

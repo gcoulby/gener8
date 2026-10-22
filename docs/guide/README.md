@@ -18,7 +18,7 @@ GENER8 is a generative music instrument on an infinite canvas. You don't patch c
 | Middle | The **canvas**. Everything here is part of the patch. |
 | Under a selection | The **selection bar**: motion, group, note, retrigger and axis controls for whatever you selected. |
 | Top right | The **minimap**: the whole patch and your view. Click or drag in it to move. |
-| Bottom | The **bar**: play, volume, tempo, key and seed on the left; mixer, capture, render, the patch and examples menus and **? help** on the right. Along its top is the **timeline strip**. On a phone, **☰** opens everything else. |
+| Bottom | The **bar**: play, volume, tempo, key and seed on the left; mixer, capture, render, the patch and examples menus, **? help** and **discord ↗** on the right. Along its top is the **timeline strip**. On a phone, **☰** opens everything else. |
 
 ## The colours mean roles
 
@@ -51,6 +51,10 @@ The deeper a sound sits inside a field, the more that field acts on it: depth ru
 - [Mixing, capture and sharing](mixing.md)
 - [Shortcuts](shortcuts.md)
 - [Patch structure](model.md): the metamodel diagram, and what a patch file holds
+
+## Community
+
+Join the [GENER8 Discord](https://discord.gg/yA3CC5vTYn) to share patches, ask questions and hear what others are making. In the app, **discord ↗** is at the right end of the bottom bar.
 
 ## AI use
 

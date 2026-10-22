@@ -6,6 +6,8 @@ A generative music instrument on an infinite canvas. You place **sounds**, overl
 
 It runs in the browser on custom DSP (no samples, no native Web Audio nodes), and every render is **bit-identical from a single seed**.
 
+**Community:** join the [GENER8 Discord](https://discord.gg/yA3CC5vTYn) to share patches, ask questions and hear what others are making.
+
 ## Quick start
 
 ```sh

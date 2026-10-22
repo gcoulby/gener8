@@ -14,6 +14,9 @@ import motion from '../../docs/guide/motion.md?raw';
 import mixing from '../../docs/guide/mixing.md?raw';
 import shortcuts from '../../docs/guide/shortcuts.md?raw';
 import model from '../../docs/guide/model.md?raw';
+
+/** The community server: linked from the bar, the phone sheet and the guide. */
+export const DISCORD_URL = 'https://discord.gg/yA3CC5vTYn';
 import modelSvg from '../../docs/gener8-model.svg?url';
 
 export interface DocPage {
@@ -84,6 +87,8 @@ const DOCS_CSS = `
 .g8-docs nav a{display:block;padding:4px 18px;color:rgba(233,228,218,.65);text-decoration:none;border-left:2px solid transparent}
 .g8-docs nav a:hover{color:#e9e4da;background:rgba(233,228,218,.05)}
 .g8-docs nav a.on{color:#e9e4da;border-left-color:#f0a830;background:rgba(233,228,218,.04)}
+.g8-docs nav a.ext{margin-top:8px;color:#9da5f7}
+.g8-docs nav a.ext:hover{color:#c4c9fb}
 .g8-docs nav .toc{margin-top:16px;padding-top:12px;border-top:1px solid rgba(233,228,218,.08)}
 .g8-docs nav .toc .label{padding:0 18px 4px;color:rgba(233,228,218,.4);font-size:10px;letter-spacing:.08em}
 .g8-docs nav .toc a{font-size:11px;padding:2px 18px 2px 26px;color:rgba(233,228,218,.5)}
@@ -137,6 +142,7 @@ const DOCS_CSS = `
 .g8-docs nav{flex:0 0 auto;display:flex;overflow-x:auto;overflow-y:hidden;padding:10px 48px 10px 8px;border-right:0;border-bottom:1px solid rgba(233,228,218,.1);white-space:nowrap}
 .g8-docs nav .brand,.g8-docs nav .toc{display:none}
 .g8-docs nav a{border-left:0;border-bottom:2px solid transparent;padding:4px 10px}
+.g8-docs nav a.ext{margin-top:0}
 .g8-docs nav a.on{border-bottom-color:#f0a830}
 .g8-docs article{padding:20px 18px 32px}
 .g8-docs .close{top:8px;right:8px}
@@ -223,6 +229,7 @@ export class DocsViewer {
       this.nav.innerHTML =
         `<div class="brand">GENER8 GUIDE</div>` +
         DOC_PAGES.map((p) => `<a href="#docs/${p.id}" data-doc="${p.id}"${p.id === page.id ? ' class="on" aria-current="page"' : ''}>${escapeText(p.title)}</a>`).join('') +
+        `<a class="ext" href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer">discord ↗</a>` +
         (toc.length
           ? `<div class="toc"><div class="label">ON THIS PAGE</div>${toc.map((h) => `<a href="#docs/${page.id}/${h.id}" data-doc="${page.id}" data-anchor="${h.id}">${escapeText(h.text)}</a>`).join('')}</div>`
           : '');
