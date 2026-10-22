@@ -16,6 +16,8 @@ Select an object and use the first row of its bar. Press <kbd>m</kbd> to cycle t
 
 A selected moving object shows its route as a dotted line, with a cross at its home spot. <kbd>alt</kbd>-scroll halves or doubles the period.
 
+Periods run from 1 beat up to **256 bars**. Set a long one for slow changes across a whole piece: a reverb that swells once every 128 bars, or a filter that drifts open over 256. From 16 bars up, the bar shows the period in bars.
+
 ## Groups: follow
 
 Any object can **follow** another:

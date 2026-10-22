@@ -24,7 +24,7 @@ import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
 import { Bar, parseSeed } from './bar.ts';
 import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, type MixerHit } from './mixer.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
-import { axisTargetEdit, inAxisMenu, menuHitAt, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
+import { axisTargetEdit, inAxisMenu, menuHitAt, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, MAX_PERIOD, periodLabel, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
 import { EXAMPLES } from './examples.ts';
 import { DocsViewer, parseDocsHash } from './docs.ts';
 import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
@@ -1361,17 +1361,17 @@ export class App {
     if (e.altKey && sel) {
       const f = e.deltaY < 0 ? 0.5 : 2;
       if (sel.motion?.pos && 'periodBeats' in sel.motion.pos) {
-        const v = Math.min(256, Math.max(1, sel.motion.pos.periodBeats * f));
+        const v = Math.min(MAX_PERIOD, Math.max(1, sel.motion.pos.periodBeats * f));
         this.commit({ op: 'set', id: sel.id, path: ['motion', 'pos', 'periodBeats'], value: v });
-        this.toast(`motion period ${v} beats`);
+        this.toast(`motion period ${periodLabel(v)}`);
       } else if (sel.motion?.pos?.type === 'drift') {
-        const v = Math.min(256, Math.max(1, sel.motion.pos.rateBeats * f));
+        const v = Math.min(MAX_PERIOD, Math.max(1, sel.motion.pos.rateBeats * f));
         this.commit({ op: 'set', id: sel.id, path: ['motion', 'pos', 'rateBeats'], value: v });
-        this.toast(`drift rate ${v} beats`);
+        this.toast(`drift rate ${periodLabel(v)}`);
       } else if (sel.motion?.breathe) {
-        const v = Math.min(256, Math.max(1, sel.motion.breathe.periodBeats * f));
+        const v = Math.min(MAX_PERIOD, Math.max(1, sel.motion.breathe.periodBeats * f));
         this.commit({ op: 'set', id: sel.id, path: ['motion', 'breathe', 'periodBeats'], value: v });
-        this.toast(`breathe period ${v} beats`);
+        this.toast(`breathe period ${periodLabel(v)}`);
       }
       return;
     }

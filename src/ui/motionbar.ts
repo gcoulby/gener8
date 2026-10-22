@@ -13,7 +13,14 @@ import { MIDI_MAX, MIDI_MIN } from '../core/constants.ts';
 import { noteName } from '../core/music.ts';
 import { FONT_SMALL, INK } from './theme.ts';
 
-export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256];
+/** Motion periods in beats: up to 1024, i.e. 256 bars, for slow changes over a whole piece. */
+export const PERIODS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024];
+export const MAX_PERIOD = PERIODS[PERIODS.length - 1];
+
+/** A period for display: beats below 16 bars, whole bars from there. */
+export function periodLabel(beats: number): string {
+  return beats >= 64 && beats % 4 === 0 ? `${beats / 4} bars` : `${beats} beats`;
+}
 
 export type MotionAction =
   | { kind: 'toggle'; what: 'breathe' | 'orbit' | 'drift' | 'path' | 'bounce' }
@@ -160,7 +167,7 @@ function rows(app: App, o: PatchObject): Item[][] {
     out.push([
       { text: 'breathe', action: { kind: 'toggle', what: 'breathe' }, active: true },
       { text: `depth ${Math.round(m.breathe.amount * 100)}%`, action: { kind: 'value', key: 'breathe.amount' }, value: true },
-      { text: `every ${m.breathe.periodBeats} beats`, action: { kind: 'value', key: 'breathe.period' }, value: true },
+      { text: `every ${periodLabel(m.breathe.periodBeats)}`, action: { kind: 'value', key: 'breathe.period' }, value: true },
     ]);
   }
   const p = m.pos;
@@ -168,18 +175,18 @@ function rows(app: App, o: PatchObject): Item[][] {
     out.push([
       { text: 'orbit', action: { kind: 'toggle', what: 'orbit' }, active: true },
       { text: `radius ${Math.round(p.radius)}`, action: { kind: 'value', key: 'pos.radius' }, value: true },
-      { text: `every ${p.periodBeats} beats`, action: { kind: 'value', key: 'pos.period' }, value: true },
+      { text: `every ${periodLabel(p.periodBeats)}`, action: { kind: 'value', key: 'pos.period' }, value: true },
     ]);
   } else if (p?.type === 'drift') {
     out.push([
       { text: 'drift', action: { kind: 'toggle', what: 'drift' }, active: true },
       { text: `range ${Math.round(p.amplitude)}`, action: { kind: 'value', key: 'pos.amplitude' }, value: true },
-      { text: `speed ${p.rateBeats} beats`, action: { kind: 'value', key: 'pos.rate' }, value: true },
+      { text: `speed ${periodLabel(p.rateBeats)}`, action: { kind: 'value', key: 'pos.rate' }, value: true },
     ]);
   } else if (p?.type === 'path') {
     out.push([
       { text: 'path', action: { kind: 'toggle', what: 'path' }, active: true },
-      { text: `every ${p.periodBeats} beats`, action: { kind: 'value', key: 'pos.period' }, value: true },
+      { text: `every ${periodLabel(p.periodBeats)}`, action: { kind: 'value', key: 'pos.period' }, value: true },
       { text: p.mode, action: { kind: 'mode' }, value: true },
     ]);
   } else if (p?.type === 'bounce') {
@@ -187,7 +194,7 @@ function rows(app: App, o: PatchObject): Item[][] {
       { text: 'bounce', action: { kind: 'toggle', what: 'bounce' }, active: true },
       { text: `height ${Math.round(p.height)}`, action: { kind: 'value', key: 'pos.height' }, value: true },
       { text: `${p.bounces} bounces`, action: { kind: 'value', key: 'pos.bounces' }, value: true },
-      { text: `every ${p.periodBeats} beats`, action: { kind: 'value', key: 'pos.period' }, value: true },
+      { text: `every ${periodLabel(p.periodBeats)}`, action: { kind: 'value', key: 'pos.period' }, value: true },
     ]);
   }
   if (o.kind === 'sound') out.push(noteRow(app, o));
