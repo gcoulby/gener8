@@ -15,7 +15,7 @@ npm run dev        # open the printed URL, press space
 
 Press **space** to start audio. The ambient demo loads first. **examples ▾** in the bottom bar has thirteen more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), plinko (bells and strings as pegs), turing machine, progression (chords leading bowed strings), breaks (topo drums and a locked Turing bassline), clocks (polyrhythm, a bouncing ball, phasing plucks and a sweep), rhythmic and a stress patch. Loading one frames it in the window.
 
-**The guide:** press **docs** in the bottom bar (or <kbd>g</kbd>) for the full guide, rendered in the app. The same pages are in [`docs/guide/`](docs/guide/README.md) and read fine on GitHub too. Link to a page with `#docs/<page>`, e.g. `#docs/maps`. The guide's last page, [Patch structure](docs/guide/model.md) (`#docs/model`), walks through the metamodel diagram below.
+**The guide:** press **? help** in the bottom bar (or <kbd>h</kbd>) for [At a glance](docs/guide/overview.md), the whole instrument on one page, or <kbd>g</kbd> for the full guide, rendered in the app. The same pages are in [`docs/guide/`](docs/guide/README.md) and read fine on GitHub too. Link to a page with `#docs/<page>`, e.g. `#docs/maps`. The guide's last page, [Patch structure](docs/guide/model.md) (`#docs/model`), walks through the metamodel diagram below.
 
 **On a phone or tablet** the layout adapts: tap ▶ to start, **+** opens the palette, pinch to zoom, drag empty space to pan, tap a selected object again to step down through what's under it, and double-tap a sound for its internals.
 
@@ -116,8 +116,8 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | patch ▾ | new · open · save · info… · share · random · new from a seed |
 | r / random | a new patch from a random seed (asks again before replacing an edited patch) |
 | share | copy a link to the current patch |
-| h / ? | quick help |
-| g / docs | the full guide |
+| h / ? / help | the guide's At a glance page: everything on one page |
+| g | the full guide, where you left it |
 
 Mixer levels, mutes and solos are stored in the patch, so they're part of every capture and replay.
 

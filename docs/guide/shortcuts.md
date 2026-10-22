@@ -5,8 +5,8 @@
 | Key | |
 |---|---|
 | <kbd>space</kbd> | Start or pause audio. Hold it and drag to pan. |
-| <kbd>g</kbd> | Open these docs. |
-| <kbd>h</kbd> or <kbd>?</kbd> | Quick help. |
+| <kbd>g</kbd> | Open these docs where you left them. |
+| <kbd>h</kbd> or <kbd>?</kbd> | Open [At a glance](overview.md). |
 | <kbd>tab</kbd> / <kbd>shift</kbd>+<kbd>tab</kbd> | Cycle through everything under the cursor, including field edges. |
 | <kbd>esc</kbd> | Close menus and panels, cancel a timeline preview, clear the selection. |
 | <kbd>delete</kbd> | Remove the selection. |

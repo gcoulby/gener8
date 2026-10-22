@@ -18,7 +18,7 @@ GENER8 is a generative music instrument on an infinite canvas. You don't patch c
 | Middle | The **canvas**. Everything here is part of the patch. |
 | Under a selection | The **selection bar**: motion, group, note, retrigger and axis controls for whatever you selected. |
 | Top right | The **minimap**: the whole patch and your view. Click or drag in it to move. |
-| Bottom | The **bar**: play, volume, tempo, key and seed on the left; mixer, capture, render, the patch and examples menus and help on the right. Along its top is the **timeline strip**. On a phone, **☰** opens everything else. |
+| Bottom | The **bar**: play, volume, tempo, key and seed on the left; mixer, capture, render, the patch and examples menus and **? help** on the right. Along its top is the **timeline strip**. On a phone, **☰** opens everything else. |
 
 ## The colours mean roles
 

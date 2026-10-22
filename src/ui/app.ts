@@ -190,7 +190,6 @@ export class App {
   pinned: string | null = null;
   tabInfo: { stack: string[]; t: number; x: number; y: number } | null = null;
   private drawFailed = false;
-  showHelp = false;
   toastMsg = '';
   toastT = 0;
   private taps: number[] = [];
@@ -1413,9 +1412,9 @@ export class App {
     this.load({ ...emptyPatch(), tempo: p.tempo, key: p.key, seed: p.seed, objects: [classicStage()] }, 'new patch · scrub the timeline to go back');
   }
 
-  openDocs(): void {
-    this.showHelp = false;
-    this.docs.open();
+  /** The guide, at `page`, or where it was last left. */
+  openDocs(page?: string): void {
+    this.docs.open(page);
   }
 
   cancelRender(): void {
@@ -1590,7 +1589,6 @@ export class App {
         else if (this.axisMenu) this.axisMenu = null;
         else if (this.scrub) this.scrub.cancelled = true;
         else if (this.panel) this.panel = null;
-        else if (this.showHelp) this.showHelp = false;
         else this.sel = null;
         return;
       case 'Backspace':
@@ -1636,7 +1634,7 @@ export class App {
         return;
       case 'h':
       case '?':
-        this.showHelp = !this.showHelp;
+        this.openDocs('overview');
         return;
       case '=':
       case '+':

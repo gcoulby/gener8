@@ -5,6 +5,7 @@
 
 import { renderMarkdown, type Rendered } from './markdown.ts';
 import start from '../../docs/guide/README.md?raw';
+import overview from '../../docs/guide/overview.md?raw';
 import sounds from '../../docs/guide/sounds.md?raw';
 import fields from '../../docs/guide/fields.md?raw';
 import maps from '../../docs/guide/maps.md?raw';
@@ -23,6 +24,7 @@ export interface DocPage {
 }
 
 const SOURCES: [string, string, string][] = [
+  ['overview', 'overview.md', overview],
   ['start', 'README.md', start],
   ['sounds', 'sounds.md', sounds],
   ['fields', 'fields.md', fields],
@@ -85,10 +87,10 @@ const DOCS_CSS = `
 .g8-docs nav .toc{margin-top:16px;padding-top:12px;border-top:1px solid rgba(233,228,218,.08)}
 .g8-docs nav .toc .label{padding:0 18px 4px;color:rgba(233,228,218,.4);font-size:10px;letter-spacing:.08em}
 .g8-docs nav .toc a{font-size:11px;padding:2px 18px 2px 26px;color:rgba(233,228,218,.5)}
-.g8-docs main{flex:1;min-width:0;position:relative;display:flex;flex-direction:column}
+.g8-docs main{flex:1;min-width:0;min-height:0;position:relative;display:flex;flex-direction:column}
 .g8-docs .close{position:absolute;top:10px;right:12px;width:30px;height:30px;border-radius:15px;border:1px solid rgba(233,228,218,.25);background:#0b0b0e;color:#e9e4da;font-size:16px;line-height:1;cursor:pointer;z-index:1}
 .g8-docs .close:hover{background:rgba(233,228,218,.1)}
-.g8-docs article{flex:1;overflow-y:auto;padding:28px 44px 40px;max-width:100%}
+.g8-docs article{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:28px 44px 40px;max-width:100%}
 .g8-docs article>*{max-width:760px}
 .g8-docs h1{font-size:24px;margin:0 0 14px;font-weight:650;letter-spacing:-.01em}
 .g8-docs h2{font-size:17px;margin:30px 0 8px;font-weight:620;padding-top:6px;border-top:1px solid rgba(233,228,218,.08)}
@@ -124,9 +126,14 @@ const DOCS_CSS = `
 .g8-docs .zoom-hint{position:absolute;left:10px;bottom:12px;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:rgba(233,228,218,.45);pointer-events:none}
 .g8-docs .zoom.big{position:absolute;inset:0;z-index:2;margin:0;border:0;border-radius:0;display:flex}
 .g8-docs .zoom.big .zoom-view{flex:1;height:auto!important}
-@media (max-width:760px){
+/* phones, either way up (as app.mobile: a touch screen under 900px on its short side), and narrow windows: full screen */
+@media (max-width:760px),(pointer:coarse) and (max-width:899px),(pointer:coarse) and (max-height:899px){
+.g8-docs{background:#0b0b0e}
 .g8-docs .zoom-hint{display:none}
-.g8-docs-panel{flex-direction:column;width:100vw;height:100vh;border-radius:0;border:0}
+.g8-docs-panel{flex-direction:column;width:100vw;height:100vh;height:100dvh;border-radius:0;border:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+.g8-docs .zoom-view{touch-action:pan-y}
+.g8-docs .zoom.big .zoom-view{touch-action:none}
+.g8-docs article{padding-bottom:calc(32px + env(safe-area-inset-bottom))}
 .g8-docs nav{flex:0 0 auto;display:flex;overflow-x:auto;overflow-y:hidden;padding:10px 48px 10px 8px;border-right:0;border-bottom:1px solid rgba(233,228,218,.1);white-space:nowrap}
 .g8-docs nav .brand,.g8-docs nav .toc{display:none}
 .g8-docs nav a{border-left:0;border-bottom:2px solid transparent;padding:4px 10px}

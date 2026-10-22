@@ -97,7 +97,6 @@ export function draw(app: App): void {
     g.fillText('HISTORY PREVIEW', app.W - 14, 12)
   }
   if (app.panel) drawPanel(app)
-  if (app.showHelp) drawHelp(app)
   drawToast(app)
 }
 
@@ -1161,75 +1160,6 @@ function drawPitchLadder(app: App, o: SoundObj): void {
       if (d === 0) g.fillText(noteName(m), x + 4, sy + r + 30)
     }
   }
-}
-
-const HELP = [
-  'gener8: place sounds, overlap fields. no cables.',
-  'g or docs (bottom bar)   the full guide: how everything works',
-  '',
-  'space            start / pause audio',
-  'drag palette     place a sound or field',
-  'drag object      move · alt-drag duplicates',
-  'maps ⊹ ◎ ↻ △     xy · radial (centre→edge) · sweep (around) · tri (3 corners)',
-  '                 position → pitch / pan / level / reach / angle / params',
-  '                 select by its edge or label · set each axis in the bar below it',
-  'size handle ▪    sound: loudness + ripple reach · field: extent',
-  'character ◔      drag up/down',
-  'pinch / ⌘-wheel  zoom · two-finger / right-drag / space-drag: pan',
-  'zoom in on sound or double-click   open its internals',
-  'select anything  motion bar below it: breathe / orbit / drift / path',
-  '                 drag or scroll its values (depth, period, radius…)',
-  'retrigger        sounds: ripple ring · point trace · multi traces',
-  '                 reach, fall-off, angle, count, spread, stop on impact',
-  '                 the ● handle: its direction is the angle, its distance the reach',
-  'm / b            shortcuts: cycle motion (orbit, drift, path, bounce) / toggle breathe',
-  'group ⛓          follow…, then click a leader: its motion and breathing carry this too',
-  '                 dragging a leader moves its followers with it',
-  'tab / shift-tab  cycle through everything under the cursor (incl. field edges)',
-  '[ ]              layer down / up (order within a role)',
-  '↑ ↓ ← →          nudge a semitone along the pitch axis (shift: an octave)',
-  "                 no map sets pitch? ↑ ↓ change the sound's own note",
-  'delete           remove selection',
-  'c                capture last 30 s (WAV + patch/seed/edit log)',
-  'shift-C / render ▾  render the patch from a fresh start, up to 1 h (e.g. 5, 90s fade, 1:00:00 out:30s)',
-  '                 faster than real time; cancel it from the same menu',
-  'shift-V          the same as a video of the whole window (e.g. 5, 90s 60fps fade, 10m 4k)',
-  '                 or short: a portrait minute of just the elements (short 30s fade)',
-  'l                lit: everything at full brightness · reactive: lit by the cursor',
-  'n                minimap on / off · click or drag in it to move the view',
-  'mixer            levels, mute, solo, FX returns',
-  'vol / bpm / seed drag or scroll (shift: fine) · click to type · double-click vol: 0 dB',
-  't                tap tempo',
-  'timeline strip   drag to preview the past · release to branch',
-  '⌘S / ⌘O / drop   save / open patch JSON',
-  'i / info…        title, artist, genre, link, notes · shown when a patch or example is opened',
-  'r                new patch from a random seed',
-  'patch ▾          new · open · save · info · share a link · random · new from a seed',
-  'shift-D / shift-T / shift-R / shift-X  ambient / tape / rhythmic demo / stress patch',
-  '',
-  'colour = role: warm white sound · amber generator · teal transformer · violet fx · steel xy',
-  'filled sounds are driven by a generator · hollow sounds listen for ripples',
-]
-
-function drawHelp(app: App): void {
-  const g = app.g
-  const w = 720
-  const h = HELP.length * 17 + 30
-  const x = (app.W - w) / 2
-  const y = (app.H - h) / 2
-  g.fillStyle = 'rgba(11,11,14,0.94)'
-  g.strokeStyle = 'rgba(233,228,218,0.2)'
-  g.beginPath()
-  g.roundRect(x, y, w, h, 8)
-  g.fill()
-  g.stroke()
-  g.font = FONT
-  g.textAlign = 'left'
-  g.textBaseline = 'top'
-  HELP.forEach((l, i) => {
-    g.fillStyle = i === 0 ? INK : 'rgba(233,228,218,0.7)'
-    g.fillText(l, x + 18, y + 16 + i * 17)
-  })
 }
 
 function drawToast(app: App): void {

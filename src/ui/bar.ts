@@ -461,13 +461,11 @@ export class Bar {
     this.label(render, () => this.jobText() || 'render ▾', (b, s) => b.classList.toggle('busy', s !== 'render ▾'));
     const patch = btn('patch ▾', () => this.toggle('patch', patch), undefined, 'new, open, save, info, share, random');
     const examples = btn('examples ▾', () => this.toggle('examples', examples), undefined, 'the bundled demos');
-    const docs = btn('docs', () => app.openDocs(), undefined, 'the full guide (g)');
-    const help = btn('?', () => (app.showHelp = !app.showHelp), undefined, 'shortcuts (h)');
-    this.syncers.push(() => void help.classList.toggle('on', app.showHelp));
+    const help = btn('? help', () => app.openDocs('overview'), undefined, 'everything at a glance (h) · the full guide (g)');
     for (const [b, id] of [[render, 'render'], [patch, 'patch'], [examples, 'examples']] as const) {
       this.syncers.push(() => void b.classList.toggle('on', this.pop?.id === id));
     }
-    r.append(voices, mixer, capture, render, sep(), patch, examples, docs, help);
+    r.append(voices, mixer, capture, render, sep(), patch, examples, help);
     this.root.append(l, this.slot, r);
   }
 
@@ -936,7 +934,7 @@ export class Bar {
     this.fillExamples(c);
     c.append(el('h3', undefined, 'help'));
     const help = el('div', 'grid');
-    help.append(btn('the guide', this.act(() => app.openDocs())));
+    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), btn('the guide', this.act(() => app.openDocs('start'))));
     c.append(help);
   }
 }
