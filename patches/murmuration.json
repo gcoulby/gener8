@@ -1,0 +1,32 @@
+{
+ "format": "gener8.patch",
+ "version": 2,
+ "seed": 818,
+ "tempo": 90,
+ "key": {
+  "root": 0,
+  "scale": "major"
+ },
+ "info": {
+  "title": "Murmuration",
+  "artist": "GENER8",
+  "genre": "generative",
+  "url": "https://gcoulby.github.io/gener8/",
+  "notes": "A flock of boids wheels over a tonnetz map. Every sound it flies into sits on the lattice of fifths and thirds, so the swarm only ever plays chords."
+ },
+ "objects": [
+    {"id":"xy1","kind":"field","type":"xy","x":0,"y":0,"shape":{"w":1600,"h":720},"layer":0,"handles":{},"axes":{"x":{"to":"pan","min":-1,"max":1},"y":{"to":"pitch","min":24,"max":96}}},
+    {"id":"tz","kind":"field","type":"tonnetz","x":0,"y":0,"shape":{"w":760,"h":520},"layer":1,"handles":{},"axes":{"n":{"to":"pitch","min":54,"max":66}}},
+    {"id":"rev","kind":"field","type":"reverb","x":0,"y":0,"shape":{"r":800},"layer":2,"handles":{"size":0.7,"damping":0.45}},
+    {"id":"ph","kind":"field","type":"phaser","x":0,"y":0,"shape":{"r":320},"layer":3,"handles":{"rate":0.8,"depth":0.5}},
+    {"id":"gl","kind":"field","type":"glide","x":0,"y":0,"shape":{"r":320},"layer":4,"handles":{"time":0.33,"share":0.5}},
+    {"id":"fl","kind":"field","type":"flock","x":0,"y":0,"shape":{"r":300},"layer":5,"handles":{"count":0.6,"cohesion":0.6}},
+    {"id":"s1","kind":"sound","type":"wavetable","x":-180,"y":110,"size":34,"layer":56,"params":{"position":0.3,"scan":0.4},"ripple":{"reach":0}},
+    {"id":"s2","kind":"sound","type":"pipe","x":-60,"y":190,"size":34,"layer":57,"params":{},"ripple":{"reach":0}},
+    {"id":"s3","kind":"sound","type":"wavetable","x":120,"y":150,"size":34,"layer":58,"params":{"position":0.45999999999999996,"scan":0.4},"ripple":{"reach":0}},
+    {"id":"s4","kind":"sound","type":"pipe","x":210,"y":20,"size":34,"layer":59,"params":{},"ripple":{"reach":0}},
+    {"id":"s5","kind":"sound","type":"wavetable","x":130,"y":-150,"size":34,"layer":60,"params":{"position":0.62,"scan":0.4},"ripple":{"reach":0}},
+    {"id":"s6","kind":"sound","type":"pipe","x":-40,"y":-200,"size":34,"layer":61,"params":{},"ripple":{"reach":0}},
+    {"id":"s7","kind":"sound","type":"wavetable","x":-200,"y":-70,"size":34,"layer":62,"params":{"position":0.78,"scan":0.4},"ripple":{"reach":0}}
+ ]
+}

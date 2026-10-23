@@ -1,0 +1,33 @@
+{
+ "format": "gener8.patch",
+ "version": 2,
+ "seed": 2601,
+ "tempo": 60,
+ "key": {
+  "root": 9,
+  "scale": "minor"
+ },
+ "info": {
+  "title": "Pendulum",
+  "artist": "GENER8",
+  "genre": "generative",
+  "url": "https://gcoulby.github.io/gener8/",
+  "notes": "A frictionless double pendulum swings through a ring of bowed strings, sounding each one as it sweeps past. The field turns once every 24 bars; a Shepard tone falls forever underneath."
+ },
+ "objects": [
+    {"id":"xy1","kind":"field","type":"xy","x":0,"y":0,"shape":{"w":1600,"h":720},"layer":0,"handles":{},"axes":{"x":{"to":"pan","min":-1,"max":1},"y":{"to":"pitch","min":24,"max":96}}},
+    {"id":"rev","kind":"field","type":"reverb","x":-100,"y":0,"shape":{"r":800},"layer":1,"handles":{"size":0.8,"damping":0.5}},
+    {"id":"dr","kind":"field","type":"drive","x":-100,"y":0,"shape":{"r":240},"layer":2,"handles":{"drive":0.25,"curve":0.1}},
+    {"id":"hd","kind":"field","type":"hold","x":-100,"y":0,"shape":{"r":240},"layer":3,"handles":{"length":0.15}},
+    {"id":"pd","kind":"field","type":"pendulum","x":-100,"y":0,"shape":{"r":230},"layer":4,"handles":{"speed":0.25,"energy":0.75},"motion":{"spin":{"periodBeats":96}}},
+    {"id":"v1","kind":"sound","type":"bowed","x":-36,"y":136,"size":26,"layer":55,"params":{},"ripple":{"reach":0}},
+    {"id":"v2","kind":"sound","type":"bowed","x":46,"y":35,"size":26,"layer":56,"params":{},"ripple":{"reach":0}},
+    {"id":"v3","kind":"sound","type":"bowed","x":18,"y":-92,"size":26,"layer":57,"params":{},"ripple":{"reach":0}},
+    {"id":"v4","kind":"sound","type":"bowed","x":-99,"y":-150,"size":26,"layer":58,"params":{},"ripple":{"reach":0}},
+    {"id":"v5","kind":"sound","type":"bowed","x":-216,"y":-95,"size":26,"layer":59,"params":{},"ripple":{"reach":0}},
+    {"id":"v6","kind":"sound","type":"bowed","x":-247,"y":32,"size":26,"layer":60,"params":{},"ripple":{"reach":0}},
+    {"id":"v7","kind":"sound","type":"bowed","x":-166,"y":135,"size":26,"layer":61,"params":{},"ripple":{"reach":0}},
+    {"id":"org","kind":"sound","type":"organ","x":-100,"y":-40,"size":28,"layer":62,"params":{"registration":0,"leslie":0.05}},
+    {"id":"stair","kind":"sound","type":"shepard","x":500,"y":-120,"size":30,"layer":63,"params":{"rate":0.02}}
+ ]
+}

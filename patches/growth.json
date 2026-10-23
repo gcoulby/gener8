@@ -1,0 +1,37 @@
+{
+ "format": "gener8.patch",
+ "version": 2,
+ "seed": 9090,
+ "tempo": 112,
+ "key": {
+  "root": 4,
+  "scale": "dorian"
+ },
+ "info": {
+  "title": "Growth",
+  "artist": "GENER8",
+  "genre": "generative",
+  "url": "https://gcoulby.github.io/gener8/",
+  "notes": "Left: a tree-shaped L-system grows a melody on three chip voices, swung, accented and stuttered by beat repeat. Right: a rule 90 automaton draws a Sierpiński triangle on drums. All of it on worn wax."
+ },
+ "objects": [
+    {"id":"xy1","kind":"field","type":"xy","x":0,"y":0,"shape":{"w":1600,"h":720},"layer":0,"handles":{},"axes":{"x":{"to":"pan","min":-1,"max":1},"y":{"to":"pitch","min":24,"max":96}}},
+    {"id":"wax","kind":"field","type":"wax","x":0,"y":0,"shape":{"r":900},"layer":1,"handles":{"crackle":0.35,"wear":0.35}},
+    {"id":"dl","kind":"field","type":"delay","x":0,"y":0,"shape":{"r":800},"layer":2,"handles":{"time":0.5,"feedback":0.35}},
+    {"id":"sw","kind":"field","type":"swing","x":-280,"y":0,"shape":{"r":230},"layer":3,"handles":{"amount":0.6,"grid":1}},
+    {"id":"ac","kind":"field","type":"accent","x":-280,"y":0,"shape":{"r":230},"layer":4,"handles":{"every":0.33,"strength":0.7}},
+    {"id":"br","kind":"field","type":"beatRepeat","x":-280,"y":0,"shape":{"r":230},"layer":5,"handles":{"slice":0.33,"chance":0.25}},
+    {"id":"ls","kind":"field","type":"lsystem","x":-280,"y":0,"shape":{"r":210},"layer":6,"handles":{"rule":0.67,"generations":0.6}},
+    {"id":"th","kind":"field","type":"throttle","x":300,"y":0,"shape":{"r":240},"layer":7,"handles":{"max":0.14,"per":0.33}},
+    {"id":"rm","kind":"field","type":"ringmod","x":380,"y":-60,"shape":{"r":80},"layer":8,"handles":{"ratio":0.67,"mix":0.5}},
+    {"id":"au","kind":"field","type":"automaton","x":300,"y":0,"shape":{"w":336,"h":192},"layer":9,"handles":{"rule":0.17,"rate":0.5}},
+    {"id":"c1","kind":"sound","type":"chip","x":-330,"y":80,"size":34,"layer":60,"params":{"wave":1},"ripple":{"reach":0}},
+    {"id":"c2","kind":"sound","type":"chip","x":-200,"y":-40,"size":34,"layer":61,"params":{"wave":3},"ripple":{"reach":0}},
+    {"id":"c3","kind":"sound","type":"chip","x":-300,"y":-120,"size":34,"layer":62,"params":{"wave":0,"arp":2},"ripple":{"reach":0}},
+    {"id":"d1","kind":"sound","type":"percussion","x":170,"y":-50,"size":30,"layer":63,"params":{},"ripple":{"reach":0}},
+    {"id":"d2","kind":"sound","type":"percussion","x":240,"y":30,"size":30,"layer":64,"params":{},"ripple":{"reach":0}},
+    {"id":"d3","kind":"sound","type":"percussion","x":310,"y":-40,"size":30,"layer":65,"params":{},"ripple":{"reach":0}},
+    {"id":"d4","kind":"sound","type":"percussion","x":380,"y":-60,"size":30,"layer":66,"params":{},"ripple":{"reach":0}},
+    {"id":"d5","kind":"sound","type":"percussion","x":440,"y":20,"size":30,"layer":67,"params":{},"ripple":{"reach":0}}
+ ]
+}

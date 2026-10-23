@@ -91,7 +91,7 @@ class BowedVoice implements Voice {
       neck[w & MASK] = bridgeRefl + nv;
       bridge[w & MASK] = nutRefl + nv;
       const y = bridge[w & MASK];
-      out[i] += (y + this.body.bp(y) * 1.5) * 0.9;
+      out[i] += (y + this.body.bp(y) * 1.5) * 0.3;
       w++;
     }
     this.w = w & MASK;
