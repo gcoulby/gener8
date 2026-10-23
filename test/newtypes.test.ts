@@ -172,7 +172,7 @@ test('mirror: notes flip around the axis, in key', () => {
 function fxCtx(type: string, handles: Record<string, number> = {}, tick = 0): FieldContext & { tick: number } {
   return {
     seed: 3, idHash: 5, handles: { ...defaultHandles(fieldTypes[type]), ...handles }, tempo: TEMPO, ppq: PPQ, sr: SR, tick,
-    w: 300, h: 300, baseW: 300, baseH: 300, keyRoot: 0, steps: SCALES.major, state: null,
+    w: 300, h: 300, baseW: 300, baseH: 300, keyRoot: 0, steps: SCALES.major, state: null, seq: null, midi: [],
     rand: (s, i) => rand(3, 5, s, i),
   };
 }

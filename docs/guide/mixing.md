@@ -2,12 +2,27 @@
 
 ## The mixer
 
-Click **mixer** in the bar. Every sound gets a fader with **M** (mute) and **S** (solo). Every bus FX (delay, chorus, reverb, shimmer) gets a return fader, and there's a master. Meters are live.
+Click **mixer** in the bar. Every sound gets a fader with **M** (mute), **S** (solo) and **midi** (MIDI out). Every bus FX (delay, chorus, reverb, shimmer…) gets a return fader, and there's a master. Meters are live.
 
 - Drag a fader or scroll over it. Double-click a fader to reset it to 0 dB.
 - Click a sound's name to select it on the canvas.
+- Click **midi** to send the sound's notes to MIDI out as well; click again for MIDI **only** (its own audio goes quiet); again for off. Scroll over it to change the channel. See [MIDI](#midi).
 
 Levels, mutes and solos are saved in the patch, so they're part of captures and links. **vol** in the bar is the master level as well.
+
+## MIDI
+
+GENER8 talks to MIDI gear in three ways. It needs a browser with Web MIDI: Chrome, Edge or Firefox on a computer. Safari and iOS don't have it, so there the MIDI parts show as unavailable, and everything else works as usual. The browser asks for permission the first time you place a MIDI field or switch on MIDI out.
+
+| | |
+|---|---|
+| **midi in** (a [generator](fields.md#generators-amber)) | Play a keyboard or sequencer into the sounds inside it. Set the **channel** (or omni) and shift by octaves. |
+| **midi cc** (a [map](maps.md#midi-cc)) | A knob or fader moves a value for every sound inside: level, pan, pitch or any sound parameter. **◎ learn** picks the controller. |
+| **MIDI out** (the mixer) | A sound's notes, after every transformer, go to a hardware synth on the channel you set. Sustained sounds send their accents as short notes. |
+
+Incoming notes and knob moves are recorded with everything else, so the timeline, captures and renders play them back exactly.
+
+Under the master fader, once MIDI is in use: the **output** (click or scroll to step through the ports) and a **latency** trim in milliseconds (scroll). Notes are sent timed to when their audio reaches the speakers; nudge the trim if your synth sounds early or late against GENER8.
 
 ## Level, tempo, key and seed
 

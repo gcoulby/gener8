@@ -32,26 +32,26 @@ Everything on the canvas is a `SceneObject`: it has an `id`, a position `x`, `y`
 
 There are two branches:
 
-- **Sound**: makes audio. It has a `size`, a `note` for when no map sets pitch, and optional `RippleSettings`. Below it, `EventSound`s (subtractive, FM, pluck, percussion, macro, bass) play notes that end, and `SustainedSound`s (pad, drone, additive, noise) swell and fade as they enter and leave generators. Their attributes are the knobs in the [internals panel](sounds.md).
+- **Sound**: makes audio. It has a `size`, a `note` for when no map sets pitch, and optional `RippleSettings`. Below it, `EventSound`s (subtractive, FM, pluck, percussion, macro, bass, wavetable, organ, chip, pipe, bowed) play notes that end, and `SustainedSound`s (pad, drone, additive, noise, shepard, bowl, cloud) swell and fade as they enter and leave generators. A sound can also carry `midiOut`, set from the [mixer](mixing.md#midi). Their attributes are the knobs in the [internals panel](sounds.md).
 - **Field**: acts on the sounds inside its `Shape` (a `Circle` or a `Rectangle`). Its subclasses are the four roles, and each concrete field's attributes are its handles, stored 0 to 1.
 
 ### Fields by role
 
 | Abstract class | Concrete fields | See |
 |---|---|---|
-| `GeneratorField` | pulse, drift, arp, rain, strum, grid, phase, chords, turing, topo, plinko, wave, bounce, poly | [Generators](fields.md#generators-amber) |
-| `TransformerField` | probability, transpose, quantise, harmony, humanise, hold, ratchet, every-nth, canon, mirror | [Transformers](fields.md#transformers-teal-dashed) |
-| `FxField` → `InsertFx` | filter, tape, resonator, tremolo, lofi: processed per sound | [FX](fields.md#fx-violet) |
-| `FxField` → `BusFx` | delay, chorus, reverb, shimmer, freeze: shared sends | [FX](fields.md#fx-violet) |
-| `MapField` | XY, radial, sweep, tri | [Map fields](maps.md) |
+| `GeneratorField` | pulse, drift, arp, rain, strum, grid, phase, chords, turing, topo, plinko, wave, bounce, poly, sequencer, L-system, bells, automaton, pendulum, flock, midi in | [Generators](fields.md#generators-amber) |
+| `TransformerField` | probability, transpose, quantise, harmony, humanise, hold, ratchet, every-nth, canon, mirror, swing, accent, throttle, scatter, smooth, glide, echo, retrograde | [Transformers](fields.md#transformers-teal-dashed) |
+| `FxField` → `InsertFx` | filter, tape, resonator, tremolo, lofi, drive, wax, phaser, flanger, ring mod, octaver, beat repeat: processed per sound | [FX](fields.md#fx-violet) |
+| `FxField` → `BusFx` | delay, chorus, reverb, shimmer, freeze, spring: shared sends | [FX](fields.md#fx-violet) |
+| `MapField` | XY, radial, sweep, tri, spiral, tonnetz, midi cc | [Map fields](maps.md) |
 
 ### Map fields and axes
 
-A `MapField` contains one `Axis` per direction it measures: `x` and `y` for XY, `r` for radial, `t` for sweep, and `a`, `b`, `c` for tri. Each axis says what it drives (`to`: pitch, pan, level, a ripple setting, or `param:<knob>`) and the values at its two ends (`min`, `max`). See [targets](maps.md#targets).
+A `MapField` contains one `Axis` per direction it measures: `x` and `y` for XY, `r` for radial, `t` for sweep and spiral, `a`, `b`, `c` for tri, `n` for tonnetz and `v` for midi cc. Each axis says what it drives (`to`: pitch, pan, level, a ripple setting, or `param:<knob>`) and the values at its two ends (`min`, `max`). See [targets](maps.md#targets).
 
 ### Motion
 
-`Motion` holds up to two things: a position motion (one of `OrbitMotion`, `DriftMotion`, `PathMotion` with its `PathPoint`s, or `BounceMotion`) and `BreatheMotion`, which scales the object. Periods are in beats, so motion stays locked to the tempo. See [Motion and groups](motion.md).
+`Motion` holds a position motion (orbit, drift, path with its `PathPoint`s, bounce, pendulum, lissajous, spiral, rose, spirograph, hop, spring or shuttle), `BreatheMotion`, which scales the object, `SpinMotion` and `StretchMotion`, and a `lag` for followers. Periods are in beats, so motion stays locked to the tempo. A sequencer also stores its steps, as `seq`. See [Motion and groups](motion.md).
 
 ### RippleSettings
 

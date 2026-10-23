@@ -2,6 +2,7 @@ import type { SoundType, Voice, VoiceContext } from '../types.ts';
 import { SR } from '../constants.ts';
 import { exp, midiToHz, sinTurns, TAU } from '../dspmath.ts';
 import { Adsr, IDLE } from '../dsp/adsr.ts';
+import { Glide } from '../dsp/glide.ts';
 
 /**
  * Two-operator FM: a sine modulator phase-modulates a sine carrier. The
@@ -14,6 +15,8 @@ class FmVoice implements Voice {
   private cph = 0;
   private mph = 0;
   private hz = 220;
+  private pitch = 60;
+  private gl = new Glide();
   private vel = 0;
   private ienv = 0;
   private idc = 0;
@@ -29,9 +32,15 @@ class FmVoice implements Voice {
 
   noteOn(pitch: number, velocity: number): void {
     this.hz = midiToHz(pitch);
+    this.pitch = pitch;
+    this.gl.stop();
     this.vel = velocity;
     this.ienv = 0.4 + 0.6 * velocity;
     this.amp.gateOn();
+  }
+
+  glide(from: number, seconds: number): void {
+    this.gl.start(from, this.pitch, seconds);
   }
 
   noteOff(): void {
@@ -45,8 +54,9 @@ class FmVoice implements Voice {
       this.kDecay = p.indexDecay;
       this.idc = exp(-5 / Math.max(1, p.indexDecay * SR));
     }
-    const cInc = Math.min(0.45, this.hz / SR);
-    const mInc = Math.min(0.45, (this.hz * p.ratio) / SR);
+    const hz = this.hz * this.gl.ratio(end - start);
+    const cInc = Math.min(0.45, hz / SR);
+    const mInc = Math.min(0.45, (hz * p.ratio) / SR);
     const index = p.index / TAU;
     const floor = p.sustainIndex;
     const gain = this.vel * 0.32;

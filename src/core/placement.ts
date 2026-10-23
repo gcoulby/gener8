@@ -6,7 +6,7 @@
 import type { Axis, FieldObj, MapType, RippleSpec, SoundObj } from './types.ts';
 import type { Pose } from './motion.ts';
 import { MIDI_MAX, MIDI_MIN, RIPPLE_REACH, Y0_MIDI } from './constants.ts';
-import { shapeDims } from './geometry.ts';
+import { shapeDims, toLocal } from './geometry.ts';
 import { noteName } from './music.ts';
 
 export interface XYTarget {
@@ -156,14 +156,18 @@ function setTarget(out: Placement, to: string, v: number): void {
 }
 
 const scratch: number[] = [];
+const local = [0, 0];
 
 /**
  * Locate (px, py) in a map: false when outside, otherwise out holds
- * [offset, half] per axis (see MapType.locate).
+ * [offset, half] per axis (see MapType.locate). A spinning or stretching map
+ * carries its axes round with it.
  */
 export function mapLocate(m: MapPose, px: number, py: number, out: number[] = scratch): boolean {
-  const d = shapeDims(m.obj.shape, m.pose.scale);
-  return m.type.locate(d.w, d.h, px - m.pose.x, py - m.pose.y, out);
+  const p = m.pose;
+  const d = shapeDims(m.obj.shape, p.scale);
+  toLocal(p.x, p.y, p.angle, p.sx, p.sy, px, py, local);
+  return m.type.locate(d.w, d.h, local[0], local[1], out, m.obj.handles);
 }
 
 /** Resolve a sound at (px, py) against the maps, which must be in layer order (lowest first). */

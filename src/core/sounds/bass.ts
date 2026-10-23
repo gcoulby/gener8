@@ -46,6 +46,11 @@ class BassVoice implements Voice {
     this.amp.gateOn();
   }
 
+  /** Slides from the previous note at the sound's own glide rate. */
+  glide(from: number): void {
+    this.hz = Math.max(20, midiToHz(from));
+  }
+
   noteOff(): void {
     this.amp.gateOff();
   }

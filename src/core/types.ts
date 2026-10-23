@@ -2,14 +2,50 @@
 
 export type Vec2 = [number, number];
 
+/** How a motion moves through each cycle (or each path segment): steady, easing in and out, or overshooting. */
+export type Ease = 'linear' | 'smooth' | 'elastic';
+
 export type PosMotion =
-  | { type: 'orbit'; radius: number; periodBeats: number; phase: number }
-  | { type: 'path'; points: Vec2[]; periodBeats: number; mode: 'loop' | 'pingpong' }
+  | { type: 'orbit'; radius: number; periodBeats: number; phase: number; ease?: Ease }
+  /** dwell: share of each segment spent waiting at its start point (0..0.9). */
+  | { type: 'path'; points: Vec2[]; periodBeats: number; mode: 'loop' | 'pingpong'; dwell?: number; ease?: Ease }
   | { type: 'drift'; amplitude: number; rateBeats: number }
   /** Drops from `height` and bounces `bounces` times, each lower, to its home spot; then the same in reverse back up. One cycle every periodBeats. */
-  | { type: 'bounce'; height: number; bounces: number; periodBeats: number };
+  | { type: 'bounce'; height: number; bounces: number; periodBeats: number }
+  /** Hangs from a pivot `length` above home and swings ±`swing` degrees. */
+  | { type: 'pendulum'; length: number; swing: number; periodBeats: number }
+  /** x and y oscillate at a : b, tracing a figure (1:2 is a figure 8). */
+  | { type: 'lissajous'; size: number; a: number; b: number; periodBeats: number }
+  /** Winds out `turns` times to `radius` and back in each cycle. */
+  | { type: 'spiral'; radius: number; turns: number; periodBeats: number }
+  /** A rose curve with `petals` petals, passing through home between each. */
+  | { type: 'rose'; size: number; petals: number; periodBeats: number }
+  /** A circle rolling inside a circle (hypotrochoid) with `lobes` loops; arm 0..1 is how far the pen sits out. */
+  | { type: 'spirograph'; radius: number; lobes: number; arm: number; periodBeats: number }
+  /** Jumps between `spots` seeded spots within `distance`, one every `everyBeats`, gliding quickly between. */
+  | { type: 'hop'; distance: number; spots: number; everyBeats: number }
+  /** Flicked out `stretch` in a seeded direction each cycle, wobbling back to rest; damping 0..1. */
+  | { type: 'spring'; stretch: number; damping: number; periodBeats: number }
+  /** Back and forth along a line at `angle` degrees (clockwise from up), ±distance. */
+  | { type: 'shuttle'; angle: number; distance: number; periodBeats: number; ease?: Ease };
+
+export type BreatheShape = 'sine' | 'tri' | 'ramp' | 'square' | 'step';
 
 export interface Breathe {
+  amount: number;
+  periodBeats: number;
+  /** Default sine. step holds a seeded random size for each period. */
+  shape?: BreatheShape;
+}
+
+/** Turns once every periodBeats, clockwise unless ccw. */
+export interface Spin {
+  periodBeats: number;
+  ccw?: boolean;
+}
+
+/** Squash and stretch: width grows as height shrinks and back, by `amount`. */
+export interface Stretch {
   amount: number;
   periodBeats: number;
 }
@@ -17,6 +53,10 @@ export interface Breathe {
 export interface Motion {
   pos?: PosMotion;
   breathe?: Breathe;
+  spin?: Spin;
+  stretch?: Stretch;
+  /** With follow: trail the leader by this many beats. */
+  lag?: number;
 }
 
 /** Shared by sounds and fields. */
@@ -69,6 +109,8 @@ export interface SoundObj extends Placed {
   trim?: number;
   mute?: boolean;
   solo?: boolean;
+  /** Mixer: send this sound's notes to MIDI out on a channel (1–16); `only` silences its own audio. */
+  midiOut?: { channel: number; only?: boolean };
 }
 
 export type FieldShape = { r: number } | { w: number; h: number };
@@ -100,6 +142,8 @@ export interface FieldObj extends Placed {
   motion?: Motion;
   /** Map fields only: what position inside the field controls. */
   axes?: Axes;
+  /** Sequencer only: scale degrees per step from the sound's own note, null for a rest. */
+  seq?: (number | null)[];
   /** Mixer: FX bus return level in dB (default 0). */
   trim?: number;
 }
@@ -144,7 +188,9 @@ export type Edit =
   | { op: 'seed'; value: number }
   | { op: 'master'; value: number }
   | { op: 'info'; value: PatchInfo }
-  | { op: 'load'; patch: Patch };
+  | { op: 'load'; patch: Patch }
+  /** Incoming MIDI messages ([status, data1, data2] each, flattened). Logged so renders replay them; the patch is unchanged. */
+  | { op: 'midi'; data: number[] };
 
 export interface LoggedEdit {
   sample: number;
@@ -161,6 +207,12 @@ export interface NoteEvent {
   sourceId: string;
   chain: number;
   serial: number;
+  /** Slide in from the sound's previous note over this many ticks (voices that support it). */
+  glide?: number;
+  /** Identifies a held note (MIDI in), so a later `off` event can release it. */
+  tag?: number;
+  /** Not a note: releases the voice playing the note with the same tag. */
+  off?: boolean;
 }
 
 /** What the engine reports to the UI for every event that actually sounded. */
@@ -182,6 +234,8 @@ export interface EventRecord {
   /** Only when not the default 1. */
   rippleFalloff?: number;
   accent: boolean;
+  /** Note length in samples. */
+  dur: number;
 }
 
 // ---------- sounds ----------
@@ -222,6 +276,8 @@ export interface VoiceContext {
 
 export interface Voice {
   noteOn(pitch: number, velocity: number): void;
+  /** Called straight after noteOn: start from pitch `from` and slide to the note over `seconds`. */
+  glide?(from: number, seconds: number): void;
   noteOff(): void;
   accent?(velocity: number): void;
   /** Add output into out[start..end). Stereo types also receive outR; mono types ignore it. */
@@ -271,6 +327,10 @@ export interface FieldContext {
   readonly steps: number[];
   /** Per-field private state, created by the type. Plain data only. */
   state: any;
+  /** The field's step sequence (sequencer), or null. */
+  readonly seq: readonly (number | null)[] | null;
+  /** MIDI messages that arrived this block, as flattened [status, data1, data2] triplets. */
+  readonly midi: readonly number[];
   rand(stream: number, index: number): number;
 }
 
@@ -290,7 +350,14 @@ export interface GenMember {
   mode: 'event' | 'sustained';
 }
 
-export type Emit = (soundId: string, tick: number, degree: number, velocity: number, durTicks: number) => void;
+/** Extra for an emitted note: an absolute MIDI pitch (instead of the degree), a tag to release it by, or the release itself. */
+export interface EmitOpts {
+  pitch?: number;
+  tag?: number;
+  off?: boolean;
+}
+
+export type Emit = (soundId: string, tick: number, degree: number, velocity: number, durTicks: number, opts?: EmitOpts) => void;
 
 export interface FxProcessor {
   /** Insert FX: process one sound's mono signal in place. */
@@ -346,8 +413,9 @@ export interface MapType extends FieldTypeBase {
    * Point (dx, dy) from the centre of a field w × h (pose scale applied).
    * Returns false when outside; otherwise writes, for each axis in order, the
    * offset from the axis centre and its half length into out[2i], out[2i + 1].
+   * `handles` are the field's own, for maps whose value isn't only positional.
    */
-  locate(w: number, h: number, dx: number, dy: number, out: number[]): boolean;
+  locate(w: number, h: number, dx: number, dy: number, out: number[], handles?: Record<string, number>): boolean;
 }
 
 export type FieldType = GeneratorType | TransformerType | FxType | MapType;

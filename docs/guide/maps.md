@@ -2,7 +2,7 @@
 
 Nothing about the canvas has a fixed meaning. **Map fields** (steel, dashed) decide what position does: each one maps where a sound sits inside it to targets like pitch and pan.
 
-## The four shapes
+## The maps
 
 | Map | Shape | Axes |
 |---|---|---|
@@ -10,6 +10,23 @@ Nothing about the canvas has a fixed meaning. **Map fields** (steel, dashed) dec
 | ![radial](icons/field-radial.svg) **radial** | circle | **r** from the centre out to the edge |
 | ![sweep](icons/field-sweep.svg) **sweep** | circle | **around**, once round clockwise from the top |
 | ![tri](icons/field-tri.svg) **tri** | triangle | **a**, **b**, **c**, each from the opposite edge to its own corner |
+| ![spiral](icons/field-spiral.svg) **spiral** | circle | **along**, wound out from the centre in three turns |
+| ![tonnetz](icons/field-tonnetz.svg) **tonnetz** | rectangle | **cell**, the hex a sound sits in, −6 to +6 semitones from the centre |
+| ![midi cc](icons/field-cc.svg) **midi cc** | rectangle | **value**, the same for every sound inside, set by a knob |
+
+### Spiral
+
+A pitch helix seen from above. Going round changes the note within an octave; stepping out to the next arm goes up an octave. A sound at the same angle on any arm plays the same note name, so an orbiting sound plays a rising line and a sound moving straight out jumps by octaves.
+
+### Tonnetz
+
+Euler's map of harmony, tiled in hexes. Each hex is a note: its right-hand neighbour is a fifth away, up-right a major third and up-left a minor third. Every little triangle of neighbours is a major or minor triad, so sounds that sit near each other play in harmony, and moving one a hex is a small, smooth change. The hexes show their notes when pitch is the target.
+
+### MIDI cc
+
+A zone wired to one knob. Unlike the other maps, where a sound sits inside doesn't matter: every sound inside gets the same value on the axis, set by the **value** handle (shown as the fill). Incoming MIDI CC on the map's controller moves that handle, so a hardware knob can open the filters of three pads at once. Drag a sound in to wire it to the knob, or out to free it. To pick the controller, select the map, click **◎ learn** in its bar and move a knob: the map pulses while it listens, takes the first CC that arrives, and says which. <kbd>esc</kbd> cancels.
+
+Without MIDI (in Safari, say) the value handle is a fader you drag by hand, and it's saved in the patch. See [MIDI](mixing.md#midi).
 
 Every bundled example, and every **new** patch, starts with one big XY field: pitch on y, pan on x.
 
@@ -49,4 +66,4 @@ When maps overlap, each target comes from the **highest layer** that sets it. A 
 - **A spotlight.** A radial map with level 0 dB at the centre and −24 dB at the edge. Sounds fade as they drift out.
 - **Cycling melodies.** A sweep map on pitch, with a sound orbiting inside it. The sound plays a rising line once per orbit.
 - **A three-way blend.** A tri map with pitch, pan and reach on its corners. Moving a sound blends all three.
-- **Moving maps.** Maps can move and breathe too. A drifting XY field slowly re-pitches everything on it.
+- **Moving maps.** Maps can move and breathe too. A drifting XY field slowly re-pitches everything on it. A **spinning** map carries its axes round with it: a sweep map that spins plays a sound's pitch round the circle without the sound moving.

@@ -1,16 +1,18 @@
-// Motion bar: appears under the selected object. Toggle breathe / orbit / drift /
-// path and drag (or scroll) the values. Motion is the only modulation, so this
-// is where any sound or field gets modulated. Event sounds also get a retrigger
-// row (ripple / point / multi), and XY fields a row per axis.
+// Motion bar: appears under the selected object. Toggle breathe / spin /
+// stretch, pick how it moves from the move menu, and drag (or scroll) the
+// values. Motion is the only modulation, so this is where any sound or field
+// gets modulated. Event sounds also get a retrigger row (ripple / point /
+// multi), and XY fields a row per axis.
 
 import type { App } from './app.ts';
-import type { Axes, Axis, Edit, MapAxisSpec, PatchObject, PosMotion, RippleSpec } from '../core/types.ts';
+import type { Axes, Axis, BreatheShape, Ease, Edit, MapAxisSpec, PatchObject, PosMotion, RippleSpec } from '../core/types.ts';
 import { isCircle } from '../core/geometry.ts';
 import { soundTypes } from '../core/sounds/registry.ts';
 import { mapTypeOf } from '../core/fields/registry.ts';
 import { mapLocate, PARAM_PREFIX, RIPPLE_LIMITS, rippleOf, targetOf, XY_TARGETS } from '../core/placement.ts';
 import { MIDI_MAX, MIDI_MIN } from '../core/constants.ts';
 import { noteName } from '../core/music.ts';
+import { seqLength, seqOf, SEQ_MAX, SEQ_RANGE } from '../core/fields/input.ts';
 import { FONT_SMALL, INK } from './theme.ts';
 
 /** Motion periods in beats: up to 1024, i.e. 256 bars, for slow changes over a whole piece. */
@@ -22,8 +24,12 @@ export function periodLabel(beats: number): string {
   return beats >= 64 && beats % 4 === 0 ? `${beats / 4} bars` : `${beats} beats`;
 }
 
+/** The axis-menu key for the move menu (motion types, not axis targets). */
+export const MOVE = '@move';
+
 export type MotionAction =
-  | { kind: 'toggle'; what: 'breathe' | 'orbit' | 'drift' | 'path' | 'bounce' }
+  | { kind: 'toggle'; what: 'breathe' | 'spin' | 'stretch' | PosMotion['type'] }
+  | { kind: 'cycle'; what: 'ease' | 'bshape' | 'spindir' }
   | { kind: 'follow' }
   | { kind: 'unfollow' }
   | { kind: 'value'; key: ValueKey }
@@ -31,17 +37,19 @@ export type MotionAction =
   | { kind: 'rmode'; mode: NonNullable<RippleSpec['mode']> }
   | { kind: 'rstop' }
   | { kind: 'axis'; axis: string }
+  | { kind: 'midi' }
+  | { kind: 'learn' }
   | { kind: 'label' };
 
 export type ValueKey =
   | 'breathe.amount'
   | 'breathe.period'
-  | 'pos.radius'
-  | 'pos.amplitude'
-  | 'pos.period'
-  | 'pos.rate'
-  | 'pos.height'
-  | 'pos.bounces'
+  | 'spin.period'
+  | 'stretch.amount'
+  | 'stretch.period'
+  | 'lag'
+  | `pos.${string}`
+  | `seq.${number}`
   | 'ripple.reach'
   | 'ripple.angle'
   | 'ripple.count'
@@ -122,6 +130,37 @@ function axisRow(o: PatchObject, spec: MapAxisSpec): Item[] {
   return row;
 }
 
+/** MIDI in and cc fields: whether MIDI is connected (click to connect), and for cc a learn button. */
+function midiRow(app: App, o: PatchObject): Item[] {
+  const st = app.midi.status;
+  const connect = st === 'off' || st === 'denied';
+  const row: Item[] = [
+    { text: 'midi', action: { kind: 'label' } },
+    { text: app.midi.label(), action: connect ? { kind: 'midi' } : { kind: 'label' }, dim: !connect },
+  ];
+  if (o.kind === 'field' && o.type === 'cc' && st !== 'unsupported') {
+    const on = app.midi.learn === o.id;
+    row.push({ text: on ? '◎ move a knob… (esc cancels)' : '◎ learn: click, then move a knob', action: { kind: 'learn' }, active: on });
+  }
+  return row;
+}
+
+/** A rest, one step below the lowest degree. */
+const REST = -SEQ_RANGE - 1;
+
+/** Sequencer: one chip per step, its degree from the sound's note (· a rest). Drag or scroll to change. */
+function seqRow(o: PatchObject): Item[] {
+  if (o.kind !== 'field') return [];
+  const steps = seqOf(o.seq);
+  const n = Math.min(seqLength(o.handles), SEQ_MAX);
+  const row: Item[] = [{ text: 'steps', action: { kind: 'label' } }];
+  for (let i = 0; i < n; i++) {
+    const d = steps[i % steps.length] ?? null;
+    row.push({ text: d === null ? '·' : d > 0 ? `+${d}` : String(d), action: { kind: 'value', key: `seq.${i}` }, value: true });
+  }
+  return row;
+}
+
 function noteRow(app: App, o: PatchObject): Item[] {
   const note = o.kind === 'sound' ? (o.note ?? 60) : 60;
   const row: Item[] = [
@@ -144,63 +183,89 @@ function followRow(app: App, o: PatchObject): Item[] {
       { text: 'group', action: { kind: 'label' } },
       { text: `⛓ follows ${leader.id}`, action: { kind: 'follow' }, active: true },
       { text: '× unfollow', action: { kind: 'unfollow' } },
+      { text: `lag ${o.motion?.lag ?? 0} beats`, action: { kind: 'value', key: 'lag' }, value: true },
       ...lead,
     ];
   }
   return [{ text: 'group', action: { kind: 'label' } }, { text: '⛓ follow…', action: { kind: 'follow' } }, ...lead];
 }
 
+type PosType = PosMotion['type'];
+
+/** A position motion's menu glyph and its value chips: [property, chip text]. */
+const POS_UI: Record<PosType, { glyph: string; fields: [string, (v: number) => string][] }> = {
+  orbit: { glyph: '◯', fields: [['radius', (v) => `radius ${Math.round(v)}`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  drift: { glyph: '≈', fields: [['amplitude', (v) => `range ${Math.round(v)}`], ['rateBeats', (v) => `speed ${periodLabel(v)}`]] },
+  path: { glyph: '⌇', fields: [['periodBeats', (v) => `every ${periodLabel(v)}`], ['dwell', (v) => `dwell ${Math.round(v * 100)}%`]] },
+  bounce: { glyph: '⤓', fields: [['height', (v) => `height ${Math.round(v)}`], ['bounces', (v) => `${v} bounces`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  pendulum: { glyph: '⟟', fields: [['length', (v) => `length ${Math.round(v)}`], ['swing', (v) => `swing ±${Math.round(v)}°`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  lissajous: { glyph: '∞', fields: [['size', (v) => `size ${Math.round(v)}`], ['a', (v) => `x ×${v}`], ['b', (v) => `y ×${v}`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  spiral: { glyph: '꩜', fields: [['radius', (v) => `radius ${Math.round(v)}`], ['turns', (v) => `${v} turns`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  rose: { glyph: '✿', fields: [['size', (v) => `size ${Math.round(v)}`], ['petals', (v) => `${v} petals`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  spirograph: { glyph: '⚙', fields: [['radius', (v) => `radius ${Math.round(v)}`], ['lobes', (v) => `${v} loops`], ['arm', (v) => `arm ${Math.round(v * 100)}%`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  hop: { glyph: '⁖', fields: [['distance', (v) => `range ${Math.round(v)}`], ['spots', (v) => `${v} spots`], ['everyBeats', (v) => `hop every ${periodLabel(v)}`]] },
+  spring: { glyph: '⌁', fields: [['stretch', (v) => `stretch ${Math.round(v)}`], ['damping', (v) => `damping ${Math.round(v * 100)}%`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+  shuttle: { glyph: '⇹', fields: [['distance', (v) => `distance ${Math.round(v)}`], ['angle', (v) => `angle ${Math.round(v)}°`], ['periodBeats', (v) => `every ${periodLabel(v)}`]] },
+};
+
+/** The move menu's order. */
+export const POS_TYPES = Object.keys(POS_UI) as PosType[];
+
+export function posGlyph(t: PosType): string {
+  return POS_UI[t].glyph;
+}
+
+const EASES: Ease[] = ['linear', 'smooth', 'elastic'];
+const BREATHE_SHAPES: BreatheShape[] = ['sine', 'tri', 'ramp', 'square', 'step'];
+
 function rows(app: App, o: PatchObject): Item[][] {
   const m = o.motion ?? {};
   const pos = m.pos?.type;
-  const out: Item[][] = [
-    [
-      { text: '∿ breathe', action: { kind: 'toggle', what: 'breathe' }, active: !!m.breathe },
-      { text: '◯ orbit', action: { kind: 'toggle', what: 'orbit' }, active: pos === 'orbit' },
-      { text: '≈ drift', action: { kind: 'toggle', what: 'drift' }, active: pos === 'drift' },
-      { text: '⌇ path', action: { kind: 'toggle', what: 'path' }, active: pos === 'path' },
-      { text: '⤓ bounce', action: { kind: 'toggle', what: 'bounce' }, active: pos === 'bounce' },
-    ],
-    followRow(app, o),
+  const top: Item[] = [
+    { text: '∿ breathe', action: { kind: 'toggle', what: 'breathe' }, active: !!m.breathe },
+    { text: '↻ spin', action: { kind: 'toggle', what: 'spin' }, active: !!m.spin },
   ];
+  // sounds are round: only fields stretch
+  if (o.kind === 'field') top.push({ text: '⇔ stretch', action: { kind: 'toggle', what: 'stretch' }, active: !!m.stretch });
+  top.push({ text: `move: ${pos ? `${POS_UI[pos].glyph} ${pos}` : 'still'} ▾`, action: { kind: 'axis', axis: MOVE }, value: true });
+  const out: Item[][] = [top, followRow(app, o)];
   if (m.breathe) {
     out.push([
       { text: 'breathe', action: { kind: 'toggle', what: 'breathe' }, active: true },
       { text: `depth ${Math.round(m.breathe.amount * 100)}%`, action: { kind: 'value', key: 'breathe.amount' }, value: true },
       { text: `every ${periodLabel(m.breathe.periodBeats)}`, action: { kind: 'value', key: 'breathe.period' }, value: true },
+      { text: m.breathe.shape ?? 'sine', action: { kind: 'cycle', what: 'bshape' }, value: true },
+    ]);
+  }
+  if (m.spin) {
+    out.push([
+      { text: 'spin', action: { kind: 'toggle', what: 'spin' }, active: true },
+      { text: `once every ${periodLabel(m.spin.periodBeats)}`, action: { kind: 'value', key: 'spin.period' }, value: true },
+      { text: m.spin.ccw ? '↺ anticlockwise' : '↻ clockwise', action: { kind: 'cycle', what: 'spindir' }, value: true },
+    ]);
+  }
+  if (m.stretch && o.kind === 'field') {
+    out.push([
+      { text: 'stretch', action: { kind: 'toggle', what: 'stretch' }, active: true },
+      { text: `amount ${Math.round(m.stretch.amount * 100)}%`, action: { kind: 'value', key: 'stretch.amount' }, value: true },
+      { text: `every ${periodLabel(m.stretch.periodBeats)}`, action: { kind: 'value', key: 'stretch.period' }, value: true },
     ]);
   }
   const p = m.pos;
-  if (p?.type === 'orbit') {
-    out.push([
-      { text: 'orbit', action: { kind: 'toggle', what: 'orbit' }, active: true },
-      { text: `radius ${Math.round(p.radius)}`, action: { kind: 'value', key: 'pos.radius' }, value: true },
-      { text: `every ${periodLabel(p.periodBeats)}`, action: { kind: 'value', key: 'pos.period' }, value: true },
-    ]);
-  } else if (p?.type === 'drift') {
-    out.push([
-      { text: 'drift', action: { kind: 'toggle', what: 'drift' }, active: true },
-      { text: `range ${Math.round(p.amplitude)}`, action: { kind: 'value', key: 'pos.amplitude' }, value: true },
-      { text: `speed ${periodLabel(p.rateBeats)}`, action: { kind: 'value', key: 'pos.rate' }, value: true },
-    ]);
-  } else if (p?.type === 'path') {
-    out.push([
-      { text: 'path', action: { kind: 'toggle', what: 'path' }, active: true },
-      { text: `every ${periodLabel(p.periodBeats)}`, action: { kind: 'value', key: 'pos.period' }, value: true },
-      { text: p.mode, action: { kind: 'mode' }, value: true },
-    ]);
-  } else if (p?.type === 'bounce') {
-    out.push([
-      { text: 'bounce', action: { kind: 'toggle', what: 'bounce' }, active: true },
-      { text: `height ${Math.round(p.height)}`, action: { kind: 'value', key: 'pos.height' }, value: true },
-      { text: `${p.bounces} bounces`, action: { kind: 'value', key: 'pos.bounces' }, value: true },
-      { text: `every ${periodLabel(p.periodBeats)}`, action: { kind: 'value', key: 'pos.period' }, value: true },
-    ]);
+  if (p) {
+    const vals = p as unknown as Record<string, number>;
+    const row: Item[] = [{ text: p.type, action: { kind: 'toggle', what: p.type }, active: true }];
+    for (const [key, fmt] of POS_UI[p.type].fields) row.push({ text: fmt(vals[key] ?? 0), action: { kind: 'value', key: `pos.${key}` }, value: true });
+    if (p.type === 'path') row.push({ text: p.mode, action: { kind: 'mode' }, value: true });
+    if (p.type === 'orbit' || p.type === 'path' || p.type === 'shuttle') row.push({ text: p.ease ?? 'linear', action: { kind: 'cycle', what: 'ease' }, value: true });
+    out.push(row);
   }
   if (o.kind === 'sound') out.push(noteRow(app, o));
   if (o.kind === 'sound' && soundTypes[o.type]?.mode === 'event') out.push(retriggerRow(o));
   const mt = mapTypeOf(o);
   if (mt) for (const spec of mt.axes) out.push(axisRow(o, spec));
+  if (o.kind === 'field' && o.type === 'sequencer') out.push(seqRow(o));
+  if (o.kind === 'field' && (o.type === 'midi' || o.type === 'cc')) out.push(midiRow(app, o));
   return out;
 }
 
@@ -286,6 +351,7 @@ export function drawMotionBar(app: App): void {
 export function sameAction(a: MotionAction, b: MotionAction): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'toggle' && b.kind === 'toggle') return a.what === b.what;
+  if (a.kind === 'cycle' && b.kind === 'cycle') return a.what === b.what;
   if (a.kind === 'value' && b.kind === 'value') return a.key === b.key;
   if (a.kind === 'rmode' && b.kind === 'rmode') return a.mode === b.mode;
   if (a.kind === 'axis' && b.kind === 'axis') return a.axis === b.axis;
@@ -297,15 +363,30 @@ export function motionHitAt(app: App, mx: number, my: number): MotionHit | null 
   return null;
 }
 
-const DEFAULTS: Record<'orbit' | 'drift' | 'path' | 'bounce', PosMotion> = {
+const DEFAULTS: Record<PosType, PosMotion> = {
   bounce: { type: 'bounce', height: 120, bounces: 4, periodBeats: 8 },
   orbit: { type: 'orbit', radius: 80, periodBeats: 16, phase: 0 },
   drift: { type: 'drift', amplitude: 60, rateBeats: 8 },
   path: { type: 'path', points: [[0, 0], [120, 60], [0, 120], [-120, 60]], periodBeats: 32, mode: 'loop' },
+  pendulum: { type: 'pendulum', length: 120, swing: 60, periodBeats: 8 },
+  lissajous: { type: 'lissajous', size: 100, a: 1, b: 2, periodBeats: 32 },
+  spiral: { type: 'spiral', radius: 120, turns: 3, periodBeats: 32 },
+  rose: { type: 'rose', size: 120, petals: 5, periodBeats: 32 },
+  spirograph: { type: 'spirograph', radius: 120, lobes: 5, arm: 0.6, periodBeats: 32 },
+  hop: { type: 'hop', distance: 120, spots: 4, everyBeats: 4 },
+  spring: { type: 'spring', stretch: 80, damping: 0.4, periodBeats: 8 },
+  shuttle: { type: 'shuttle', angle: 90, distance: 120, periodBeats: 16 },
 };
 
-/** Point an axis at a new target (null: none), starting from that target's default range. */
+/**
+ * Point an axis at a new target (null: none), starting from that target's
+ * default range. For the move menu, start that motion type (null: stand still).
+ */
 export function axisTargetEdit(o: PatchObject, axis: string, to: string | null): Edit {
+  if (axis === MOVE) {
+    const cur = o.motion?.pos?.type;
+    return { op: 'set', id: o.id, path: ['motion', 'pos'], value: to && to !== cur ? DEFAULTS[to as PosType] : to ? o.motion?.pos : null };
+  }
   const t = to && targetOf(to);
   const axes: Axes = { ...axesOf(o) };
   if (to && t) axes[axis] = { to, min: t.min, max: t.max };
@@ -349,22 +430,29 @@ export function drawAxisMenu(app: App): void {
   }
   const g = app.g;
   g.font = FONT_SMALL;
-  const options = axisTargets(app, o);
-  const cur = axesOf(o)[m.axis]?.to ?? null;
+  const move = m.axis === MOVE;
+  const options = axisTargets(app, o, m.axis);
+  const cur = move ? (o.motion?.pos?.type ?? null) : (axesOf(o)[m.axis]?.to ?? null);
   type Row = { text: string; to?: string | null; head?: boolean };
   const rows: Row[] = [];
+  if (move) {
+    for (const t of POS_TYPES) rows.push({ text: `${POS_UI[t].glyph} ${t}`, to: t });
+    rows.push({ text: 'still', to: null });
+  }
   const builtIn = options.filter((v): v is string => !!v && !v.startsWith(PARAM_PREFIX));
   const params = options.filter((v): v is string => !!v && v.startsWith(PARAM_PREFIX));
-  for (const to of builtIn) rows.push({ text: targetLabel(to), to });
-  rows.push({ text: 'sound params', head: true });
-  // different sounds can label different params alike (attack, decay…): add the key when they clash
-  const labels = params.map(targetLabel);
-  if (params.length)
-    params.forEach((to, i) =>
-      rows.push({ text: labels.indexOf(labels[i]) !== labels.lastIndexOf(labels[i]) ? `${labels[i]} · ${to.slice(PARAM_PREFIX.length)}` : labels[i], to }),
-    );
-  else rows.push({ text: 'put sounds inside to list theirs', head: true });
-  rows.push({ text: 'none', to: null });
+  if (!move) {
+    for (const to of builtIn) rows.push({ text: targetLabel(to), to });
+    rows.push({ text: 'sound params', head: true });
+    // different sounds can label different params alike (attack, decay…): add the key when they clash
+    const labels = params.map(targetLabel);
+    if (params.length)
+      params.forEach((to, i) =>
+        rows.push({ text: labels.indexOf(labels[i]) !== labels.lastIndexOf(labels[i]) ? `${labels[i]} · ${to.slice(PARAM_PREFIX.length)}` : labels[i], to }),
+      );
+    else rows.push({ text: 'put sounds inside to list theirs', head: true });
+    rows.push({ text: 'none', to: null });
+  }
 
   const below = app.H - app.barH - m.y - 12;
   const above = m.top - 12;
@@ -421,8 +509,12 @@ export function inAxisMenu(app: App, mx: number, my: number): boolean {
   return mx >= x0 && mx <= x1 && my >= y0 && my <= y1;
 }
 
-/** Axis targets to cycle through: the built-ins, then params of the sounds inside the field, then none. */
-function axisTargets(app: App, o: PatchObject): (string | null)[] {
+/**
+ * Axis targets to cycle through: the built-ins, then params of the sounds
+ * inside the field, then none. For the move menu, the motion types then still.
+ */
+function axisTargets(app: App, o: PatchObject, axis: string): (string | null)[] {
+  if (axis === MOVE) return [...POS_TYPES, null];
   const keys = new Set<string>();
   const type = mapTypeOf(o);
   if (!type || o.kind !== 'field') return [];
@@ -447,9 +539,9 @@ export function toggleEdit(app: App, o: PatchObject, a: MotionAction, dir = 1): 
   }
   if (a.kind === 'axis') {
     // scrolling over the chip steps through the targets (a click opens the menu instead)
-    const list = axisTargets(app, o);
+    const list = axisTargets(app, o, a.axis);
     if (!list.length) return null;
-    const cur = axesOf(o)[a.axis]?.to ?? null;
+    const cur = a.axis === MOVE ? (o.motion?.pos?.type ?? null) : (axesOf(o)[a.axis]?.to ?? null);
     const i = list.indexOf(cur);
     return axisTargetEdit(o, a.axis, list[(((i < 0 ? 0 : i + dir) % list.length) + list.length) % list.length]);
   }
@@ -458,36 +550,57 @@ export function toggleEdit(app: App, o: PatchObject, a: MotionAction, dir = 1): 
     if (p?.type !== 'path') return null;
     return { op: 'set', id: o.id, path: ['motion', 'pos', 'mode'], value: p.mode === 'loop' ? 'pingpong' : 'loop' };
   }
+  if (a.kind === 'cycle') {
+    const m = o.motion;
+    if (a.what === 'spindir' && m?.spin) return { op: 'set', id: o.id, path: ['motion', 'spin', 'ccw'], value: m.spin.ccw ? null : true };
+    if (a.what === 'bshape' && m?.breathe) {
+      const next = BREATHE_SHAPES[(BREATHE_SHAPES.indexOf(m.breathe.shape ?? 'sine') + dir + BREATHE_SHAPES.length) % BREATHE_SHAPES.length];
+      return { op: 'set', id: o.id, path: ['motion', 'breathe', 'shape'], value: next === 'sine' ? null : next };
+    }
+    const p = m?.pos;
+    if (a.what === 'ease' && (p?.type === 'orbit' || p?.type === 'path' || p?.type === 'shuttle')) {
+      const next = EASES[(EASES.indexOf(p.ease ?? 'linear') + dir + EASES.length) % EASES.length];
+      return { op: 'set', id: o.id, path: ['motion', 'pos', 'ease'], value: next === 'linear' ? null : next };
+    }
+    return null;
+  }
   if (a.kind !== 'toggle') return null;
   if (a.what === 'breathe') {
     return { op: 'set', id: o.id, path: ['motion', 'breathe'], value: o.motion?.breathe ? null : { amount: 0.3, periodBeats: 16 } };
   }
+  if (a.what === 'spin') return { op: 'set', id: o.id, path: ['motion', 'spin'], value: o.motion?.spin ? null : { periodBeats: 16 } };
+  if (a.what === 'stretch') return { op: 'set', id: o.id, path: ['motion', 'stretch'], value: o.motion?.stretch ? null : { amount: 0.3, periodBeats: 16 } };
   const on = o.motion?.pos?.type === a.what;
   return { op: 'set', id: o.id, path: ['motion', 'pos'], value: on ? null : DEFAULTS[a.what] };
 }
 
 export function readValue(o: PatchObject, key: ValueKey): number {
   const m = o.motion ?? {};
-  const p = m.pos as Record<string, number> | undefined;
   switch (key) {
     case 'breathe.amount':
       return m.breathe?.amount ?? 0;
     case 'breathe.period':
       return m.breathe?.periodBeats ?? 16;
-    case 'pos.radius':
-      return p?.radius ?? 0;
-    case 'pos.amplitude':
-      return p?.amplitude ?? 0;
-    case 'pos.period':
-      return p?.periodBeats ?? 16;
-    case 'pos.rate':
-      return p?.rateBeats ?? 8;
-    case 'pos.height':
-      return p?.height ?? 0;
-    case 'pos.bounces':
-      return p?.bounces ?? 4;
+    case 'spin.period':
+      return m.spin?.periodBeats ?? 16;
+    case 'stretch.amount':
+      return m.stretch?.amount ?? 0;
+    case 'stretch.period':
+      return m.stretch?.periodBeats ?? 16;
+    case 'lag':
+      return m.lag ?? 0;
+  }
+  if (key.startsWith('pos.')) {
+    const k = key.slice(4);
+    const v = (m.pos as Record<string, unknown> | undefined)?.[k];
+    return typeof v === 'number' ? v : (POS_PROPS[k]?.lo ?? 0);
   }
   if (key === 'sound.note') return o.kind === 'sound' ? (o.note ?? 60) : 60;
+  if (key.startsWith('seq.')) {
+    const steps = seqOf(o.kind === 'field' ? o.seq : null);
+    const d = steps[Number(key.slice(4)) % steps.length];
+    return d === null || d === undefined ? REST : d;
+  }
   if (key.startsWith('ripple.')) {
     const r = rippleOf(o.kind === 'sound' ? o.ripple : undefined);
     return r[key.slice(7) as 'reach' | 'angle' | 'count' | 'spread' | 'falloff'];
@@ -495,6 +608,32 @@ export function readValue(o: PatchObject, key: ValueKey): number {
   const [, ax, end] = key.split('.') as [string, string, 'min' | 'max'];
   return axesOf(o)[ax]?.[end] ?? 0;
 }
+
+/** How each position-motion property steps: distances by pixels, periods through PERIODS, the rest in units. */
+const POS_PROPS: Record<string, { kind: 'dist' | 'period' | 'int' | 'deg' | 'frac'; lo: number; hi: number; step?: number }> = {
+  radius: { kind: 'dist', lo: 5, hi: 4000 },
+  amplitude: { kind: 'dist', lo: 5, hi: 4000 },
+  height: { kind: 'dist', lo: 5, hi: 4000 },
+  length: { kind: 'dist', lo: 5, hi: 4000 },
+  size: { kind: 'dist', lo: 5, hi: 4000 },
+  distance: { kind: 'dist', lo: 5, hi: 4000 },
+  stretch: { kind: 'dist', lo: 5, hi: 4000 },
+  periodBeats: { kind: 'period', lo: 1, hi: MAX_PERIOD },
+  rateBeats: { kind: 'period', lo: 1, hi: MAX_PERIOD },
+  everyBeats: { kind: 'period', lo: 1, hi: MAX_PERIOD },
+  bounces: { kind: 'int', lo: 0, hi: 12 },
+  a: { kind: 'int', lo: 1, hi: 8 },
+  b: { kind: 'int', lo: 1, hi: 8 },
+  petals: { kind: 'int', lo: 2, hi: 9 },
+  lobes: { kind: 'int', lo: 2, hi: 12 },
+  spots: { kind: 'int', lo: 2, hi: 8 },
+  turns: { kind: 'int', lo: 0.5, hi: 8, step: 0.5 },
+  swing: { kind: 'deg', lo: 5, hi: 170 },
+  angle: { kind: 'deg', lo: 0, hi: 360 },
+  arm: { kind: 'frac', lo: 0, hi: 1 },
+  damping: { kind: 'frac', lo: 0, hi: 1 },
+  dwell: { kind: 'frac', lo: 0, hi: 0.9 },
+};
 
 function stepPeriod(v: number, steps: number): number {
   let i = PERIODS.findIndex((p) => p >= v);
@@ -506,19 +645,34 @@ const clampTo = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo,
 
 /** New value for a value chip: `steps` is signed (drag pixels / 12, or ±1 per scroll notch). */
 export function stepValue(o: PatchObject, key: ValueKey, start: number, steps: number, fine: number): number {
+  if (key.startsWith('pos.')) {
+    const s = POS_PROPS[key.slice(4)];
+    if (!s) return start;
+    switch (s.kind) {
+      case 'dist':
+        return Math.round(clampTo(start + fine, s.lo, s.hi));
+      case 'period':
+        return stepPeriod(start, steps);
+      case 'int': {
+        const st = s.step ?? 1;
+        return clampTo(Math.round((start + steps * st) / st) * st, s.lo, s.hi);
+      }
+      case 'deg':
+        return s.hi === 360 ? ((Math.round((start + steps * 5) / 5) * 5) % 360 + 360) % 360 : clampTo(Math.round((start + steps * 5) / 5) * 5, s.lo, s.hi);
+      case 'frac':
+        return clampTo(Math.round((start + steps * 0.05) * 20) / 20, s.lo, s.hi);
+    }
+  }
   switch (key) {
     case 'breathe.amount':
+    case 'stretch.amount':
       return Math.round(Math.min(0.9, Math.max(0, start + fine * 0.005)) * 100) / 100;
-    case 'pos.radius':
-    case 'pos.amplitude':
-    case 'pos.height':
-      return Math.round(Math.min(4000, Math.max(5, start + fine)));
-    case 'pos.bounces':
-      return clampTo(Math.round(start + steps), 0, 12);
     case 'breathe.period':
-    case 'pos.period':
-    case 'pos.rate':
+    case 'spin.period':
+    case 'stretch.period':
       return stepPeriod(start, steps);
+    case 'lag':
+      return clampTo(Math.round((start + steps * 0.25) * 4) / 4, 0, 64);
     case 'ripple.reach':
       return clampTo(Math.round((start + steps * 0.5) * 2) / 2, RIPPLE_LIMITS.reach[0], RIPPLE_LIMITS.reach[1]);
     case 'ripple.angle':
@@ -532,6 +686,7 @@ export function stepValue(o: PatchObject, key: ValueKey, start: number, steps: n
     case 'ripple.falloff':
       return clampTo(Math.round((start + steps * 0.05) * 20) / 20, RIPPLE_LIMITS.falloff[0], RIPPLE_LIMITS.falloff[1]);
   }
+  if (key.startsWith('seq.')) return clampTo(Math.round(start + steps), REST, SEQ_RANGE);
   const a = axesOf(o)[key.split('.')[1]];
   const t = a && targetOf(a.to);
   if (!t) return start;
@@ -549,15 +704,21 @@ export function valueEdit(o: PatchObject, key: ValueKey, v: number): Edit {
   }
   if (key.startsWith('ripple.')) return { op: 'set', id: o.id, path: ['ripple', key.slice(7)], value: v };
   if (key === 'sound.note') return { op: 'set', id: o.id, path: ['note'], value: v };
+  if (key.startsWith('pos.')) return { op: 'set', id: o.id, path: ['motion', 'pos', key.slice(4)], value: v };
+  if (key.startsWith('seq.')) {
+    // the whole sequence, written out to the full length so every step can be set
+    const cur = seqOf(o.kind === 'field' ? o.seq : null);
+    const seq = Array.from({ length: SEQ_MAX }, (_, i) => cur[i % cur.length] ?? null);
+    seq[Number(key.slice(4))] = v <= REST ? null : v;
+    return { op: 'set', id: o.id, path: ['seq'], value: seq };
+  }
+  if (key === 'lag') return { op: 'set', id: o.id, path: ['motion', 'lag'], value: v || null };
   const path: Record<string, string[]> = {
     'breathe.amount': ['motion', 'breathe', 'amount'],
     'breathe.period': ['motion', 'breathe', 'periodBeats'],
-    'pos.radius': ['motion', 'pos', 'radius'],
-    'pos.amplitude': ['motion', 'pos', 'amplitude'],
-    'pos.period': ['motion', 'pos', 'periodBeats'],
-    'pos.rate': ['motion', 'pos', 'rateBeats'],
-    'pos.height': ['motion', 'pos', 'height'],
-    'pos.bounces': ['motion', 'pos', 'bounces'],
+    'spin.period': ['motion', 'spin', 'periodBeats'],
+    'stretch.amount': ['motion', 'stretch', 'amount'],
+    'stretch.period': ['motion', 'stretch', 'periodBeats'],
   };
   return { op: 'set', id: o.id, path: path[key], value: v };
 }

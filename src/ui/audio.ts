@@ -87,6 +87,15 @@ export class AudioBridge {
     return Math.max(0, (ctx.currentTime - lat) * SR - this.base);
   }
 
+  /** performance.now() time at which engine sample `sample` reaches the speakers (for timed MIDI out). */
+  perfTimeOf(sample: number): number {
+    const ctx = this.ctx;
+    if (!ctx) return performance.now();
+    const ts = ctx.getOutputTimestamp();
+    const ct = (sample + this.base) / SR;
+    return (ts.performanceTime ?? performance.now()) + (ct - (ts.contextTime ?? ctx.currentTime)) * 1000;
+  }
+
   /** Engine sample most recently rendered (ahead of audible). */
   get renderedSample(): number {
     return this.last.sample;

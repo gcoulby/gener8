@@ -16,6 +16,14 @@ Sounds are the voices: warm-white shapes on the canvas. Each type has its own gl
 | ![drone](icons/sound-drone.svg) **drone** | sustained | Saws over a sine sub, drifting slowly. |
 | ![additive](icons/sound-additive.svg) **additive** | sustained | Stacked partials: organ-like to hollow and shimmering. |
 | ![noise](icons/sound-noise.svg) **noise** | sustained | A focused band of noise: wind, surf, crackle. |
+| ![wavetable](icons/sound-wavetable.svg) **wavetable** | event | Scans through a table of waveforms. See [Wavetable](#wavetable). |
+| ![organ](icons/sound-organ.svg) **organ** | event | A tonewheel organ: drawbars, key click, percussion and a rotary speaker. |
+| ![chip](icons/sound-chip.svg) **chip** | event | An 8-bit game console voice: pulses, a stepped triangle or noise, with a fast arpeggio. |
+| ![pipe](icons/sound-pipe.svg) **pipe** | event | A breathy flute or pan pipe, with a puff of air at the start of each note. |
+| ![bowed](icons/sound-bowed.svg) **bowed** | event | A bowed string, modelled: bow pressure and position change how it grips and sings. |
+| ![shepard](icons/sound-shepard.svg) **shepard** | sustained | A tone that seems to rise (or fall) forever. |
+| ![bowl](icons/sound-bowl.svg) **bowl** | sustained | A singing bowl: beating, bell-like partials. Triggers strike it. |
+| ![cloud](icons/sound-cloud.svg) **cloud** | sustained | A granular haze of short tones scattered over the sound's chord. |
 
 **Event** sounds play a note each time something triggers them. **Sustained** sounds play all the time. A trigger becomes an accent: a swell or a brighter moment. Sustained sounds also follow pitch changes smoothly, so moving one through a pitch map glides between notes.
 
@@ -39,6 +47,34 @@ The mark inside the octagon shows which model a sound is on. Every note goes thr
 ## Bass
 
 The dome. A **bass** has a single voice, so a new note doesn't stack on the last one: it slides there over the **glide** time. The oscillator blends **saw → square** with a **sub** sine an octave down, then a resonant lowpass whose **env amount** and **env decay** give each note its pluck, and a little **drive**.
+
+## Wavetable
+
+The heptagon. A **wavetable** sound reads one of four tables of eight waveforms: **analog** (sine to triangle to saw to square), **vocal** (a formant sweeping from "oo" to "ee"), **organ** (drawbars switching in) and **glass** (sparse, bright partials). **position** picks where in the table it plays, and **env → position** lets each note's envelope scan through it, so notes change colour as they sound. **warp** bends the waveform for extra harmonics. Every table is band-limited, so high notes stay clean.
+
+## Organ, chip and pipe
+
+**organ** picks a drawbar **registration** (flute, jazz, gospel, full, reed, bright). Its jazz and gospel settings include the 16' drawbar, so it sounds an octave down. **percussion** adds a decaying 2nd or 3rd harmonic to each note, and the **rotor** sets the speed and depth of the spinning speaker.
+
+**chip** has five **waves**: two narrow pulses, a square, the console's 4-bit triangle and its noise channel. Its volume moves in 16 steps, as on the hardware. An **arpeggio** cycles fast through an octave, a major or minor triad or a power chord, faking a chord on one voice.
+
+**pipe** blends a soft, nearly pure tone with **breath** noise tuned around it. **overblow** pushes it up onto the octave and twelfth, as blowing harder does.
+
+## Bowed
+
+The almond. A modelled string: the bow grips the string and lets it slip, over and over. More **bow pressure** sounds scratchier, and **bow position** moves the bow towards the bridge for a thinner tone. A held note keeps sounding as long as the note lasts, so it pairs well with [hold](fields.md#transformers-teal-dashed).
+
+## Shepard, bowl and cloud
+
+**shepard** stacks octaves that slide up together under a fixed window, each fading in at the bottom and out at the top: the endless staircase. Set its **speed** and whether it rises or falls. **fifth** layers a fifth over every octave.
+
+**bowl** is a singing bowl. **rub** keeps it singing, **beating** sets how fast its paired partials wobble, and each trigger strikes it, ringing out over the **strike decay**.
+
+**cloud** sprays short grains over the sound's chord (root, 5th, 9th, 10th). **density** is grains per second, **grain size** their length, and **spray** how far they scatter in octaves and time. Triggers thicken it for a moment.
+
+## Glide
+
+The [glide](fields.md#transformers-teal-dashed) transformer slides notes in from the previous one. Subtractive, FM, wavetable, organ, chip, pipe and bowed follow it. Bass slides at its own **glide** time. The other sounds ignore it.
 
 ## Filled or hollow
 

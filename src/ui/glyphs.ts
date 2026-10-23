@@ -77,6 +77,66 @@ export function soundPath(g: CanvasRenderingContext2D, glyph: string, x: number,
       g.arc(x, y + r * 0.55, r * 1.05, Math.PI, 0);
       g.closePath();
       return;
+    case 'heptagon':
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 - Math.PI / 2;
+        const px = x + Math.cos(a) * r * 1.05;
+        const py = y + Math.sin(a) * r * 1.05;
+        if (i === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.closePath();
+      return;
+    case 'arch':
+      // an organ pipe's mouth: flat bottom, round top
+      g.moveTo(x - r * 0.75, y + r * 0.95);
+      g.lineTo(x - r * 0.75, y - r * 0.2);
+      g.arc(x, y - r * 0.2, r * 0.75, Math.PI, 0);
+      g.lineTo(x + r * 0.75, y + r * 0.95);
+      g.closePath();
+      return;
+    case 'cross': {
+      const a = r * 0.36;
+      const b = r * 1.0;
+      g.moveTo(x - a, y - b);
+      g.lineTo(x + a, y - b);
+      g.lineTo(x + a, y - a);
+      g.lineTo(x + b, y - a);
+      g.lineTo(x + b, y + a);
+      g.lineTo(x + a, y + a);
+      g.lineTo(x + a, y + b);
+      g.lineTo(x - a, y + b);
+      g.lineTo(x - a, y + a);
+      g.lineTo(x - b, y + a);
+      g.lineTo(x - b, y - a);
+      g.lineTo(x - a, y - a);
+      g.closePath();
+      return;
+    }
+    case 'capsule':
+      g.arc(x, y - r * 0.5, r * 0.6, Math.PI, 0);
+      g.arc(x, y + r * 0.5, r * 0.6, 0, Math.PI);
+      g.closePath();
+      return;
+    case 'lens':
+      g.moveTo(x - r * 1.15, y);
+      g.quadraticCurveTo(x, y - r * 1.3, x + r * 1.15, y);
+      g.quadraticCurveTo(x, y + r * 1.3, x - r * 1.15, y);
+      g.closePath();
+      return;
+    case 'cup':
+      // flat side up: a bowl
+      g.moveTo(x - r * 1.05, y - r * 0.45);
+      g.arc(x, y - r * 0.45, r * 1.05, Math.PI, 0, true);
+      g.closePath();
+      return;
+    case 'cloud':
+      g.arc(x - r * 0.5, y + r * 0.15, r * 0.5, Math.PI * 0.5, Math.PI * 1.5);
+      g.arc(x - r * 0.1, y - r * 0.3, r * 0.55, Math.PI * 1.05, Math.PI * 1.85);
+      g.arc(x + r * 0.5, y + r * 0.05, r * 0.6, Math.PI * 1.4, Math.PI * 0.5);
+      g.closePath();
+      return;
+    case 'shell':
     case 'ring':
     default:
       g.arc(x, y, r, 0, Math.PI * 2);
@@ -91,6 +151,17 @@ export function soundDetail(g: CanvasRenderingContext2D, glyph: string, x: numbe
   if (glyph === 'ring') {
     g.beginPath();
     g.arc(x, y, r * 0.55, 0, Math.PI * 2);
+    g.stroke();
+  } else if (glyph === 'shell' && r >= 5) {
+    // a spiral winding outwards
+    g.beginPath();
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40;
+      const a = t * Math.PI * 4;
+      const rr = r * 0.1 + r * 0.65 * t;
+      if (i) g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      else g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
     g.stroke();
   } else if (glyph === 'octagon' && variant >= 0 && r >= 6) {
     modelMark(g, Math.round(variant), x, y, r * 0.5);

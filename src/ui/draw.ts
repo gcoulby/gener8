@@ -9,21 +9,29 @@ import type {
 import { PPQ, RIPPLE_SPEED, MIDI_MAX, MIDI_MIN } from '../core/constants.ts'
 import { byLayer } from '../core/patch.ts'
 import { angleTurns, depthAt, isCircle, shapeDims } from '../core/geometry.ts'
-import { followPose } from '../core/motion.ts'
+import { followPose, motionBeats, newPose } from '../core/motion.ts'
 import { soundTypes } from '../core/sounds/registry.ts'
 import { fieldTypes, isMap, mapTypeOf } from '../core/fields/registry.ts'
-import { triCorner } from '../core/fields/maps.ts'
+import {
+  ccNumber,
+  SPIRAL_TURNS,
+  tonnetzStep,
+  TONNETZ_CELLS,
+  triCorner,
+} from '../core/fields/maps.ts'
 import { pulseHits, pulseLength, euclid } from '../core/fields/generators.ts'
 import { waveAt } from '../core/fields/rhythms.ts'
 import { PLINKO_BALL } from '../core/fields/plinko.ts'
 import {
   indexToMidi,
   nearestIndex,
+  NOTE_NAMES,
   noteName,
   scaleSteps,
 } from '../core/music.ts'
 import {
   axisOffset,
+  axisValue,
   governingAxis,
   rippleOf,
   targetOf,
@@ -32,7 +40,7 @@ import {
 import { targetLabel } from './motionbar.ts'
 import { BG, FONT, FONT_SMALL, INK, rgba } from './theme.ts'
 import { soundDetail, soundPath } from './glyphs.ts'
-import { drawPalette } from './palette.ts'
+import { drawPalette, PALETTE_RIGHT } from './palette.ts'
 import { drawTimeline } from './timeline.ts'
 import { drawPanel } from './panel.ts'
 import { drawAxisMenu, drawMotionBar } from './motionbar.ts'
@@ -50,8 +58,10 @@ export function draw(app: App): void {
   const objs = app.view.objects.slice().sort(byLayer)
   // XY fields are the ground: drawn first, under every other field.
   // A clean frame (a short) leaves them out: they're scaffolding.
-  if (!app.clean) for (const o of objs) if (isMap(o)) drawMap(app, o)
-  for (const o of objs) if (o.kind === 'field' && !isMap(o)) drawField(app, o)
+  if (!app.clean)
+    for (const o of objs) if (isMap(o)) inPoseFrame(app, o, () => drawMap(app, o))
+  for (const o of objs)
+    if (o.kind === 'field' && !isMap(o)) inPoseFrame(app, o, () => drawField(app, o))
   drawRipples(app)
   drawCauses(app)
   drawFollowLinks(app)
@@ -207,6 +217,24 @@ function dim(app: App, sx: number, sy: number, id: string): number {
   return Math.min(1, Math.max(0.35, 1 - (d - 260) / 420))
 }
 
+/**
+ * Runs fn with the canvas turned and stretched about a field's centre by its
+ * spin and stretch, so the drawing code can draw it upright.
+ */
+function inPoseFrame(app: App, f: FieldObj, fn: () => void): void {
+  const p = app.poseOf(f)
+  if (!p.angle && p.sx === 1 && p.sy === 1) return fn()
+  const g = app.g
+  const [sx, sy] = app.w2s(p.x, p.y)
+  g.save()
+  g.translate(sx, sy)
+  g.rotate(p.angle * TAU)
+  g.scale(p.sx, p.sy)
+  g.translate(-sx, -sy)
+  fn()
+  g.restore()
+}
+
 /** Values worth a guide line on an axis: the key's root in every octave for pitch, centre for pan. */
 function guideValues(a: Axis, root: number): number[] {
   const lo = Math.min(a.min, a.max)
@@ -310,6 +338,15 @@ function drawRoundMap(app: App, f: FieldObj, r: number): void {
             sx + Math.sin(u * TAU) * R * 0.8,
             sy - Math.cos(u * TAU) * R * 0.8,
           )
+      } else if (t.id === 'spiral') {
+        // a dot on the arm where the axis reaches v
+        const uu = u * SPIRAL_TURNS
+        const rr = (uu / SPIRAL_TURNS) * R
+        const x = sx + Math.sin(uu * TAU) * rr
+        const y = sy - Math.cos(uu * TAU) * rr
+        g.arc(x, y, 2.5, 0, TAU)
+        g.fill()
+        if (a.to === 'pitch' && z >= 0.3) g.fillText(noteName(v), x, y - 4)
       } else if (tri) {
         // a line of equal weight runs parallel to the edge opposite corner i
         const [ax, ay] = corner(i)
@@ -321,6 +358,19 @@ function drawRoundMap(app: App, f: FieldObj, r: number): void {
       }
     }
   })
+  if (t.id === 'spiral') {
+    g.strokeStyle = rgba('map', 0.25 * k)
+    g.beginPath()
+    for (let i = 0; i <= 240; i++) {
+      const uu = (i / 240) * SPIRAL_TURNS
+      const rr = (uu / SPIRAL_TURNS) * R
+      const x = sx + Math.sin(uu * TAU) * rr
+      const y = sy - Math.cos(uu * TAU) * rr
+      if (i) g.lineTo(x, y)
+      else g.moveTo(x, y)
+    }
+    g.stroke()
+  }
   if (t.id === 'sweep') {
     // where the sweep starts and which way it goes
     g.strokeStyle = rgba('map', 0.35 * k)
@@ -397,7 +447,7 @@ function drawXYMap(app: App, f: FieldObj): void {
   const axes = f.axes ?? mapTypeOf(f)?.defaultAxes ?? {}
   const root = app.view.key.root
   // labels stay on the visible part of the field (clear of the palette and bar)
-  const vx0 = Math.max(x0, 76)
+  const vx0 = Math.max(x0, PALETTE_RIGHT)
   const vx1 = Math.min(x0 + w, app.W)
   const vy0 = Math.max(y0, 0)
   const vy1 = Math.min(y0 + h, app.H - app.barH)
@@ -438,6 +488,24 @@ function drawXYMap(app: App, f: FieldObj): void {
       }
     }
   }
+  if (f.type === 'tonnetz') drawTonnetzCells(app, f, sx, sy, d.w, d.h, k)
+  else if (f.type === 'cc') {
+    const v = f.handles.value ?? 0.5
+    g.fillStyle = rgba('map', 0.06 + 0.05 * k)
+    g.fillRect(x0, y0 + h * (1 - v), w, h * v)
+    if (app.midi.learn === f.id) {
+      // learning: a pulsing edge and a prompt in the middle
+      const pulse = 0.5 + 0.5 * Math.sin(app.now / 180)
+      g.strokeStyle = rgba('map', 0.4 + 0.5 * pulse)
+      g.lineWidth = 3
+      g.strokeRect(x0 + 1.5, y0 + 1.5, w - 3, h - 3)
+      g.font = FONT
+      g.textAlign = 'center'
+      g.textBaseline = 'middle'
+      g.fillStyle = rgba('map', 0.6 + 0.4 * pulse)
+      g.fillText('move a MIDI knob…', sx, sy)
+    }
+  }
   g.restore()
 
   g.strokeStyle = rgba('map', 0.35 * k)
@@ -458,6 +526,20 @@ function drawXYMap(app: App, f: FieldObj): void {
   )
   if (vx1 - vx0 < 140 || vy1 - vy0 < 60) return
   g.fillStyle = rgba('map', 0.6 * k)
+  const mt = mapTypeOf(f)
+  if (mt && mt.id !== 'xy') {
+    // one-axis rect maps: a summary along the bottom
+    const spec = mt.axes[0]
+    const e = axisEnds(axes[spec.key])
+    g.textAlign = 'left'
+    if (e)
+      g.fillText(
+        `${mt.id === 'cc' ? `CC ${ccNumber(f.handles)} · ` : ''}${e.label}: ${spec.lo} ${e.lo} → ${spec.hi} ${e.hi}`,
+        vx0 + 6,
+        vy1 - 4,
+      )
+    return
+  }
   const ex = axisEnds(axes.x)
   const ey = axisEnds(axes.y)
   g.textBaseline = 'bottom'
@@ -489,6 +571,54 @@ function drawXYMap(app: App, f: FieldObj): void {
     if (bOn) {
       g.textBaseline = 'bottom'
       g.fillText(`↓ ${ey.lo}`, vx1 - 6, vy1 - (ex ? 18 : 4))
+    }
+  }
+}
+
+/** Tonnetz: a faint hex at each cell, and its note where pitch is the target. */
+function drawTonnetzCells(
+  app: App,
+  f: FieldObj,
+  sx: number,
+  sy: number,
+  w: number,
+  h: number,
+  k: number,
+): void {
+  const g = app.g
+  const z = app.cam.zoom
+  const s = w / TONNETZ_CELLS
+  const a = (f.axes ?? mapTypeOf(f)?.defaultAxes ?? {}).n
+  const S3 = Math.sqrt(3) / 2
+  const rr = (s / Math.sqrt(3)) * z
+  const nr = Math.ceil(h / (2 * s * S3)) + 1
+  const nq = Math.ceil(w / (2 * s)) + nr
+  g.lineWidth = 1
+  g.font = FONT_SMALL
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  for (let r = -nr; r <= nr; r++) {
+    for (let q = -nq; q <= nq; q++) {
+      const cx = s * (q + r / 2)
+      const cy = s * r * S3
+      if (Math.abs(cx) > w / 2 + s || Math.abs(cy) > h / 2 + s) continue
+      const px = sx + cx * z
+      const py = sy - cy * z
+      g.strokeStyle = rgba('map', 0.08 * k + 0.04)
+      g.beginPath()
+      for (let i = 0; i <= 6; i++) {
+        const an = (i / 6) * TAU
+        const x = px + Math.sin(an) * rr
+        const y = py - Math.cos(an) * rr
+        if (i) g.lineTo(x, y)
+        else g.moveTo(x, y)
+      }
+      g.stroke()
+      if (a?.to === 'pitch' && rr > 12) {
+        const m = Math.round(axisValue(a, tonnetzStep(q, r), 6))
+        g.fillStyle = rgba('map', 0.3 * k + 0.1)
+        g.fillText(NOTE_NAMES[((m % 12) + 12) % 12], px, py)
+      }
     }
   }
 }
@@ -552,6 +682,8 @@ function drawField(app: App, f: FieldObj): void {
     g.setLineDash([])
     if (f.type === 'pulse') drawPulseRing(app, f, sx, sy, R, a)
     if (f.type === 'turing') drawTuringRing(app, f, sx, sy, R, a)
+    if (f.type === 'pendulum') drawPendulum(app, f, sx, sy, R, a)
+    if (f.type === 'flock') drawFlock(app, f, sx, sy, R, a)
     if (R > 26) {
       g.font = '13px ui-monospace, Menlo, monospace'
       g.textAlign = 'center'
@@ -568,7 +700,7 @@ function drawField(app: App, f: FieldObj): void {
     g.fillStyle = rgba(role, 0.04 * a)
     g.fillRect(x0, y0, w, h)
     const vis = app.visuals.get(f.id)
-    const grid = f.type === 'grid' && vis ? (vis.data as GridVis) : null
+    const grid = (f.type === 'grid' || f.type === 'automaton') && vis ? (vis.data as GridVis) : null
     if (grid) {
       const cw = w / grid.cols
       const ch = h / grid.rows
@@ -641,11 +773,15 @@ function fieldLabel(
     t.label,
     ...t.handles.map((h) => h.format(f.handles[h.key] ?? h.default, f.handles)),
   ]
+  // upright and above the field even when it spins or stretches (see inPoseFrame)
+  g.save()
+  g.setTransform(app.dpr, 0, 0, app.dpr, 0, 0)
   g.font = FONT_SMALL
   g.textAlign = 'center'
   g.textBaseline = 'bottom'
   g.fillStyle = rgba(t.role, 0.7 * a)
   g.fillText(parts.join(' · ') + `  [${f.layer}]`, x, y)
+  g.restore()
 }
 
 /** Music-box metaphor: the pattern's hits rotate clockwise; a sound fires when a hit passes its angle. */
@@ -696,6 +832,54 @@ function drawPulseRing(
 }
 
 /** The balls in play, from the engine's last report (field-local, y up). */
+/** The double pendulum: two arms from the centre, each half the radius, with their bobs. */
+function drawPendulum(app: App, f: FieldObj, sx: number, sy: number, R: number, a: number): void {
+  const vis = app.visuals.get(f.id)
+  if (!vis) return
+  const { t1, t2 } = vis.data as { t1: number; t2: number }
+  const g = app.g
+  const L = R * 0.47
+  const x1 = sx + Math.sin(t1) * L
+  const y1 = sy + Math.cos(t1) * L
+  const x2 = x1 + Math.sin(t2) * L
+  const y2 = y1 + Math.cos(t2) * L
+  g.strokeStyle = rgba('generator', 0.45 * a)
+  g.lineWidth = 1.2
+  g.beginPath()
+  g.moveTo(sx, sy)
+  g.lineTo(x1, y1)
+  g.lineTo(x2, y2)
+  g.stroke()
+  g.fillStyle = rgba('generator', 0.9 * a)
+  for (const [x, y, r] of [[x1, y1, 3], [x2, y2, 4.5]]) {
+    g.beginPath()
+    g.arc(x, y, r, 0, TAU)
+    g.fill()
+  }
+}
+
+/** The flock: a small arrowhead per boid, pointing the way it flies. */
+function drawFlock(app: App, f: FieldObj, sx: number, sy: number, R: number, a: number): void {
+  const vis = app.visuals.get(f.id)
+  if (!vis) return
+  const b = vis.data as { x: number[]; y: number[]; vx: number[]; vy: number[] }
+  const g = app.g
+  g.fillStyle = rgba('generator', 0.85 * a)
+  for (let i = 0; i < b.x.length; i++) {
+    const x = sx + b.x[i] * R
+    const y = sy - b.y[i] * R
+    const sp = Math.hypot(b.vx[i], b.vy[i]) || 1
+    const ux = b.vx[i] / sp
+    const uy = -b.vy[i] / sp
+    g.beginPath()
+    g.moveTo(x + ux * 6, y + uy * 6)
+    g.lineTo(x - ux * 4 - uy * 3, y - uy * 4 + ux * 3)
+    g.lineTo(x - ux * 4 + uy * 3, y - uy * 4 - ux * 3)
+    g.closePath()
+    g.fill()
+  }
+}
+
 function drawPlinkoBalls(app: App, f: FieldObj, data: { balls: number[] }, a: number): void {
   const g = app.g
   const p = app.poseOf(f)
@@ -953,8 +1137,9 @@ function drawMotionGuide(app: App, o: PatchObject): void {
   g.lineTo(hx, hy + 5)
   g.stroke()
   if (m.pos) {
-    const period = m.pos.type === 'drift' ? 64 : m.pos.periodBeats
-    const tmp = { x: 0, y: 0, scale: 1 }
+    const period =
+      m.pos.type === 'drift' ? 64 : m.pos.type === 'hop' ? m.pos.everyBeats * 12 : m.pos.periodBeats
+    const tmp = newPose()
     g.setLineDash([3, 5])
     g.beginPath()
     for (let i = 0; i <= 128; i++) {
@@ -979,7 +1164,7 @@ function drawMotionGuide(app: App, o: PatchObject): void {
   const parts: string[] = []
   if (m.pos)
     parts.push(
-      `${m.pos.type} ${'periodBeats' in m.pos ? m.pos.periodBeats : m.pos.rateBeats} beats`,
+      `${m.pos.type} ${motionBeats(m.pos)} beats`,
     )
   if (m.breathe) parts.push(`breathe ${m.breathe.periodBeats} beats`)
   g.fillText(parts.join(' · '), hx + 8, hy - 8)
