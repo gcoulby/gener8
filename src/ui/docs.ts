@@ -13,6 +13,7 @@ import retrigger from '../../docs/guide/retrigger.md?raw';
 import motion from '../../docs/guide/motion.md?raw';
 import mixing from '../../docs/guide/mixing.md?raw';
 import shortcuts from '../../docs/guide/shortcuts.md?raw';
+import touch from '../../docs/guide/touch.md?raw';
 import model from '../../docs/guide/model.md?raw';
 
 /** The community server: linked from the bar, the phone sheet and the guide. */
@@ -36,6 +37,7 @@ const SOURCES: [string, string, string][] = [
   ['motion', 'motion.md', motion],
   ['mixing', 'mixing.md', mixing],
   ['shortcuts', 'shortcuts.md', shortcuts],
+  ['touch', 'touch.md', touch],
   ['model', 'model.md', model],
 ];
 

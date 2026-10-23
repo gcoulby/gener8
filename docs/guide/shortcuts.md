@@ -43,4 +43,14 @@
 
 ## Touch
 
-Tap ▶ to start. **+** opens the palette. Pinch to zoom, and drag empty space to pan. Tap a selected object again to step down through what's under it. Double-tap a sound for its internals.
+| | |
+|---|---|
+| one finger | Pan, anywhere. |
+| pinch | Zoom. |
+| **pan** / **select** in the bar | On a phone, switch between looking around (the default) and editing. |
+| tap | Select (in select mode). The strip above the bar lists everything under your finger; **✕** deselects. |
+| press and hold | Pick something up and move it. |
+| **edit** in the strip | Open the selection bar. |
+| double-tap | A sound: its internals. A field: its selection bar. |
+
+The full story is in [On a phone or tablet](touch.md).

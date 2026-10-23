@@ -204,14 +204,14 @@ function rows(app: App, o: PatchObject): Item[][] {
   return out;
 }
 
-function anchor(app: App, o: PatchObject): [number, number] {
+/** Centre x, the top of a bar placed below the object, and the bottom of one placed above it. */
+function anchor(app: App, o: PatchObject): [number, number, number] {
   const p = app.poseOf(o);
   const [sx, sy] = app.w2s(p.x, p.y);
-  let below: number;
-  if (o.kind === 'sound') below = sy + app.soundRadius(o) + 26;
-  else if (isCircle(o.shape)) below = sy + o.shape.r * p.scale * app.cam.zoom + 12;
-  else below = sy + (o.shape.h * p.scale * app.cam.zoom) / 2 + 12;
-  return [sx, below];
+  // sounds keep room for their label underneath
+  if (o.kind === 'sound') return [sx, sy + app.soundRadius(o) + 26, sy - app.soundRadius(o) - 10];
+  const half = isCircle(o.shape) ? o.shape.r * p.scale * app.cam.zoom : (o.shape.h * p.scale * app.cam.zoom) / 2;
+  return [sx, sy + half + 12, sy - half - 12];
 }
 
 /** Draws the bar for the selection and records hit boxes on app.motionHits. */
@@ -219,19 +219,34 @@ export function drawMotionBar(app: App): void {
   app.motionHits = [];
   const o = app.obj(app.sel);
   if (!o || app.panel || app.scrub) return;
+  // on touch it stays out of the way until asked for (the strip's edit button, or a double-tap)
+  if (app.touchUsed && app.selBarFor !== o.id) return;
   const g = app.g;
   g.font = FONT_SMALL;
   const rs = rows(app, o);
   const widths = rs.map((r) => r.reduce((w, it) => w + g.measureText(it.text).width + 12 + GAP, -GAP));
   const maxW = Math.max(...widths);
   const totalH = rs.length * ROW;
-  let [cx, top] = anchor(app, o);
-  top = Math.min(Math.max(top, 40), app.H - app.barH - totalH - 10);
-  const left = Math.min(Math.max(cx - maxW / 2, 84), app.W - maxW - 12);
-  g.fillStyle = 'rgba(11,11,14,0.82)';
-  g.beginPath();
-  g.roundRect(left - 6, top - 5, maxW + 12, totalH + 4, 6);
-  g.fill();
+  const [cx, below, above] = anchor(app, o);
+  const floor = app.H - app.barH - totalH - 10;
+  // below the object; above it when that doesn't fit, so the bar never covers it; clamped when neither does
+  let top = below <= floor ? below : above - totalH >= 40 ? above - totalH : below;
+  top = Math.min(Math.max(top, 40), floor);
+  let left = Math.min(Math.max(cx - maxW / 2, 84), app.W - maxW - 12);
+  if (app.touchUsed) {
+    // docked: a full-width panel sitting on the selection strip, like part of the bar
+    top = app.H - app.barH - totalH - 4;
+    left = 14;
+    g.fillStyle = '#0b0b0e';
+    g.fillRect(0, top - 10, app.W, app.H - app.barH - top + 10);
+    g.fillStyle = 'rgba(233,228,218,0.1)';
+    g.fillRect(0, top - 10, app.W, 1);
+  } else {
+    g.fillStyle = 'rgba(11,11,14,0.82)';
+    g.beginPath();
+    g.roundRect(left - 6, top - 5, maxW + 12, totalH + 4, 6);
+    g.fill();
+  }
   g.textBaseline = 'middle';
   g.textAlign = 'left';
   rs.forEach((row, ri) => {

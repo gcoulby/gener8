@@ -11,6 +11,9 @@ import { EXAMPLES } from './examples.ts';
 import { DB_MAX, DB_MIN } from './mixer.ts';
 import { NOTE_NAMES, SCALE_LABELS, SCALE_ORDER } from '../core/music.ts';
 import { strHash } from '../core/rand.ts';
+import { fieldTypes } from '../core/fields/registry.ts';
+import { soundTypes } from '../core/sounds/registry.ts';
+import { ROLE_RGB } from './theme.ts';
 import { fmtRenderSpec, fmtTime, fmtVideoSpec, parseRenderSpec, parseVideoSpec, SHORT, type VideoSpec } from './takespec.ts';
 
 /** Seed text → uint32: digits within range are used as is, anything else is hashed. */
@@ -29,6 +32,13 @@ const SANS = 'ui-sans-serif,-apple-system,BlinkMacSystemFont,"Helvetica Neue",He
 const CARET = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23e9e4da' fill-opacity='.5'/%3E%3C/svg%3E")`;
 
 const CSS = `
+.g8-selrow{position:fixed;left:0;right:0;z-index:10;display:flex;align-items:center;gap:6px;padding:6px 8px;overflow-x:auto;scrollbar-width:none;background:rgba(11,11,14,.92);border-top:1px solid rgba(233,228,218,.1);font:12px ${MONO};user-select:none;-webkit-user-select:none}
+.g8-selrow::-webkit-scrollbar{display:none}
+.g8-selrow button{--c:233,228,218;height:36px;padding:0 12px;border-radius:18px;border:1px solid rgba(var(--c),.3);background:none;color:rgba(var(--c),.65);font:12px ${MONO};white-space:nowrap;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;outline:none}
+.g8-selrow button.on{color:rgb(var(--c));border-color:rgba(var(--c),.85);background:rgba(var(--c),.14)}
+.g8-selrow button .id{font-size:10px;opacity:.55}
+.g8-selrow button.edit{position:sticky;right:50px;margin-left:auto;background:#0b0b0e;box-shadow:-10px 0 8px 2px #0b0b0e}
+.g8-selrow button.x{position:sticky;right:0;width:36px;padding:0;font-size:14px;color:#e9e4da;background:#0b0b0e;border-color:rgba(233,228,218,.35);box-shadow:-10px 0 8px 2px #0b0b0e}
 .g8-bar{position:fixed;left:0;right:0;bottom:0;z-index:10;display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"s s s" "l . r";grid-template-rows:28px 40px;align-items:center;column-gap:14px;padding:0 10px;pointer-events:none;font:11px ${MONO};color:#e9e4da;user-select:none;-webkit-user-select:none;color-scheme:dark}
 .g8-bar *,.g8-pop *{box-sizing:border-box}
 .g8-bar .grp{display:flex;align-items:center;gap:6px;pointer-events:auto;min-width:0}
@@ -66,6 +76,7 @@ const CSS = `
 .g8-bar.mobile .g8-num .v{min-width:0}
 .g8-bar.mobile .g8-num.vol .k{display:none}
 .g8-bar.mobile .grow{flex:1}
+.g8-bar.mobile button.mode{min-width:64px;padding:0 10px}
 .g8-pop{position:fixed;z-index:16;width:320px;max-height:calc(var(--g8-vh,100vh) - 70px);overflow-y:auto;background:rgba(14,14,18,.98);border:1px solid rgba(233,228,218,.18);border-radius:10px;padding:12px 14px 14px;font:12px/1.45 ${SANS};color:#e9e4da;color-scheme:dark;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .g8-pop.wide{width:380px}
 .g8-pop h3{font:11px ${MONO};letter-spacing:.08em;text-transform:uppercase;color:rgba(233,228,218,.45);margin:14px 0 8px;font-weight:400;display:flex;justify-content:space-between;align-items:center}
@@ -357,6 +368,9 @@ export class Bar {
   private cached = { h: 40, strip: { x0: 0, x1: 0, y: 0, h: 0 } };
   /** The render menu's open tab, kept between openings. */
   private tab: TakeKind = 'audio';
+  /** Touch: the selection strip above the bar. */
+  private selRow: HTMLDivElement;
+  private selKey = '';
 
   constructor(app: App) {
     this.app = app;
@@ -370,6 +384,11 @@ export class Bar {
       if (e.target instanceof HTMLButtonElement) e.preventDefault();
     });
     document.body.append(this.root);
+    this.selRow = el('div', 'g8-selrow');
+    this.selRow.setAttribute('role', 'toolbar');
+    this.selRow.setAttribute('aria-label', 'selection');
+    this.selRow.style.display = 'none';
+    document.body.append(this.selRow);
     this.build();
 
     // The sheet sits on the on-screen keyboard: the visual viewport is what's left above it.
@@ -398,7 +417,7 @@ export class Bar {
 
   /** Is this element part of the bar or one of its menus? Keys typed there are theirs. */
   owns(t: EventTarget | null): boolean {
-    return t instanceof Node && (this.root.contains(t) || !!this.pop?.el.contains(t));
+    return t instanceof Node && (this.root.contains(t) || this.selRow.contains(t) || !!this.pop?.el.contains(t));
   }
 
   /** Height and the strip's slot, in CSS pixels from the window's top left. */
@@ -407,7 +426,10 @@ export class Bar {
       this.dirty = false;
       const r = this.root.getBoundingClientRect();
       const s = this.slot.getBoundingClientRect();
-      this.cached = { h: Math.round(window.innerHeight - r.top), strip: { x0: s.left + 2, x1: s.right - 2, y: s.top, h: s.height } };
+      // the selection strip sits on top of the bar and counts as part of it
+      this.selRow.style.bottom = `${Math.round(window.innerHeight - r.top)}px`;
+      const top = this.selRow.style.display === 'none' ? r.top : this.selRow.getBoundingClientRect().top;
+      this.cached = { h: Math.round(window.innerHeight - top), strip: { x0: s.left + 2, x1: s.right - 2, y: s.top, h: s.height } };
     }
     return this.cached;
   }
@@ -418,7 +440,42 @@ export class Bar {
     let changed = false;
     for (const f of this.syncers) if (f()) changed = true;
     for (const f of this.popSyncers) f();
+    if (this.syncSelRow()) changed = true;
     if (changed) this.dirty = true;
+  }
+
+  /**
+   * Touch only: while something is selected, a strip above the bar shows it and
+   * whatever else was under the finger, as chips to pick from, and ✕ to deselect.
+   * Returns true when it changed.
+   */
+  private syncSelRow(): boolean {
+    const app = this.app;
+    const id = app.touchUsed && app.obj(app.sel) ? app.sel : null;
+    const stack = !id ? [] : app.tabInfo?.stack.includes(id) ? app.tabInfo.stack.filter((s) => app.obj(s)) : [id];
+    const key = `${id}|${stack.join(',')}|${app.selBarFor === id}`;
+    if (key === this.selKey) return false;
+    this.selKey = key;
+    this.selRow.replaceChildren();
+    this.selRow.style.display = id ? '' : 'none';
+    if (!id) return true;
+    for (const s of stack) {
+      const o = app.obj(s)!;
+      const role = o.kind === 'sound' ? 'sound' : (fieldTypes[o.type]?.role ?? 'fx');
+      const label = o.kind === 'sound' ? (soundTypes[o.type]?.label ?? o.type) : (fieldTypes[o.type]?.label ?? o.type);
+      const b = btn(label, () => app.selectFromStack(s), s === id ? 'on' : undefined, s === id ? 'selected' : 'select this instead');
+      b.append(span('id', s));
+      b.style.setProperty('--c', ROLE_RGB[role].join(','));
+      this.selRow.append(b);
+    }
+    const edit = btn('edit', () => app.toggleSelBar(), app.selBarFor === id ? 'edit on' : 'edit', 'motion, group, note and more for the selection (or double-tap it)');
+    edit.setAttribute('aria-pressed', String(app.selBarFor === id));
+    this.selRow.append(edit);
+    const x = btn('✕', () => app.deselect(), 'x', 'deselect, then drag to move around');
+    x.setAttribute('aria-label', 'deselect');
+    this.selRow.append(x);
+    this.selRow.querySelector('.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    return true;
   }
 
   // ---------- the bar ----------
@@ -452,9 +509,15 @@ export class Bar {
       this.label(key, () => this.keyText());
       const busy = btn('', () => this.open('sheet', null, 'record'), 'busy');
       this.label(busy, () => this.jobText(), (b, s) => (b.style.display = s ? '' : 'none'));
+      const mode = btn('', () => app.togglePanMode(), 'mode');
+      this.label(mode, () => (app.panMode ? 'pan' : 'select'), (b) => {
+        b.classList.toggle('on', app.panMode);
+        b.title = app.panMode ? 'pan mode: one finger moves around, nothing on the canvas can change' : 'select mode: tap to select, drag the selection to move it';
+        b.setAttribute('aria-pressed', String(app.panMode));
+      });
       const menu = btn('☰', openSheet, 'menu', 'more');
       menu.setAttribute('aria-label', 'more');
-      l.append(play, vol.el, bpm.el, key, busy, menu);
+      l.append(play, vol.el, bpm.el, key, busy, mode, menu);
       this.root.append(l, this.slot);
       return;
     }

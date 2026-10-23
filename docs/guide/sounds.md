@@ -56,6 +56,6 @@ Where no map sets pitch, the sound plays its own **note**. The default is middle
 
 ## Internals
 
-Double-click a sound, double-tap it on touch, or zoom right in on it, to open its **panel**: oscillators, filter and envelopes, depending on the type. Drag the sliders and envelope points. Press <kbd>esc</kbd> or zoom back out to close it.
+Double-click a sound, double-tap it on touch (in [select mode](touch.md#pan-and-select-modes) on a phone), or zoom right in on it, to open its **panel**: oscillators, filter and envelopes, depending on the type. Drag the sliders and envelope points. Press <kbd>esc</kbd> or zoom back out to close it.
 
 Map fields can also drive any of these parameters by position. See [param targets](maps.md#targets).

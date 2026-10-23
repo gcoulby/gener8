@@ -13,13 +13,14 @@ It runs in the browser on custom DSP (no samples, no native Web Audio nodes), an
 ```sh
 npm install
 npm run dev        # open the printed URL, press space
+npm run dev:lan    # the same over https on your network, to try it on a phone
 ```
 
 Press **space** to start audio. The ambient demo loads first. **examples ▾** in the bottom bar has thirteen more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), plinko (bells and strings as pegs), turing machine, progression (chords leading bowed strings), breaks (topo drums and a locked Turing bassline), clocks (polyrhythm, a bouncing ball, phasing plucks and a sweep), rhythmic and a stress patch. Loading one frames it in the window.
 
 **The guide:** press **? help** in the bottom bar (or <kbd>h</kbd>) for [At a glance](docs/guide/overview.md), the whole instrument on one page, or <kbd>g</kbd> for the full guide, rendered in the app. The same pages are in [`docs/guide/`](docs/guide/README.md) and read fine on GitHub too. Link to a page with `#docs/<page>`, e.g. `#docs/maps`. The guide's last page, [Patch structure](docs/guide/model.md) (`#docs/model`), walks through the metamodel diagram below.
 
-**On a phone or tablet** the layout adapts: tap ▶ to start, **+** opens the palette, pinch to zoom, drag empty space to pan, tap a selected object again to step down through what's under it, and double-tap a sound for its internals.
+**On a phone or tablet** the layout adapts: tap ▶ to start, **+** opens the palette, one finger pans and pinch zooms. A phone starts in **pan** mode, where nothing on the canvas can change; the **pan / select** button in the bar switches to editing. Taps select, a strip above the bar lists everything under your finger with **✕** to deselect, and press-and-hold picks something up. See [On a phone or tablet](docs/guide/touch.md).
 
 ## Sharing
 

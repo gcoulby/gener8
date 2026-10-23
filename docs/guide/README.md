@@ -5,6 +5,7 @@ GENER8 is a generative music instrument on an infinite canvas. You don't patch c
 ## Your first minute
 
 1. Press <kbd>space</kbd> (or tap ▶ on a phone) to start audio. The **ambient** demo is loaded the first time you open GENER8.
+   On a phone you start in **pan** mode, where one finger just moves around: tap **pan** in the bar to switch to **select** before step 3. See [On a phone or tablet](touch.md).
 2. Drag the canvas to look around. Scroll or pinch to zoom.
 3. Drag a sound into or out of an amber circle and hear it start or stop.
 4. Open **examples ▾** in the bottom bar to try the other demos.
@@ -16,7 +17,7 @@ GENER8 is a generative music instrument on an infinite canvas. You don't patch c
 |---|---|
 | Left | The **palette**: sounds, then generators, transformers, FX and maps. Drag one onto the canvas. |
 | Middle | The **canvas**. Everything here is part of the patch. |
-| Under a selection | The **selection bar**: motion, group, note, retrigger and axis controls for whatever you selected. |
+| Under a selection | The **selection bar**: motion, group, note, retrigger and axis controls for whatever you selected. On touch, a strip above the bottom bar shows the selection instead; tap **edit** in it to open the selection bar ([more](touch.md#the-selection-strip)). |
 | Top right | The **minimap**: the whole patch and your view. Click or drag in it to move. |
 | Bottom | The **bar**: play, volume, tempo, key and seed on the left; mixer, capture, render, the patch and examples menus, **? help** and **discord ↗** on the right. Along its top is the **timeline strip**. On a phone, **☰** opens everything else. |
 
@@ -50,6 +51,7 @@ The deeper a sound sits inside a field, the more that field acts on it: depth ru
 - [Motion and groups](motion.md): breathe, orbit, drift, path, bounce and follow
 - [Mixing, capture and sharing](mixing.md)
 - [Shortcuts](shortcuts.md)
+- [On a phone or tablet](touch.md): pan and select modes, the selection strip, gestures
 - [Patch structure](model.md): the metamodel diagram, and what a patch file holds
 
 ## Community

@@ -19,7 +19,7 @@ You place **sounds** on an infinite canvas and lay **fields** over them. Where t
 | Where | What |
 |---|---|
 | left | The palette. Drag a sound or field onto the canvas. On a phone, **+** opens it. |
-| middle | The canvas. Drag empty space to pan, scroll or pinch to zoom. |
+| middle | The canvas. Drag empty space to pan, scroll or pinch to zoom. On touch, one finger pans anywhere; see [On a phone or tablet](touch.md). |
 | under a selection | The selection bar: motion, follow, note, retrigger and axis controls. |
 | top right | The minimap. Click or drag in it to move the view, <kbd>n</kbd> hides it. |
 | bottom | The bar: play, level, tempo, key and seed; mixer, capture, render; the **patch ▾** and **examples ▾** menus; this help. On a phone, **☰** opens the rest. |

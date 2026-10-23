@@ -100,10 +100,10 @@ export function draw(app: App): void {
   drawToast(app)
 }
 
-/** After Tab: the stack under the cursor, with the current pick marked. */
+/** After Tab: the stack under the cursor, with the current pick marked. (After a touch tap the bar's selection strip shows it.) */
 function drawTabStack(app: App): void {
   const info = app.tabInfo
-  if (!info) return
+  if (!info || info.touch) return
   const age = performance.now() - info.t
   if (age > 2500) return
   const g = app.g
@@ -1172,5 +1172,12 @@ function drawToast(app: App): void {
   g.textAlign = 'center'
   g.textBaseline = 'bottom'
   g.fillStyle = `rgba(233,228,218,${0.85 * a})`
-  g.fillText(app.toastMsg, app.W / 2, app.H - app.barH - 12)
+  // wrap to the screen, last line just above the bar
+  const lines: string[] = []
+  for (const word of app.toastMsg.split(' ')) {
+    const last = lines[lines.length - 1]
+    if (last !== undefined && g.measureText(last + ' ' + word).width <= app.W - 32) lines[lines.length - 1] = last + ' ' + word
+    else lines.push(word)
+  }
+  lines.forEach((l, i) => g.fillText(l, app.W / 2, app.H - app.barH - 12 - (lines.length - 1 - i) * 15))
 }

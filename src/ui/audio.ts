@@ -22,9 +22,18 @@ export class AudioBridge {
 
   async start(patch: Patch): Promise<void> {
     if (this.ctx) return;
+    // AudioWorklet only exists on secure pages: https, or localhost (not a LAN address over http)
+    if (!window.isSecureContext) throw new Error('needs a secure page: open it over https:// or on localhost');
     const ctx = new AudioContext({ sampleRate: SR, latencyHint: 'interactive' });
     this.ctx = ctx;
-    await ctx.audioWorklet.addModule(workletUrl);
+    try {
+      await ctx.audioWorklet.addModule(workletUrl);
+    } catch (err) {
+      // leave nothing half-started, so the next press tries again
+      this.ctx = null;
+      void ctx.close();
+      throw err;
+    }
     const node = new AudioWorkletNode(ctx, 'gener8', {
       numberOfInputs: 0,
       numberOfOutputs: 1,

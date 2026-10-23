@@ -88,7 +88,8 @@ export type Hit =
 
 type Drag =
   | { kind: 'pan'; sx: number; sy: number; cx: number; cy: number }
-  | { kind: 'move'; id: string; dx: number; dy: number }
+  /** `slop`: a touch move waits until the finger has really moved, so a tap doesn't nudge. */
+  | { kind: 'move'; id: string; dx: number; dy: number; slop?: { x: number; y: number } }
   | { kind: 'handle'; id: string; h: HandlePos; startVal: number; startY: number }
   | { kind: 'palette'; item: PaletteItem }
   | { kind: 'scrub' }
@@ -107,6 +108,9 @@ const LIT_KEY = 'gener8.lit';
 export const HANDLE_ZOOM = 0.6;
 /** Far enough out to see the whole canvas (±8000, see sanitise.ts XY). */
 const MIN_ZOOM = 0.05;
+/** Touch: a finger that moves less than this (px) is a tap, and a held one picks up after HOLD_MS. */
+const TAP_SLOP = 10;
+const HOLD_MS = 400;
 
 /** A copy of the App that only draws, for video frames (see video.ts). */
 export interface Headless {
@@ -184,11 +188,24 @@ export class App {
   mixerHits: MixerHit[] = [];
   meterLevel = new Map<string, number>();
   private pointers = new Map<number, { x: number; y: number; touch: boolean }>();
-  private downAt: { x: number; y: number; id: string | null; wasSel: boolean; touch: boolean } | null = null;
-  private lastTap: { t: number; id: string } | null = null;
+  private downAt: { x: number; y: number; id: string | null; wasSel: boolean; touch: boolean; empty: boolean } | null = null;
+  /** Touch: holding still on an object picks it up. */
+  private holdTimer = 0;
+  private lastTap: { t: number; id: string; x: number; y: number } | null = null;
   /** Object picked with Tab: clicks near where Tab was pressed go to it, not to whatever is on top. */
   pinned: string | null = null;
-  tabInfo: { stack: string[]; t: number; x: number; y: number } | null = null;
+  /** `touch`: from a tap; the bar's selection strip lists the stack instead of the overlay. */
+  tabInfo: { stack: string[]; t: number; x: number; y: number; touch?: boolean } | null = null;
+  /** The last press was a finger: the bar shows the selection strip. */
+  touchUsed = false;
+  /**
+   * Phone layout (where the bar has the switch): one finger only pans and taps do
+   * nothing on the canvas, so nothing can be changed by accident. The default;
+   * select mode is for editing.
+   */
+  panMode = true;
+  /** Touch: the selection bar is open for this object (it stays shut until asked for). */
+  selBarFor: string | null = null;
   private drawFailed = false;
   toastMsg = '';
   toastT = 0;
@@ -817,7 +834,7 @@ export class App {
   }
 
   /** Tab / shift-Tab: step through the stack under the cursor (wraps). */
-  private cycleStack(dir: 1 | -1): void {
+  private cycleStack(dir: 1 | -1, touch = false): void {
     const stack = this.stackAt(this.mouse.x, this.mouse.y);
     if (!stack.length) {
       this.toast('nothing under the cursor');
@@ -828,7 +845,29 @@ export class App {
     const next = i < 0 ? (dir > 0 ? 0 : n - 1) : (i + dir + n) % n;
     this.sel = stack[next];
     this.pinned = stack[next];
-    this.tabInfo = { stack, t: performance.now(), x: this.mouse.x, y: this.mouse.y };
+    this.tabInfo = { stack, t: performance.now(), x: this.mouse.x, y: this.mouse.y, touch };
+  }
+
+  /** The selection strip: pick one of the stack it lists. */
+  selectFromStack(id: string): void {
+    this.sel = id;
+    this.pinned = id;
+  }
+
+  togglePanMode(): void {
+    this.panMode = !this.panMode;
+    this.toast(this.panMode ? 'pan mode: drag anywhere to move around' : 'select mode: tap to select, drag the selection to move it');
+  }
+
+  /** Touch: show or hide the selection bar for the selection. */
+  toggleSelBar(): void {
+    this.selBarFor = this.sel && this.selBarFor !== this.sel ? this.sel : null;
+  }
+
+  deselect(): void {
+    this.sel = null;
+    this.pinned = null;
+    this.tabInfo = null;
   }
 
   // ---------- objects ----------
@@ -962,6 +1001,7 @@ export class App {
       this.pointers.delete(e.pointerId);
       this.drag = null;
       this.downAt = null;
+      clearTimeout(this.holdTimer);
     });
     c.addEventListener('dblclick', (e) => this.onDbl(e));
     c.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
@@ -993,6 +1033,7 @@ export class App {
     const my = e.offsetY;
     this.mouse = { x: mx, y: my, inside: true };
     const touch = e.pointerType === 'touch';
+    this.touchUsed = touch;
     this.pointers.set(e.pointerId, { x: mx, y: my, touch });
     if (this.pinned && !this.nearPin(mx, my)) this.pinned = null;
     if (this.pointers.size === 2 && [...this.pointers.values()].every((p) => p.touch)) {
@@ -1001,6 +1042,7 @@ export class App {
       const [wx, wy] = this.s2w((a.x + b.x) / 2, (a.y + b.y) / 2);
       this.drag = { kind: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: this.cam.zoom, wx, wy };
       this.downAt = null;
+      clearTimeout(this.holdTimer);
       return;
     }
 
@@ -1038,7 +1080,19 @@ export class App {
       this.followPick = null;
       return;
     }
-    this.downAt = { x: mx, y: my, id: hit?.kind === 'object' ? hit.id : null, wasSel: hit?.kind === 'object' && hit.id === this.sel, touch };
+    if (touch && this.panMode && this.mobile && (!hit || hit.kind === 'object' || hit.kind === 'handle')) {
+      // pan mode: the canvas is look-only; its UI (palette, minimap, selection bar…) still works
+      this.drag = { kind: 'pan', sx: mx, sy: my, cx: this.cam.x, cy: this.cam.y };
+      return;
+    }
+    this.downAt = { x: mx, y: my, id: hit?.kind === 'object' ? hit.id : null, wasSel: hit?.kind === 'object' && hit.id === this.sel, touch, empty: !hit };
+    if (touch && (!hit || (hit.kind === 'object' && hit.id !== this.sel))) {
+      // One finger pans, even over objects; a tap selects (see onUp) and holding still picks one up.
+      // Only the selected object moves straight away, so panning never drags things by accident.
+      this.drag = { kind: 'pan', sx: mx, sy: my, cx: this.cam.x, cy: this.cam.y };
+      if (hit) this.holdTimer = window.setTimeout(() => this.pickUp(hit.id, mx, my), HOLD_MS);
+      return;
+    }
     if (!hit) {
       this.sel = null;
       this.drag = { kind: 'pan', sx: mx, sy: my, cx: this.cam.x, cy: this.cam.y };
@@ -1114,7 +1168,7 @@ export class App {
         const o = this.patch.objects.find((q) => q.id === id)!;
         const [wx, wy] = this.s2w(mx, my);
         this.sel = id;
-        this.drag = { kind: 'move', id, dx: o.x - wx, dy: o.y - wy };
+        this.drag = { kind: 'move', id, dx: o.x - wx, dy: o.y - wy, slop: touch ? { x: mx, y: my } : undefined };
         return;
       }
     }
@@ -1129,6 +1183,8 @@ export class App {
       pt.x = mx;
       pt.y = my;
     }
+    const down = this.downAt;
+    if (down && Math.hypot(mx - down.x, my - down.y) >= TAP_SLOP) clearTimeout(this.holdTimer);
     const d = this.drag;
     if (d?.kind === 'pinch') {
       if (this.pointers.size < 2) return;
@@ -1156,6 +1212,10 @@ export class App {
         this.cam.y = d.cy + (my - d.sy) / this.cam.zoom;
         return;
       case 'move':
+        if (d.slop) {
+          if (Math.hypot(mx - d.slop.x, my - d.slop.y) < TAP_SLOP) return;
+          d.slop = undefined;
+        }
         this.moveGroup(d.id, Math.round(wx + d.dx), Math.round(wy + d.dy), true);
         return;
       case 'handle':
@@ -1262,7 +1322,14 @@ export class App {
     const my = e.offsetY;
     const down = this.downAt;
     this.downAt = null;
-    if (down?.touch && down.id && Math.hypot(mx - down.x, my - down.y) < 8) this.onTap(down.id, down.wasSel);
+    clearTimeout(this.holdTimer);
+    // a held pick-up (a move without slop) is not a tap, even if the finger never moved
+    const tapped = down?.touch && Math.hypot(mx - down.x, my - down.y) < TAP_SLOP && !(d?.kind === 'move' && !d.slop);
+    if (tapped && down.id) this.onTap(down.id, down.wasSel, mx, my);
+    else if (tapped && down.empty) {
+      this.sel = null;
+      this.pinned = null;
+    }
     if (!d) return;
     // a dragged Tab pick stays pinned where it was dropped
     if (this.pinned && this.tabInfo && d.kind === 'move' && d.id === this.pinned) {
@@ -1296,17 +1363,58 @@ export class App {
     this.scrub = { sample, preview: this.history.patchAt(sample), cancelled: false };
   }
 
-  /** Touch taps: tap a selected object again to step down its stack; double-tap a sound for its panel. */
-  private onTap(id: string, wasSel: boolean): void {
+  /**
+   * Touch taps: select what's on top, or step down the stack if it was already
+   * selected; the bar's selection strip lists the stack. Double-tap a sound for
+   * its panel.
+   */
+  private onTap(id: string, wasSel: boolean, mx: number, my: number): void {
     const now = performance.now();
-    const o = this.obj(id);
-    if (this.lastTap && this.lastTap.id === id && now - this.lastTap.t < 350 && o?.kind === 'sound') {
-      this.panel = { id, auto: false };
+    const prev = this.lastTap;
+    this.lastTap = { t: now, id, x: mx, y: my };
+    if (prev && now - prev.t < 350 && Math.hypot(mx - prev.x, my - prev.y) < 2 * TAP_SLOP) {
+      // the first tap may have stepped the selection down the stack: act on what it hit.
+      // A sound opens its panel; a field opens or closes the selection bar.
+      const sound = [prev.id, id].find((q) => this.obj(q)?.kind === 'sound');
       this.lastTap = null;
+      if (sound) {
+        this.sel = sound;
+        this.panel = { id: sound, auto: false };
+        return;
+      }
+      if (this.obj(prev.id)) {
+        this.sel = prev.id;
+        this.pinned = prev.id;
+        this.toggleSelBar();
+        return;
+      }
+    }
+    if (wasSel) {
+      // stepping past the bottom of the stack deselects
+      const stack = this.stackAt(mx, my);
+      if (stack.indexOf(id) === stack.length - 1) this.deselect();
+      else this.cycleStack(1, true);
       return;
     }
-    this.lastTap = { t: now, id };
-    if (wasSel) this.cycleStack(1);
+    this.sel = id;
+    const stack = this.stackAt(mx, my);
+    this.pinned = stack.length > 1 ? id : null;
+    this.tabInfo = stack.length > 1 ? { stack, t: now, x: mx, y: my, touch: true } : null;
+  }
+
+  /** Touch: held still on an object long enough; select it and carry on as a move. */
+  private pickUp(id: string, mx: number, my: number): void {
+    const d = this.drag;
+    const o = this.patch.objects.find((q) => q.id === id);
+    if (d?.kind !== 'pan' || !o || this.pointers.size !== 1) return;
+    // undo the few pixels of pan the finger made while holding
+    this.cam.x = d.cx;
+    this.cam.y = d.cy;
+    const [wx, wy] = this.s2w(mx, my);
+    this.sel = id;
+    this.tabInfo = null;
+    this.drag = { kind: 'move', id, dx: o.x - wx, dy: o.y - wy };
+    navigator.vibrate?.(12);
   }
 
   private onDbl(e: MouseEvent): void {

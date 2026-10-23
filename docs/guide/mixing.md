@@ -20,7 +20,7 @@ On the left of the bar. **vol**, **bpm** and **seed** all work the same way: dra
 | **root**, **scale** | The key. Pick from the menu, or scroll over it to step. |
 | **seed** | The seed behind every random choice in the patch: the same patch with other chances. Type any number or text. **roll** picks a new one. |
 
-On a phone the bar has **▶**, **vol**, **bpm** and the key, which you can drag too. Tap any of them, or **☰**, for a sheet with everything else in it, sized for fingers. The sheet stays above the keyboard while you type.
+On a phone the bar has **▶**, **vol**, **bpm** and the key, which you can drag too, and the **pan** / **select** mode button ([On a phone or tablet](touch.md)). Tap any of them, or **☰**, for a sheet with everything else in it, sized for fingers. The sheet stays above the keyboard while you type.
 
 ## The timeline: going back
 
