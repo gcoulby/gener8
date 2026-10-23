@@ -1,5 +1,5 @@
 import type { FxType } from '../types.ts';
-import { exp2, log2 } from '../dspmath.ts';
+import { exp2, log2, tanh } from '../dspmath.ts';
 import { Svf } from '../dsp/svf.ts';
 import { Fdn } from '../dsp/reverb.ts';
 import { TapeDelay } from '../dsp/delay.ts';
@@ -91,6 +91,71 @@ export const reverb: FxType = {
       stereo(l, r, n) {
         fdn.set(ctx.handles.size ?? 0.7, ctx.handles.damping ?? 0.4);
         fdn.process(l, r, n);
+      },
+    };
+  },
+};
+
+const SPRING_STAGES = 12;
+
+/** Loop delay of a spring in seconds: tighter springs are shorter. */
+export function springDelay(h: Record<string, number>): number {
+  return 0.07 - (h.tension ?? 0.5) * 0.035;
+}
+
+/**
+ * Bus: a spring tank, two springs (one per side) of slightly different
+ * lengths. Each is a feedback delay with a chain of allpass filters inside, so
+ * every pass smears the highs out behind the lows: the boing and the chirping
+ * drip. Tension sets the springs' length; drip, how much they disperse.
+ */
+export const spring: FxType = {
+  id: 'spring',
+  label: 'spring',
+  role: 'fx',
+  kind: 'bus',
+  shape: 'circle',
+  glyph: '§',
+  defaultShape: { r: 200 },
+  handles: [
+    { key: 'tension', label: 'tension', default: 0.5, format: (_v, h) => `${Math.round(springDelay(h) * 1000)} ms` },
+    { key: 'drip', label: 'drip', default: 0.5, format: pct },
+  ],
+  createProcessor(ctx) {
+    const SIZE = 4096;
+    const MASK = SIZE - 1;
+    const lines = [new Float64Array(SIZE), new Float64Array(SIZE)];
+    const ap = [new Float64Array(SPRING_STAGES), new Float64Array(SPRING_STAGES)];
+    const lp = [0, 0];
+    const hp = [0, 0];
+    let w = 0;
+    return {
+      stereo(l, r, n) {
+        const a = -(0.3 + (ctx.handles.drip ?? 0.5) * 0.5);
+        const d0 = springDelay(ctx.handles) * ctx.sr;
+        const lens = [Math.floor(d0), Math.floor(d0 * 1.13)];
+        for (let i = 0; i < n; i++) {
+          const x = (l[i] + r[i]) * 0.35;
+          for (let s = 0; s < 2; s++) {
+            const line = lines[s];
+            const z = ap[s];
+            const back = line[(w - lens[s]) & MASK];
+            lp[s] += (back - lp[s]) * 0.35;
+            let y = x + tanh(lp[s] * 0.82);
+            for (let k = 0; k < SPRING_STAGES; k++) {
+              const v = a * y + z[k];
+              z[k] = y - a * v;
+              y = v;
+            }
+            line[w & MASK] = y;
+            // springs are thin: lose the lows on the way out
+            hp[s] += (y - hp[s]) * 0.02;
+            if (s === 0) l[i] = y - hp[s];
+            else r[i] = y - hp[s];
+          }
+          w++;
+        }
+        w &= MASK;
       },
     };
   },

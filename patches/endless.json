@@ -1,0 +1,29 @@
+{
+ "format": "gener8.patch",
+ "version": 2,
+ "seed": 3333,
+ "tempo": 54,
+ "key": {
+  "root": 5,
+  "scale": "lydian"
+ },
+ "info": {
+  "title": "Endless",
+  "artist": "GENER8",
+  "genre": "generative",
+  "url": "https://gcoulby.github.io/gener8/",
+  "notes": "A pipe circles a spiral map, so its hand-written sequence climbs and falls with the arm it is on, half of it played backwards by retrograde. A rising Shepard tone, a singing bowl and a cloud on a spirograph path hang around it."
+ },
+ "objects": [
+    {"id":"xy1","kind":"field","type":"xy","x":0,"y":0,"shape":{"w":1600,"h":720},"layer":0,"handles":{},"axes":{"x":{"to":"pan","min":-1,"max":1},"y":{"to":"pitch","min":24,"max":96}}},
+    {"id":"shm","kind":"field","type":"shimmer","x":0,"y":0,"shape":{"r":900},"layer":1,"handles":{"size":0.8,"shimmer":0.4}},
+    {"id":"sp","kind":"field","type":"spiral","x":0,"y":40,"shape":{"r":260},"layer":2,"handles":{},"axes":{"t":{"to":"pitch","min":55,"max":91}}},
+    {"id":"rt","kind":"field","type":"retrograde","x":0,"y":40,"shape":{"r":200},"layer":3,"handles":{"window":0.33,"share":0.5}},
+    {"id":"ec","kind":"field","type":"echo","x":0,"y":40,"shape":{"r":200},"layer":4,"handles":{"gap":0.4,"decay":0.3}},
+    {"id":"sq","kind":"field","type":"sequencer","x":0,"y":40,"shape":{"r":180},"layer":5,"handles":{"rate":0.5,"length":0.7333333333333333},"seq":[0,2,4,null,2,5,4,null,7,4,2,null]},
+    {"id":"pipe","kind":"sound","type":"pipe","x":0,"y":40,"size":34,"layer":56,"params":{},"ripple":{"reach":0},"motion":{"pos":{"type":"orbit","radius":110,"periodBeats":64,"phase":0}}},
+    {"id":"stair","kind":"sound","type":"shepard","x":-520,"y":-120,"size":34,"layer":57,"params":{},"motion":{"breathe":{"amount":0.3,"periodBeats":48}}},
+    {"id":"bowl","kind":"sound","type":"bowl","x":480,"y":-180,"size":40,"layer":58,"params":{"rub":0.6,"beat":0.8}},
+    {"id":"haze","kind":"sound","type":"cloud","x":420,"y":160,"size":40,"layer":59,"params":{},"motion":{"pos":{"type":"spirograph","radius":120,"lobes":5,"arm":0.6,"periodBeats":128}}}
+ ]
+}

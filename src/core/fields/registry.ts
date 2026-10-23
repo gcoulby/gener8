@@ -12,21 +12,30 @@ import { chorus } from './chorus.ts';
 import { shimmer } from './shimmer.ts';
 import { tape } from './tape.ts';
 import { everyNth, probability, quantise, ratchet, transpose } from './transformers.ts';
-import { delay, filter, reverb } from './fx.ts';
-import { radial, sweep, tri, xy } from './maps.ts';
+import { delay, filter, reverb, spring } from './fx.ts';
+import { cc, radial, spiral, sweep, tonnetz, tri, xy } from './maps.ts';
 import { bounce, phase, poly, wave } from './rhythms.ts';
 import { chords, topo, turing } from './sequencers.ts';
 import { plinko } from './plinko.ts';
-import { canon, mirror } from './canon.ts';
+import { midi, sequencer } from './input.ts';
+import { automaton, bells, lsystem } from './systems.ts';
+import { flock, pendulum } from './physics.ts';
+import { canon, echo, mirror, retrograde } from './canon.ts';
+import { accent, swing, throttle } from './groove.ts';
+import { glide, scatter, smooth } from './contour.ts';
+import { beatRepeat, drive, flanger, octaver, phaser, ringmod, wax } from './colour.ts';
 import { freeze, lofi, resonator, tremolo } from './texture.ts';
 
 export const fieldTypes: Record<string, FieldType> = {};
 
 for (const t of [
   pulse, drift, arp, rain, strum, grid, phase, chords, turing, topo, plinko, wave, bounce, poly,
+  sequencer, lsystem, bells, automaton, pendulum, flock, midi,
   probability, transpose, quantise, harmony, humanise, hold, ratchet, everyNth, canon, mirror,
+  swing, accent, throttle, scatter, smooth, glide, echo, retrograde,
   filter, tape, delay, chorus, reverb, shimmer, resonator, freeze, tremolo, lofi,
-  xy, radial, sweep, tri,
+  drive, wax, phaser, flanger, ringmod, octaver, spring, beatRepeat,
+  xy, radial, sweep, tri, spiral, tonnetz, cc,
 ])
   fieldTypes[t.id] = t;
 

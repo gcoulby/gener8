@@ -47,17 +47,25 @@ class SvgRecorder {
   rect(x: number, y: number, w: number, h: number): void {
     this.d += `M${n(x)} ${n(y)}h${n(w)}v${n(h)}h${n(-w)}Z`;
   }
-  arc(x: number, y: number, r: number, a0: number, a1: number): void {
-    this.ellipse(x, y, r, r, 0, a0, a1);
+  quadraticCurveTo(cx: number, cy: number, x: number, y: number): void {
+    this.d += `Q${n(cx)} ${n(cy)} ${n(x)} ${n(y)}`;
   }
-  ellipse(x: number, y: number, rx: number, ry: number, _rot: number, a0: number, a1: number): void {
+  arc(x: number, y: number, r: number, a0: number, a1: number, ccw = false): void {
+    this.ellipse(x, y, r, r, 0, a0, a1, ccw);
+  }
+  ellipse(x: number, y: number, rx: number, ry: number, _rot: number, a0: number, a1: number, ccw = false): void {
     const at = (a: number) => `${n(x + Math.cos(a) * rx)} ${n(y + Math.sin(a) * ry)}`;
     this.d += `${this.d ? 'L' : 'M'}${at(a0)}`;
-    if (a1 - a0 >= Math.PI * 2 - 1e-6) {
+    const T = Math.PI * 2;
+    if ((ccw ? a0 - a1 : a1 - a0) >= T - 1e-6) {
       // a full turn is two half arcs
-      this.d += `A${n(rx)} ${n(ry)} 0 1 1 ${at(a0 + Math.PI)}A${n(rx)} ${n(ry)} 0 1 1 ${at(a0)}`;
+      const s = ccw ? 0 : 1;
+      this.d += `A${n(rx)} ${n(ry)} 0 1 ${s} ${at(a0 + (ccw ? -Math.PI : Math.PI))}A${n(rx)} ${n(ry)} 0 1 ${s} ${at(a0)}`;
     } else {
-      this.d += `A${n(rx)} ${n(ry)} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${at(a1)}`;
+      // like canvas: the arc runs the given way round, wrapping past a full turn if it has to
+      let span = ccw ? a0 - a1 : a1 - a0;
+      span = ((span % T) + T) % T;
+      this.d += `A${n(rx)} ${n(ry)} 0 ${span > Math.PI ? 1 : 0} ${ccw ? 0 : 1} ${at(a1)}`;
     }
   }
   setLineDash(d: number[]): void {

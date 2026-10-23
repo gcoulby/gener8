@@ -8,10 +8,11 @@ import { fieldTypes, isMap } from '../src/core/fields/registry.ts';
 import { newPlacement, placeSound, traceTurns, type MapPose } from '../src/core/placement.ts';
 import { renderOffline } from '../src/core/render.ts';
 import { hashAudio } from './util.ts';
+import { newPose } from '../src/core/motion.ts';
 
 const v1Pitch = (y: number) => Math.min(96, Math.max(24, 60 + y / 10));
 const v1Pan = (x: number) => Math.min(1, Math.max(-1, x / 800));
-const still = (obj: FieldObj): MapPose => ({ obj, pose: { x: obj.x, y: obj.y, scale: 1 }, type: fieldTypes[obj.type] as MapType });
+const still = (obj: FieldObj): MapPose => ({ obj, pose: newPose(obj.x, obj.y), type: fieldTypes[obj.type] as MapType });
 
 function xyField(id: string, x: number, y: number, w: number, h: number, layer: number, axes: FieldObj['axes']): FieldObj {
   return { id, kind: 'field', type: 'xy', x, y, shape: { w, h }, layer, handles: {}, axes };
@@ -203,7 +204,6 @@ test('every map type has a default axis per spec and the right shape', () => {
     for (const s of t.axes) assert.ok(s.key in t.defaultAxes, `${t.id}.${s.key}`);
     assert.equal(t.shape === 'rect', !('r' in t.defaultShape), t.id);
   }
-  assert.equal(Object.values(fieldTypes).filter((t) => t.role === 'map').length % 2, 0, 'palette column stays even');
 });
 
 test('fall-off: 100% (default) fades to nothing at the reach, 0% keeps full strength', () => {

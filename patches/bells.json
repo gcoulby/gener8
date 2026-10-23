@@ -1,0 +1,30 @@
+{
+ "format": "gener8.patch",
+ "version": 2,
+ "seed": 4120,
+ "tempo": 72,
+ "key": {
+  "root": 2,
+  "scale": "major"
+ },
+ "info": {
+  "title": "Bells",
+  "artist": "GENER8",
+  "genre": "generative",
+  "url": "https://gcoulby.github.io/gener8/",
+  "notes": "Six FM bells rung in plain bob by the bells generator, echoing into a spring tank, with a singing bowl at the centre that every change strikes."
+ },
+ "objects": [
+    {"id":"xy1","kind":"field","type":"xy","x":0,"y":0,"shape":{"w":1600,"h":720},"layer":0,"handles":{},"axes":{"x":{"to":"pan","min":-1,"max":1},"y":{"to":"pitch","min":24,"max":96}}},
+    {"id":"spr","kind":"field","type":"spring","x":0,"y":0,"shape":{"r":700},"layer":1,"handles":{"tension":0.35,"drip":0.55}},
+    {"id":"ech","kind":"field","type":"echo","x":0,"y":0,"shape":{"r":260},"layer":2,"handles":{"gap":0.6,"decay":0.35}},
+    {"id":"bel","kind":"field","type":"bells","x":0,"y":0,"shape":{"r":220},"layer":3,"handles":{"method":0.67,"rate":0.33}},
+    {"id":"b1","kind":"sound","type":"fm","x":0,"y":170,"size":34,"layer":54,"params":{},"ripple":{"reach":0}},
+    {"id":"b2","kind":"sound","type":"fm","x":130,"y":95,"size":34,"layer":55,"params":{},"ripple":{"reach":0}},
+    {"id":"b3","kind":"sound","type":"fm","x":130,"y":-55,"size":34,"layer":56,"params":{},"ripple":{"reach":0}},
+    {"id":"b4","kind":"sound","type":"fm","x":0,"y":-130,"size":34,"layer":57,"params":{},"ripple":{"reach":0}},
+    {"id":"b5","kind":"sound","type":"fm","x":-130,"y":-55,"size":34,"layer":58,"params":{},"ripple":{"reach":0}},
+    {"id":"b6","kind":"sound","type":"fm","x":-130,"y":95,"size":34,"layer":59,"params":{},"ripple":{"reach":0}},
+    {"id":"bowl","kind":"sound","type":"bowl","x":0,"y":-60,"size":44,"layer":60,"params":{"rub":0.25,"decay":12}}
+ ]
+}

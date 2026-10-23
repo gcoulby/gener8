@@ -3,6 +3,7 @@
 
 import type {
   Edit,
+  EmitOpts,
   EventRecord,
   FieldContext,
   FieldObj,
@@ -31,11 +32,11 @@ import {
   VOICE_BUDGET,
 } from './constants.ts';
 import { applyEdit, byLayer, clone, normalizePatch } from './patch.ts';
-import { followPose, type Pose } from './motion.ts';
+import { followPose, newPose, type Pose } from './motion.ts';
 import { soundTypes } from './sounds/registry.ts';
 import { fieldTypes } from './fields/registry.ts';
 import { hash32, rand, strHash } from './rand.ts';
-import { angleTurns, depthAt, shapeDims } from './geometry.ts';
+import { angleTurns, depthAt, shapeDims, toLocal } from './geometry.ts';
 import { indexToMidi, nearestIndex, scaleSteps, snapToScale } from './music.ts';
 import { cosTurns, dbToGain, exp2, log2, sinTurns, tanh } from './dspmath.ts';
 import { newPlacement, placeSound, rippleOf, traceTurns, type MapPose, type Placement } from './placement.ts';
@@ -58,6 +59,8 @@ class FieldCtx implements FieldContext {
   keyRoot = 0;
   steps: number[] = [];
   state: any = null;
+  seq: readonly (number | null)[] | null = null;
+  midi: readonly number[] = [];
   constructor(idHash: number) {
     this.idHash = idHash;
   }
@@ -95,6 +98,8 @@ interface SoundRT {
   offAt: Float64Array;
   started: Float64Array;
   used: Uint8Array;
+  /** Tag of the note each voice is playing (0: none), for off events. */
+  tags: Float64Array;
   pose: Pose;
   order: number;
   rootIndex: number;
@@ -115,6 +120,8 @@ interface SoundRT {
   place: Placement;
   /** Params an XY field set last block, restored before placement runs again. */
   xyKeys: string[];
+  /** Pitch of the last note started (NaN before the first), where a glide starts from. */
+  lastPitch: number;
 }
 
 interface Ripple {
@@ -142,6 +149,9 @@ interface Action {
   v: number;
   pitch: number;
   vel: number;
+  /** noteOn with glide: the pitch to slide from, and over how many seconds (0: none). */
+  from: number;
+  glide: number;
 }
 
 export interface Visual {
@@ -186,6 +196,9 @@ export class Engine {
   private anySolo = false;
   private master = MASTER_GAIN;
   private masterPeak = 0;
+  private loc = [0, 0];
+  /** MIDI that arrived for this block, handed to generators as ctx.midi. */
+  private midiIn: number[] = [];
 
   constructor(patch: Patch) {
     this.patch = normalizePatch(patch);
@@ -269,8 +282,12 @@ export class Engine {
   // ---------- edits and runtime reconciliation ----------
 
   private apply(e: Edit, s0: number): void {
-    this.patch = applyEdit(this.patch, e);
     this.log.push({ sample: s0, edit: clone(e) });
+    if (e.op === 'midi') {
+      for (const v of e.data) this.midiIn.push(v);
+      return;
+    }
+    this.patch = applyEdit(this.patch, e);
     this.dirty = true;
   }
 
@@ -308,7 +325,7 @@ export class Engine {
             obj: o,
             type: t,
             ctx: new FieldCtx(strHash(o.id)),
-            pose: { x: o.x, y: o.y, scale: 1 },
+            pose: newPose(o.x, o.y),
             members: [],
             proc: null,
             busL: null,
@@ -330,6 +347,7 @@ export class Engine {
         rt.ctx.h = base.h;
         rt.ctx.seed = this.patch.seed;
         rt.ctx.tempo = this.patch.tempo;
+        rt.ctx.seq = o.seq ?? null;
         if (fresh) {
           rt.ctx.state = t.createState ? t.createState(rt.ctx) : null;
           if (t.role === 'fx') {
@@ -375,7 +393,8 @@ export class Engine {
       offAt: new Float64Array(n).fill(-1),
       started: new Float64Array(n),
       used: new Uint8Array(n),
-      pose: { x: o.x, y: o.y, scale: 1 },
+      tags: new Float64Array(n),
+      pose: newPose(o.x, o.y),
       order: 0,
       rootIndex: 0,
       genCount: 0,
@@ -394,6 +413,7 @@ export class Engine {
       events: [],
       place: newPlacement(),
       xyKeys: [],
+      lastPitch: NaN,
     };
   }
 
@@ -435,11 +455,14 @@ export class Engine {
       f.ctx.keyRoot = keyRoot;
       f.ctx.steps = this.steps;
       f.ctx.tick = t0;
+      f.ctx.midi = this.midiIn;
       f.members.length = 0;
     }
     for (const s of this.soundList) {
       followPose(s.obj, beat, seed, this.lookup, s.pose);
       placeSound(s.pose.x, s.pose.y, this.maps, s.obj, s.place);
+      // a spinning sound turns its traces with it
+      if (s.pose.angle) s.place.angle += s.pose.angle * 360;
       if (s.xyKeys.length || s.place.pk.length) this.applyXYParams(s);
       s.rootIndex = nearestIndex(s.place.pitch, keyRoot, this.steps);
       s.mod.keyRoot = keyRoot;
@@ -455,11 +478,14 @@ export class Engine {
       s.buses.length = 0;
       const px = s.pose.x;
       const py = s.pose.y;
+      const loc = this.loc;
       for (const f of this.fieldList) {
         const t = f.type;
         if (t.role === 'map') continue;
         const fp = f.pose;
-        const depth = depthAt(f.obj.shape, fp.x, fp.y, fp.scale, px, py);
+        // in the field's own frame, so a spinning or stretching field carries its geometry with it
+        toLocal(fp.x, fp.y, fp.angle, fp.sx, fp.sy, px, py, loc);
+        const depth = depthAt(f.obj.shape, 0, 0, fp.scale, loc[0], loc[1]);
         if (depth <= 0) continue;
         if (t.role === 'generator') {
           s.genCount++;
@@ -467,9 +493,9 @@ export class Engine {
             soundId: s.id,
             soundHash: s.hash,
             depth,
-            angle: angleTurns(fp.x, fp.y, px, py),
-            lx: px - fp.x,
-            ly: py - fp.y,
+            angle: angleTurns(0, 0, loc[0], loc[1]),
+            lx: loc[0],
+            ly: loc[1],
             r: (s.obj.size * s.pose.scale) / 2,
             rootIndex: s.rootIndex,
             mode: s.type.mode,
@@ -509,6 +535,7 @@ export class Engine {
       this.curGen = f.id;
       t.schedule(f.ctx, t0, t1, f.members, this.emit);
     }
+    if (this.midiIn.length) this.midiIn = [];
 
     // 4. Ripple arrivals
     this.rippleArrivals(t0, t1);
@@ -593,12 +620,14 @@ export class Engine {
     this.tick = t1;
   }
 
-  private emit = (soundId: string, tick: number, degree: number, velocity: number, durTicks: number): void => {
+  private emit = (soundId: string, tick: number, degree: number, velocity: number, durTicks: number, opts?: EmitOpts): void => {
     const s = this.sounds.get(soundId);
     if (!s) return;
     const pitch =
-      s.type.mode === 'event' ? indexToMidi(s.rootIndex + degree, this.patch.key.root, this.steps) : s.mod.pitch;
+      s.type.mode !== 'event' ? s.mod.pitch : opts?.pitch ?? indexToMidi(s.rootIndex + degree, this.patch.key.root, this.steps);
     this.fresh.push({
+      ...(opts?.tag !== undefined ? { tag: opts.tag } : null),
+      ...(opts?.off ? { off: true } : null),
       tick: tick < this.curT0 ? this.curT0 : tick,
       soundId,
       pitch,
@@ -785,15 +814,23 @@ export class Engine {
       for (const e of s.events) {
         let off = Math.floor((e.tick - t0) / tps);
         off = off < 0 ? 0 : off >= BLOCK ? BLOCK - 1 : off;
+        if (e.off) {
+          // release the voice holding this tag at this point in the block
+          if (isEvent) for (let i = 0; i < s.voices.length; i++) if (s.tags[i] === e.tag && s.offAt[i] >= 0) s.offAt[i] = s0 + off;
+          continue;
+        }
         if (isEvent) {
           const v = this.allocate(s);
           if (v < 0) continue;
           s.used[v] = 1;
+          s.tags[v] = e.tag ?? 0;
           s.started[v] = s0 + off;
           s.offAt[v] = s0 + off + Math.max(1, Math.round(e.durTicks / tps));
-          actions.push({ off, kind: 1, v, pitch: e.pitch, vel: e.velocity });
+          const glide = e.glide && !Number.isNaN(s.lastPitch) ? e.glide / tps / SR : 0;
+          actions.push({ off, kind: 1, v, pitch: e.pitch, vel: e.velocity, from: s.lastPitch, glide });
+          s.lastPitch = e.pitch;
         } else {
-          actions.push({ off, kind: 2, v: 0, pitch: e.pitch, vel: e.velocity });
+          actions.push({ off, kind: 2, v: 0, pitch: e.pitch, vel: e.velocity, from: 0, glide: 0 });
         }
         sounded.push({ e, off });
       }
@@ -802,7 +839,7 @@ export class Engine {
       for (let i = 0; i < s.voices.length; i++) {
         const at = s.offAt[i];
         if (at >= s0 && at < s0 + BLOCK) {
-          actions.push({ off: at - s0, kind: 0, v: i, pitch: 0, vel: 0 });
+          actions.push({ off: at - s0, kind: 0, v: i, pitch: 0, vel: 0, from: 0, glide: 0 });
           s.offAt[i] = -1;
         }
       }
@@ -816,7 +853,10 @@ export class Engine {
         cur = a.off;
       }
       const v = s.voices[a.v];
-      if (a.kind === 1) v.noteOn(a.pitch, a.vel);
+      if (a.kind === 1) {
+        v.noteOn(a.pitch, a.vel);
+        if (a.glide > 0) v.glide?.(a.from, a.glide);
+      }
       else if (a.kind === 0) v.noteOff();
       else v.accent?.(a.vel);
     }
@@ -841,7 +881,7 @@ export class Engine {
 
     // Gain and equal-power pan, ramped across the block
     const o = s.obj;
-    const silenced = o.mute || (this.anySolo && !o.solo);
+    const silenced = o.mute || (this.anySolo && !o.solo) || o.midiOut?.only;
     let gain = silenced ? 0 : ((o.size * s.pose.scale) / UNITY_SIZE) * (o.trim ? dbToGain(o.trim) : 1);
     if (s.place.level) gain *= dbToGain(s.place.level);
     let p = s.place.pan;
@@ -958,6 +998,7 @@ export class Engine {
           ...(emits && rip!.stop ? { rippleStop: true } : null),
           ...(emits && s.place.falloff !== 1 ? { rippleFalloff: s.place.falloff } : null),
           accent: !isEvent,
+          dur: Math.max(1, Math.round((isEvent ? e.durTicks : PPQ / 4) / tps)),
         });
       }
     }

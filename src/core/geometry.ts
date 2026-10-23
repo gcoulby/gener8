@@ -1,5 +1,5 @@
 import type { FieldShape } from './types.ts';
-import { atan2, TAU } from './dspmath.ts';
+import { atan2, cosTurns, sinTurns, TAU } from './dspmath.ts';
 
 export function isCircle(s: FieldShape): s is { r: number } {
   return (s as { r?: number }).r !== undefined;
@@ -35,4 +35,40 @@ export function depthAt(s: FieldShape, cx: number, cy: number, scale: number, px
 export function angleTurns(cx: number, cy: number, px: number, py: number): number {
   const a = atan2(px - cx, py - cy) / TAU;
   return a < 0 ? a + 1 : a;
+}
+
+/**
+ * (px, py) in the frame of an object at (cx, cy) turned `angle` turns
+ * clockwise and stretched by sx, sy: undoes both, so shapes can be tested as
+ * if upright and unstretched. Writes [x, y] into out.
+ */
+export function toLocal(cx: number, cy: number, angle: number, sx: number, sy: number, px: number, py: number, out: number[]): number[] {
+  let x = px - cx;
+  let y = py - cy;
+  if (angle) {
+    const c = cosTurns(angle);
+    const s = sinTurns(angle);
+    const rx = x * c - y * s;
+    y = x * s + y * c;
+    x = rx;
+  }
+  out[0] = sx === 1 ? x : x / sx;
+  out[1] = sy === 1 ? y : y / sy;
+  return out;
+}
+
+/** The inverse of toLocal: a local offset (lx, ly) back to world coordinates. */
+export function toWorld(cx: number, cy: number, angle: number, sx: number, sy: number, lx: number, ly: number, out: number[]): number[] {
+  let x = lx * sx;
+  let y = ly * sy;
+  if (angle) {
+    const c = cosTurns(angle);
+    const s = sinTurns(angle);
+    const rx = x * c + y * s;
+    y = -x * s + y * c;
+    x = rx;
+  }
+  out[0] = cx + x;
+  out[1] = cy + y;
+  return out;
 }

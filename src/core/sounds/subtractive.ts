@@ -4,6 +4,7 @@ import { exp2, midiToHz, sinTurns } from '../dspmath.ts';
 import { blepSaw, blepSquare } from '../dsp/blep.ts';
 import { Svf } from '../dsp/svf.ts';
 import { Adsr, IDLE } from '../dsp/adsr.ts';
+import { Glide } from '../dsp/glide.ts';
 
 /**
  * Two band-limited oscillators, one leaning left and one right, into a resonant
@@ -20,6 +21,8 @@ class SubtractiveVoice implements Voice {
   private ph1 = 0;
   private ph2 = 0.37;
   private hz = 220;
+  private pitch = 60;
+  private gl = new Glide();
   private vel = 0;
   private lfo = 0;
   private lfoRate = 0.3;
@@ -36,11 +39,17 @@ class SubtractiveVoice implements Voice {
 
   noteOn(pitch: number, velocity: number): void {
     this.hz = midiToHz(pitch);
+    this.pitch = pitch;
+    this.gl.stop();
     this.vel = velocity;
     this.lfo = this.ctx.rand(4, this.serial);
     this.lfoRate = 0.15 + 0.3 * this.ctx.rand(5, this.serial++);
     this.amp.gateOn();
     this.fenv.gateOn();
+  }
+
+  glide(from: number, seconds: number): void {
+    this.gl.start(from, this.pitch, seconds);
   }
 
   noteOff(): void {
@@ -57,7 +66,7 @@ class SubtractiveVoice implements Voice {
     fenv.set(p.fa, p.fd, p.fs, p.fr);
     const wob = exp2((sinTurns(this.lfo) * p.wobble) / 1200);
     this.lfo += ((end - start) * this.lfoRate) / SR;
-    const dt1 = Math.min(0.45, (this.hz * wob) / SR);
+    const dt1 = Math.min(0.45, (this.hz * wob * this.gl.ratio(end - start)) / SR);
     const dt2 = Math.min(0.45, dt1 * exp2(p.detune / 1200));
     const shape = p.shape;
     const cutoff = p.cutoff;

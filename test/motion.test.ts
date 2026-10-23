@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PatchObject } from '../src/core/types.ts';
-import { bounceHeight, followPose, pose } from '../src/core/motion.ts';
+import { bounceHeight, followPose, newPose, pose } from '../src/core/motion.ts';
 import { sanitisePatch } from '../src/core/sanitise.ts';
 import { renderOffline } from '../src/core/render.ts';
 import { hashAudio, loadPatch } from './util.ts';
@@ -29,8 +29,8 @@ test('bounce: drops and bounces lower to the ground, then the same in reverse ba
 
 test('bounce motion moves the object up from its home and repeats each period', () => {
   const o: PatchObject = { id: 's', kind: 'sound', type: 'pluck', x: 10, y: 20, size: 40, layer: 0, params: {}, motion: { pos: { type: 'bounce', height: 80, bounces: 2, periodBeats: 4 } } };
-  const p = { x: 0, y: 0, scale: 1 };
-  assert.deepEqual(pose(o, 0, 1, p), { x: 10, y: 100, scale: 1 });
+  const p = newPose();
+  assert.deepEqual(pose(o, 0, 1, p), { ...newPose(10, 100) });
   assert.equal(pose(o, 2, 1, p).y, 20);
   assert.equal(pose(o, 4, 1, p).y, 100);
 });
@@ -42,18 +42,18 @@ test("follow: a follower adds its leader's motion offset and breathing, down a c
   const all = [lead, mid, end];
   const lookup = (id: string) => all.find((o) => o.id === id);
   for (const beat of [0, 0.5, 1.3, 2.9]) {
-    const lp = pose(lead, beat, 1, { x: 0, y: 0, scale: 1 });
-    const mp = followPose(mid, beat, 1, lookup, { x: 0, y: 0, scale: 1 });
+    const lp = pose(lead, beat, 1, newPose());
+    const mp = followPose(mid, beat, 1, lookup, newPose());
     assert.ok(Math.abs(mp.x - (300 + lp.x - 100)) < 1e-9 && Math.abs(mp.y - (300 + lp.y)) < 1e-9, `beat ${beat}`);
     assert.equal(mp.scale, lp.scale);
-    const own = pose(end, beat, 1, { x: 0, y: 0, scale: 1 });
-    const ep = followPose(end, beat, 1, lookup, { x: 0, y: 0, scale: 1 });
+    const own = pose(end, beat, 1, newPose());
+    const ep = followPose(end, beat, 1, lookup, newPose());
     assert.ok(Math.abs(ep.x - (own.x + lp.x - 100)) < 1e-9, 'chain');
   }
   // a loop just stops after a few hops instead of recursing forever
   const x: PatchObject = { ...mid, id: 'x', follow: 'y' };
   const y: PatchObject = { ...mid, id: 'y', follow: 'x' };
-  followPose(x, 1, 1, (id) => (id === 'x' ? x : id === 'y' ? y : undefined), { x: 0, y: 0, scale: 1 });
+  followPose(x, 1, 1, (id) => (id === 'x' ? x : id === 'y' ? y : undefined), newPose());
 });
 
 test('a following field changes the audio (the engine uses follow)', () => {

@@ -1,9 +1,10 @@
 // Mixer drawer: master, FX returns and one strip per sound. Faders are dB trims
 // stored in the patch (so captures and replays include them), with mute/solo
-// per sound and live peak meters from the engine.
+// and MIDI out per sound and live peak meters from the engine. Under the master
+// strip: the MIDI output and its latency trim, once MIDI is in use.
 
 import type { App } from './app.ts';
-import type { Edit, PatchObject, Role } from '../core/types.ts';
+import type { Edit, PatchObject, Role, SoundObj } from '../core/types.ts';
 import { byLayer } from '../core/patch.ts';
 import { soundTypes } from '../core/sounds/registry.ts';
 import { fieldTypes } from '../core/fields/registry.ts';
@@ -17,7 +18,7 @@ const SHORT: Record<string, string> = { subtractive: 'subtr', 'tape delay': 'del
 const PAD = 12;
 
 export interface MixerHit {
-  kind: 'fader' | 'mute' | 'solo' | 'label';
+  kind: 'fader' | 'mute' | 'solo' | 'label' | 'midi' | 'mdev' | 'mlat';
   id: string; // object id, or 'master'
   x: number;
   y: number;
@@ -34,6 +35,7 @@ interface Strip {
   db: number;
   mute?: boolean;
   solo?: boolean;
+  midiOut?: SoundObj['midiOut'];
 }
 
 export function mixerHeight(app: App): number {
@@ -57,7 +59,7 @@ function strips(app: App): Strip[] {
   for (const o of objs) {
     if (o.kind !== 'sound') continue;
     const t = soundTypes[o.type];
-    out.push({ id: o.id, label: t?.label ?? o.type, sub: o.id, role: 'sound', glyph: t?.glyph, db: o.trim ?? 0, mute: o.mute, solo: o.solo });
+    out.push({ id: o.id, label: t?.label ?? o.type, sub: o.id, role: 'sound', glyph: t?.glyph, db: o.trim ?? 0, mute: o.mute, solo: o.solo, midiOut: o.midiOut });
   }
   return out;
 }
@@ -71,7 +73,7 @@ function meterDb(v: number): number {
 
 /** Fader track geometry inside a strip. */
 function track(r: { y: number; h: number }): { top: number; bottom: number } {
-  return { top: r.y + 54, bottom: r.y + r.h - 54 };
+  return { top: r.y + 54, bottom: r.y + r.h - 74 };
 }
 
 export function drawMixer(app: App): void {
@@ -166,6 +168,37 @@ export function drawMixer(app: App): void {
       };
       btn('M', !!s.mute, 'mute', cx - 22, 'rgba(240,90,90,0.9)');
       btn('S', !!s.solo, 'solo', cx + 2, 'rgba(240,200,80,0.95)');
+      // MIDI out: off → with audio → MIDI only; outlined when it plays too, filled when MIDI only
+      const mo = s.midiOut;
+      const my = by + 20;
+      g.fillStyle = mo?.only ? 'rgba(140,200,240,0.9)' : 'rgba(233,228,218,0.08)';
+      g.beginPath();
+      g.roundRect(cx - 22, my, 44, 16, 3);
+      g.fill();
+      if (mo && !mo.only) {
+        g.strokeStyle = 'rgba(140,200,240,0.9)';
+        g.lineWidth = 1;
+        g.stroke();
+      }
+      g.fillStyle = mo?.only ? '#0b0b0e' : mo ? 'rgba(140,200,240,0.95)' : 'rgba(233,228,218,0.45)';
+      g.fillText(mo ? `midi ${mo.channel}` : 'midi', cx, my + 8.5);
+      app.mixerHits.push({ kind: 'midi', id: s.id, x: cx - 24, y: my - 2, w: 48, h: 20 });
+    } else if (s.role === 'master' && (app.midi.status === 'on' || app.usesMidi())) {
+      // where MIDI out goes, and how late it's sent to line up with the speakers
+      const by = bottom + 26;
+      const chip = (text: string, kind: 'mdev' | 'mlat', y: number) => {
+        g.fillStyle = 'rgba(233,228,218,0.08)';
+        g.beginPath();
+        g.roundRect(cx - 24, y, 48, 16, 3);
+        g.fill();
+        g.fillStyle = 'rgba(233,228,218,0.6)';
+        g.fillText(text, cx, y + 8.5);
+        app.mixerHits.push({ kind, id: 'master', x: cx - 26, y: y - 2, w: 52, h: 20 });
+      };
+      const out = app.midi.output();
+      chip(out ? out.name?.slice(0, 7) || 'out' : app.midi.status === 'on' ? 'no out' : 'midi…', 'mdev', by);
+      const lat = app.midi.latencyMs;
+      chip(`${lat > 0 ? '+' : ''}${lat} ms`, 'mlat', by + 20);
     }
   });
   g.restore();
@@ -192,8 +225,20 @@ export function trimEdit(app: App, id: string, db: number): Edit {
   return { op: 'set', id, path: ['trim'], value: db === 0 ? null : db };
 }
 
-export function toggleEdit(app: App, id: string, kind: 'mute' | 'solo'): Edit | null {
+export function toggleEdit(app: App, id: string, kind: 'mute' | 'solo' | 'midi'): Edit | null {
   const o = app.patch.objects.find((q) => q.id === id) as PatchObject | undefined;
   if (!o || o.kind !== 'sound') return null;
+  if (kind === 'midi') {
+    const m = o.midiOut;
+    return { op: 'set', id, path: ['midiOut'], value: !m ? { channel: 1 } : !m.only ? { channel: m.channel, only: true } : null };
+  }
   return { op: 'set', id, path: [kind], value: o[kind] ? null : true };
+}
+
+/** Scrolling over a strip's MIDI chip steps its channel. */
+export function midiChannelEdit(app: App, id: string, dir: number): Edit | null {
+  const o = app.patch.objects.find((q) => q.id === id);
+  if (!o || o.kind !== 'sound' || !o.midiOut) return null;
+  const channel = Math.max(1, Math.min(16, o.midiOut.channel + dir));
+  return { op: 'set', id, path: ['midiOut', 'channel'], value: channel };
 }

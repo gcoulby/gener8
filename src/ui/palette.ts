@@ -44,17 +44,20 @@ interface Layout {
   cols: number;
 }
 
+/** Right edge of the palette at its widest (three full-size columns). */
+export const PALETTE_RIGHT = X + 3 * MAX_SIZE + 6;
+
 /**
- * One block per role, two columns, with cells shrunk to fit the height
- * available. A window too short even for the smallest cells gets three columns.
+ * One block per role, three columns, with cells shrunk to fit the height
+ * available. A window too short even for the smallest cells gets four columns.
  */
 function layoutFor(top: number, avail: number): Layout {
   const gaps = (GROUPS.length - 1) * GROUP_GAP;
-  let cols = 2;
+  let cols = 3;
   let rows = GROUPS.reduce((n, [, items]) => n + Math.ceil(items.length / cols), 0);
   let size = Math.floor((avail - gaps) / rows);
   if (size < MIN_SIZE) {
-    cols = 3;
+    cols = 4;
     rows = GROUPS.reduce((n, [, items]) => n + Math.ceil(items.length / cols), 0);
     size = Math.floor((avail - gaps) / rows);
   }

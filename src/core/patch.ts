@@ -155,6 +155,8 @@ export function applyEdit(p: Patch, e: Edit): Patch {
     }
     case 'load':
       return normalizePatch(e.patch);
+    case 'midi':
+      return p;
   }
 }
 

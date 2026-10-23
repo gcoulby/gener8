@@ -3,7 +3,7 @@
 // human message, and clamps numbers to the ranges the UI itself allows.
 // The open-file path and normal editing do not go through this.
 
-import type { Axes, Axis, MapType, Breathe, FieldObj, FieldShape, Motion, Patch, PatchObject, PosMotion, RippleSpec, SoundObj, Vec2 } from './types.ts';
+import type { Axes, Axis, MapType, Breathe, BreatheShape, Ease, FieldObj, FieldShape, Motion, Patch, PatchObject, PosMotion, RippleSpec, SoundObj, Vec2 } from './types.ts';
 import { SCALE_ORDER } from './music.ts';
 import { MIDI_MAX, MIDI_MIN } from './constants.ts';
 import { soundTypes } from './sounds/registry.ts';
@@ -11,6 +11,7 @@ import { fieldTypes } from './fields/registry.ts';
 import { cleanInfo, normalizePatch } from './patch.ts';
 import { isCircle } from './geometry.ts';
 import { PARAM_PREFIX, RIPPLE_LIMITS, targetOf } from './placement.ts';
+import { SEQ_MAX, SEQ_RANGE } from './fields/input.ts';
 
 export class ShareError extends Error {}
 
@@ -42,6 +43,9 @@ const BREATHE_AMOUNT = [0, 0.9];
 const MOTION_DIST = [0, 4000];
 const MIN_BEATS = 0.25;
 const MAX_BOUNCES = 12;
+const MAX_LAG = 64;
+const EASES = new Set(['linear', 'smooth', 'elastic']);
+const BREATHE_SHAPES = new Set(['sine', 'tri', 'ramp', 'square', 'step']);
 
 type Obj = Record<string, unknown>;
 
@@ -103,11 +107,39 @@ function beats(x: unknown, what: string): number {
   return Math.max(MIN_BEATS, num(x, what));
 }
 
+function dist(x: unknown, what: string): number {
+  return clamp(num(x, what), MOTION_DIST[0], MOTION_DIST[1]);
+}
+
+/** An optional ease, added to `out` only when present. */
+function withEase<T extends object>(out: T, e: unknown): T {
+  if (e === undefined) return out;
+  if (typeof e !== 'string' || !EASES.has(e)) fail('bad ease');
+  return { ...out, ease: e as Ease };
+}
+
 function posMotion(input: unknown, limits: typeof SHARE_LIMITS): PosMotion {
   const m = obj(input, 'motion');
+  const t = String(m.type);
   switch (m.type) {
     case 'orbit':
-      return { type: 'orbit', radius: clamp(num(m.radius, 'orbit'), MOTION_DIST[0], MOTION_DIST[1]), periodBeats: beats(m.periodBeats, 'orbit'), phase: clamp(num(m.phase ?? 0, 'orbit'), -1, 1) };
+      return withEase({ type: 'orbit', radius: dist(m.radius, t), periodBeats: beats(m.periodBeats, t), phase: clamp(num(m.phase ?? 0, t), -1, 1) }, m.ease);
+    case 'pendulum':
+      return { type: 'pendulum', length: dist(m.length, t), swing: clamp(num(m.swing, t), 0, 170), periodBeats: beats(m.periodBeats, t) };
+    case 'lissajous':
+      return { type: 'lissajous', size: dist(m.size, t), a: int(m.a, t, 1, 8), b: int(m.b, t, 1, 8), periodBeats: beats(m.periodBeats, t) };
+    case 'spiral':
+      return { type: 'spiral', radius: dist(m.radius, t), turns: clamp(num(m.turns, t), 0.5, 8), periodBeats: beats(m.periodBeats, t) };
+    case 'rose':
+      return { type: 'rose', size: dist(m.size, t), petals: int(m.petals, t, 2, 9), periodBeats: beats(m.periodBeats, t) };
+    case 'spirograph':
+      return { type: 'spirograph', radius: dist(m.radius, t), lobes: int(m.lobes, t, 2, 12), arm: clamp(num(m.arm, t), 0, 1), periodBeats: beats(m.periodBeats, t) };
+    case 'hop':
+      return { type: 'hop', distance: dist(m.distance, t), spots: int(m.spots, t, 2, 8), everyBeats: beats(m.everyBeats, t) };
+    case 'spring':
+      return { type: 'spring', stretch: dist(m.stretch, t), damping: clamp(num(m.damping, t), 0, 1), periodBeats: beats(m.periodBeats, t) };
+    case 'shuttle':
+      return withEase({ type: 'shuttle', angle: clamp(num(m.angle, t), 0, 360), distance: dist(m.distance, t), periodBeats: beats(m.periodBeats, t) }, m.ease);
     case 'drift':
       return { type: 'drift', amplitude: clamp(num(m.amplitude, 'drift'), MOTION_DIST[0], MOTION_DIST[1]), rateBeats: beats(m.rateBeats, 'drift') };
     case 'bounce':
@@ -120,7 +152,9 @@ function posMotion(input: unknown, limits: typeof SHARE_LIMITS): PosMotion {
         return [clamp(num(q[0], 'path'), -XY, XY), clamp(num(q[1], 'path'), -XY, XY)];
       });
       if (m.mode !== 'loop' && m.mode !== 'pingpong') fail('bad path mode');
-      return { type: 'path', points, periodBeats: beats(m.periodBeats, 'path'), mode: m.mode as 'loop' | 'pingpong' };
+      const path: PosMotion = { type: 'path', points, periodBeats: beats(m.periodBeats, 'path'), mode: m.mode as 'loop' | 'pingpong' };
+      if (m.dwell !== undefined) path.dwell = clamp(num(m.dwell, 'path'), 0, 0.9);
+      return withEase(path, m.ease);
     }
   }
   return fail('unknown motion type');
@@ -134,9 +168,26 @@ function motion(input: unknown, limits: typeof SHARE_LIMITS): Motion | undefined
   if (m.breathe !== undefined) {
     const b = obj(m.breathe, 'breathe');
     const breathe: Breathe = { amount: clamp(num(b.amount, 'breathe'), BREATHE_AMOUNT[0], BREATHE_AMOUNT[1]), periodBeats: beats(b.periodBeats, 'breathe') };
+    if (b.shape !== undefined) {
+      if (typeof b.shape !== 'string' || !BREATHE_SHAPES.has(b.shape)) fail('bad breathe shape');
+      breathe.shape = b.shape as BreatheShape;
+    }
     out.breathe = breathe;
   }
-  return out.pos || out.breathe ? out : undefined;
+  if (m.spin !== undefined) {
+    const sp = obj(m.spin, 'spin');
+    out.spin = { periodBeats: beats(sp.periodBeats, 'spin') };
+    if (sp.ccw !== undefined) {
+      if (typeof sp.ccw !== 'boolean') fail('bad spin');
+      if (sp.ccw) out.spin.ccw = true;
+    }
+  }
+  if (m.stretch !== undefined) {
+    const st = obj(m.stretch, 'stretch');
+    out.stretch = { amount: clamp(num(st.amount, 'stretch'), BREATHE_AMOUNT[0], BREATHE_AMOUNT[1]), periodBeats: beats(st.periodBeats, 'stretch') };
+  }
+  if (m.lag !== undefined) out.lag = clamp(num(m.lag, 'lag'), 0, MAX_LAG);
+  return out.pos || out.breathe || out.spin || out.stretch || out.lag !== undefined ? out : undefined;
 }
 
 function shape(input: unknown): FieldShape {
@@ -206,6 +257,11 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
     if (trim !== undefined) s.trim = trim;
     if (flag(o.mute, 'mute')) s.mute = true;
     if (flag(o.solo, 'solo')) s.solo = true;
+    if (o.midiOut !== undefined) {
+      const m = obj(o.midiOut, `${id} midi out`);
+      s.midiOut = { channel: int(m.channel, `${id} midi out`, 1, 16) };
+      if (flag(m.only, 'midi out')) s.midiOut.only = true;
+    }
     return s;
   }
   if (o.kind === 'field') {
@@ -218,6 +274,10 @@ function object(input: unknown, limits: typeof SHARE_LIMITS): PatchObject {
       if ((t.shape === 'rect') !== !isCircle(f.shape)) fail(`bad ${id} shape`);
       const ax = axes(o.axes, t);
       if (ax) f.axes = ax;
+    }
+    if (t.id === 'sequencer' && o.seq !== undefined) {
+      if (!Array.isArray(o.seq) || o.seq.length < 1 || o.seq.length > SEQ_MAX) fail(`bad ${id} steps`);
+      f.seq = (o.seq as unknown[]).map((v) => (v === null ? null : int(v, `${id} steps`, -SEQ_RANGE, SEQ_RANGE)));
     }
     if (trim !== undefined) f.trim = trim;
     return f;

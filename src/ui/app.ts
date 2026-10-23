@@ -1,8 +1,8 @@
-import type { Edit, EventRecord, FieldObj, MapType, Patch, PatchObject, PosMotion, SoundObj } from '../core/types.ts';
+import type { Edit, EventRecord, FieldObj, MapType, Patch, PatchObject, SoundObj } from '../core/types.ts';
 import { PPQ, SR, CAPTURE_SECONDS, MIDI_MAX, MIDI_MIN, RIPPLE_SPEED } from '../core/constants.ts';
 import { applyEdit, byLayer, classicStage, clone, emptyPatch, nextId, normalizePatch } from '../core/patch.ts';
-import { followPose, type Pose } from '../core/motion.ts';
-import { angleTurns, depthAt, isCircle } from '../core/geometry.ts';
+import { followPose, newPose, type Pose } from '../core/motion.ts';
+import { angleTurns, depthAt, isCircle, toLocal } from '../core/geometry.ts';
 import { soundTypes, defaultParams } from '../core/sounds/registry.ts';
 import { fieldTypes, defaultHandles, isMap, mapTypeOf } from '../core/fields/registry.ts';
 import { governingAxis, newPlacement, placeSound, RIPPLE_LIMITS, rippleOf, type MapPose, type Placement } from '../core/placement.ts';
@@ -22,9 +22,10 @@ import { draw } from './draw.ts';
 import { paletteHit, type PaletteItem } from './palette.ts';
 import { inStrip, STRIP_H, stripSampleAt } from './timeline.ts';
 import { Bar, parseSeed } from './bar.ts';
-import { faderDbAt, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, type MixerHit } from './mixer.ts';
+import { MidiLink } from './midi.ts';
+import { faderDbAt, midiChannelEdit, mixerHitAt, mixerRect, toggleEdit as mixerToggle, trimEdit, type MixerHit } from './mixer.ts';
 import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
-import { axisTargetEdit, inAxisMenu, menuHitAt, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, MAX_PERIOD, periodLabel, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
+import { axisTargetEdit, inAxisMenu, menuHitAt, MOVE, POS_TYPES, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, MAX_PERIOD, periodLabel, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
 import { EXAMPLES } from './examples.ts';
 import { DocsViewer, parseDocsHash } from './docs.ts';
 import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
@@ -139,6 +140,7 @@ export class App {
   panel: { id: string; auto: boolean } | null = null;
   scrub: { sample: number; preview: Patch; cancelled: boolean } | null = null;
   readonly audio = new AudioBridge();
+  readonly midi = new MidiLink(this);
   history: History | null = null;
   /** Offline render in progress (see startRender). */
   render: RenderJob | null = null;
@@ -336,7 +338,7 @@ export class App {
   }
 
   poseOf(o: PatchObject): Pose {
-    return this.poses.get(o.id) ?? { x: o.x, y: o.y, scale: 1 };
+    return this.poses.get(o.id) ?? newPose(o.x, o.y);
   }
 
   /** Apply locally and send to the engine now. */
@@ -344,6 +346,13 @@ export class App {
     this.patch = applyEdit(this.patch, clone(e));
     this.audio.send(e);
     this.queueSave();
+    // placing a MIDI field or switching on MIDI out is the gesture that asks for MIDI
+    if (this.midi.status === 'off' && this.usesMidi()) this.midi.enable();
+  }
+
+  /** The patch has a midi in field, a cc map or a sound sending MIDI out. */
+  usesMidi(): boolean {
+    return this.patch.objects.some((o) => (o.kind === 'field' ? o.type === 'midi' || o.type === 'cc' : !!o.midiOut));
   }
 
   /** Apply locally now; send once per frame (drags). */
@@ -452,6 +461,7 @@ export class App {
     } catch (err) {
       this.toast('audio failed: ' + (err as Error).message);
     }
+    if (this.midi.status === 'off' && this.usesMidi()) this.midi.enable();
   }
 
   async capture(): Promise<void> {
@@ -486,6 +496,7 @@ export class App {
     this.history?.ingest(t.edits, t.events, t.sample);
     this.voices = t.voices;
     for (const e of t.events) this.pending.push(e);
+    if (!this.headless) this.midi.sendNotes(t.events);
     if (this.pending.length > 4000) this.pending.splice(0, this.pending.length - 4000);
     for (const id in t.meters) this.meterLevel.set(id, Math.max(this.meterLevel.get(id) ?? 0, t.meters[id]));
     for (const v of t.visuals) this.visuals.set(v.id, { data: v.data, t: now });
@@ -638,7 +649,7 @@ export class App {
     for (const o of v.objects) {
       let p = this.poses.get(o.id);
       if (!p) {
-        p = { x: 0, y: 0, scale: 1 };
+        p = newPose();
         this.poses.set(o.id, p);
       }
       followPose(o, this.beat, v.seed, this.lookup, p);
@@ -667,7 +678,8 @@ export class App {
       const sp = this.poseOf(s);
       for (const f of gens) {
         const fp = this.poseOf(f);
-        if (depthAt(f.shape, fp.x, fp.y, fp.scale, sp.x, sp.y) > 0) {
+        const [lx, ly] = toLocal(fp.x, fp.y, fp.angle, fp.sx, fp.sy, sp.x, sp.y, [0, 0]);
+        if (depthAt(f.shape, 0, 0, fp.scale, lx, ly) > 0) {
           this.driven.add(s.id);
           break;
         }
@@ -723,6 +735,17 @@ export class App {
           [sx - hw, sy - hh],
         ];
         keys.forEach((k, i) => out.push({ kind: 'char', key: k, x: pts[i][0], y: pts[i][1] }));
+      }
+      // a spinning or stretched field carries its handles round with it
+      if (p.angle || p.sx !== 1 || p.sy !== 1) {
+        const c = Math.cos(p.angle * Math.PI * 2);
+        const s = Math.sin(p.angle * Math.PI * 2);
+        for (const h of out) {
+          const dx = (h.x - sx) * p.sx;
+          const dy = (h.y - sy) * p.sy;
+          h.x = sx + c * dx - s * dy;
+          h.y = sy + s * dx + c * dy;
+        }
       }
     }
     if (o.id === this.sel && o.motion?.pos) {
@@ -802,18 +825,20 @@ export class App {
         if (mapEdgeDist(o, p, wx, wy) * z < EDGE || onLabel) mapsHit.push(o.id);
         continue;
       }
+      // in the field's own frame, so a spinning or stretched field is picked where it's drawn
+      const [lx, ly] = toLocal(p.x, p.y, p.angle, p.sx, p.sy, wx, wy, [0, 0]);
       let edgePx: number;
       if (isCircle(o.shape)) {
-        edgePx = Math.abs(Math.hypot(wx - p.x, wy - p.y) - o.shape.r * p.scale) * z;
+        edgePx = Math.abs(Math.hypot(lx, ly) - o.shape.r * p.scale) * z;
       } else {
         const hw = (o.shape.w * p.scale) / 2;
         const hh = (o.shape.h * p.scale) / 2;
-        const dx = Math.abs(wx - p.x);
-        const dy = Math.abs(wy - p.y);
+        const dx = Math.abs(lx);
+        const dy = Math.abs(ly);
         const inside = dx <= hw && dy <= hh;
         edgePx = (inside ? Math.min(hw - dx, hh - dy) : Math.hypot(Math.max(dx - hw, 0), Math.max(dy - hh, 0))) * z;
       }
-      if (edgePx < EDGE || depthAt(o.shape, p.x, p.y, p.scale, wx, wy) > 0) out.push(o.id);
+      if (edgePx < EDGE || depthAt(o.shape, 0, 0, p.scale, lx, ly) > 0) out.push(o.id);
     }
     return out.concat(mapsHit);
   }
@@ -943,16 +968,11 @@ export class App {
   private cycleMotion(id: string): void {
     const o = this.patch.objects.find((q) => q.id === id);
     if (!o) return;
+    // through every movement in the move menu's order, then still
     const cur = o.motion?.pos?.type;
-    let next: PosMotion | null;
-    if (!cur) next = { type: 'orbit', radius: 80, periodBeats: 16, phase: 0 };
-    else if (cur === 'orbit') next = { type: 'drift', amplitude: 60, rateBeats: 8 };
-    else if (cur === 'drift')
-      next = { type: 'path', points: [[0, 0], [120, 60], [0, 120], [-120, 60]], periodBeats: 32, mode: 'loop' };
-    else if (cur === 'path') next = { type: 'bounce', height: 120, bounces: 4, periodBeats: 8 };
-    else next = null;
-    this.commit({ op: 'set', id, path: ['motion', 'pos'], value: next });
-    this.toast(next ? `motion: ${next.type}` : 'motion: none');
+    const next = cur ? (POS_TYPES[POS_TYPES.indexOf(cur) + 1] ?? null) : POS_TYPES[0];
+    this.commit(axisTargetEdit(o, MOVE, next));
+    this.toast(next ? `motion: ${next}` : 'motion: none');
   }
 
   private toggleBreathe(id: string): void {
@@ -1123,7 +1143,10 @@ export class App {
         } else if (h.kind === 'label') {
           if (h.id !== 'master') this.sel = h.id;
           this.drag = { kind: 'mixerScroll', sx: mx, start: this.mixerScroll };
-        } else {
+        } else if (h.kind === 'mdev') {
+          if (this.midi.status === 'on') this.midi.cycleOutput();
+          else this.midi.enable();
+        } else if (h.kind !== 'mlat') {
           const ed = mixerToggle(this, h.id, h.kind);
           if (ed) this.commit(ed);
         }
@@ -1139,6 +1162,16 @@ export class App {
         }
         if (a.kind === 'follow') {
           this.followPick = o.id;
+          return;
+        }
+        if (a.kind === 'midi') {
+          this.midi.enable();
+          return;
+        }
+        if (a.kind === 'learn') {
+          // arming learn is also the gesture that connects MIDI
+          this.midi.enable();
+          this.midi.learn = this.midi.learn === o.id ? null : o.id;
           return;
         }
         if (a.kind === 'value') {
@@ -1436,9 +1469,17 @@ export class App {
       const r = mixerRect(this);
       if (my >= r.y && my < r.y + r.h) {
         const xh = mixerHitAt(this, mx, my);
+        const dir = e.deltaY < 0 ? 1 : -1;
         if (xh?.kind === 'fader') {
           const cur = xh.id === 'master' ? (this.patch.master ?? 0) : (this.patch.objects.find((o) => o.id === xh.id)?.trim ?? 0);
-          this.commit(trimEdit(this, xh.id, Math.min(12, Math.max(-40, cur + (e.deltaY < 0 ? 1 : -1)))));
+          this.commit(trimEdit(this, xh.id, Math.min(12, Math.max(-40, cur + dir))));
+        } else if (xh?.kind === 'midi') {
+          const ed = midiChannelEdit(this, xh.id, dir);
+          if (ed) this.commit(ed);
+        } else if (xh?.kind === 'mlat') {
+          this.midi.nudgeLatency(dir * 5);
+        } else if (xh?.kind === 'mdev') {
+          this.midi.cycleOutput(dir);
         } else {
           this.mixerScroll += e.deltaX + e.deltaY;
         }
@@ -1476,6 +1517,10 @@ export class App {
         const v = Math.min(MAX_PERIOD, Math.max(1, sel.motion.pos.rateBeats * f));
         this.commit({ op: 'set', id: sel.id, path: ['motion', 'pos', 'rateBeats'], value: v });
         this.toast(`drift rate ${periodLabel(v)}`);
+      } else if (sel.motion?.pos?.type === 'hop') {
+        const v = Math.min(MAX_PERIOD, Math.max(1, sel.motion.pos.everyBeats * f));
+        this.commit({ op: 'set', id: sel.id, path: ['motion', 'pos', 'everyBeats'], value: v });
+        this.toast(`hop every ${periodLabel(v)}`);
       } else if (sel.motion?.breathe) {
         const v = Math.min(MAX_PERIOD, Math.max(1, sel.motion.breathe.periodBeats * f));
         this.commit({ op: 'set', id: sel.id, path: ['motion', 'breathe', 'periodBeats'], value: v });
@@ -1693,7 +1738,8 @@ export class App {
     switch (e.key) {
       case 'Escape':
         this.pinned = null;
-        if (this.followPick) this.followPick = null;
+        if (this.midi.learn) this.midi.learn = null;
+        else if (this.followPick) this.followPick = null;
         else if (this.axisMenu) this.axisMenu = null;
         else if (this.scrub) this.scrub.cancelled = true;
         else if (this.panel) this.panel = null;
@@ -1846,8 +1892,7 @@ async function copyText(text: string): Promise<boolean> {
 
 /** Distance in world units from (wx, wy) to a map field's outline. */
 function mapEdgeDist(o: FieldObj, p: Pose, wx: number, wy: number): number {
-  const dx = wx - p.x;
-  const dy = wy - p.y;
+  const [dx, dy] = toLocal(p.x, p.y, p.angle, p.sx, p.sy, wx, wy, [0, 0]);
   if (!isCircle(o.shape)) {
     const hw = (o.shape.w * p.scale) / 2;
     const hh = (o.shape.h * p.scale) / 2;
