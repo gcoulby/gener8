@@ -93,6 +93,13 @@ export function paletteHit(app: App, mx: number, my: number): PaletteItem | null
   return null;
 }
 
+/** Screen box of a palette item, or null while it's hidden (on a phone with the palette shut). */
+export function paletteItemRect(app: App, item: PaletteItem): { x: number; y: number; w: number; h: number } | null {
+  const size = layout(app).size;
+  const s = visibleSlots(app).find((q) => q.item.kind === item.kind && q.item.type === item.type);
+  return s ? { x: s.x, y: s.y, w: size, h: size } : null;
+}
+
 export function drawPaletteIcon(g: CanvasRenderingContext2D, item: PaletteItem, cx: number, cy: number, r: number, a: number): void {
   if (item.kind === 'sound') {
     const t = soundTypes[item.type];

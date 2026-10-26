@@ -28,6 +28,8 @@ import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import { axisTargetEdit, inAxisMenu, menuHitAt, MOVE, POS_TYPES, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, MAX_PERIOD, periodLabel, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
 import { EXAMPLES } from './examples.ts';
 import { DocsViewer, parseDocsHash } from './docs.ts';
+import { Tutorial, tutorialSeen } from './tutorial.ts';
+import { Library } from './library.ts';
 import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
 
 export interface Pulse {
@@ -180,6 +182,14 @@ export class App {
   lit = readFlag(LIT_KEY, false);
   readonly docs = new DocsViewer();
   readonly infoDialog = new InfoDialog();
+  readonly tutorial = new Tutorial(this);
+  /** Patches saved in this browser (patch ▾ → save… / open…). */
+  readonly library = new Library(browserStorage());
+  /** The library name this patch was last saved under or opened from: save… suggests it. */
+  savedName: string | null = null;
+  /** Patches loaded and captures saved this session (the tutorial watches these). */
+  loads = 0;
+  captures = 0;
   /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
   axisMenu: AxisMenu | null = null;
   /** Picking a leader for this object: the next click on an object sets its follow. */
@@ -255,7 +265,8 @@ export class App {
     const link = parseHash(location.hash);
     const seeded = link?.kind === 'seed' && generators[link.gen] ? generatePatch(link.seed, link.gen) : null;
     if (seeded) this.stashPrev(false);
-    this.patch = seeded ?? this.loadStored() ?? normalizePatch(EXAMPLES[0].patch);
+    const stored = seeded ? null : this.loadStored();
+    this.patch = seeded ?? stored ?? normalizePatch(EXAMPLES[0].patch);
     this.resize();
     this.bind();
     this.bar = new Bar(this);
@@ -268,6 +279,8 @@ export class App {
     } else if (link) void this.loadFromHash();
     const doc = parseDocsHash(location.hash);
     if (doc) this.docs.open(doc.page, doc.anchor);
+    // a first visit (nothing stored, not from a link) gets the tutorial
+    else if (!link && !stored && !tutorialSeen()) this.tutorial.open();
     window.addEventListener('hashchange', () => void this.loadFromHash());
     requestAnimationFrame(this.frame);
   }
@@ -392,6 +405,8 @@ export class App {
     try {
       const patch = normalizePatch(p);
       this.commit({ op: 'load', patch });
+      this.loads++;
+      this.savedName = null;
       this.sel = null;
       this.panel = null;
       this.toast(label);
@@ -488,6 +503,7 @@ export class App {
       replay: { root: h.root, edits: h.log.filter((e) => e.sample < end) },
     };
     download(new Blob([JSON.stringify(capture)], { type: 'application/json' }), `${name}.json`);
+    this.captures++;
     this.toast(`captured ${Math.round(r.left.length / SR)} s → ${name}.wav + .json`);
   }
 
@@ -568,6 +584,7 @@ export class App {
 
   private frame = (now: number): void => {
     this.bar?.sync();
+    this.tutorial.sync();
     this.flushSends();
     if (this.audio.started) {
       const a = this.audio.audibleSample();
@@ -1570,6 +1587,12 @@ export class App {
     this.docs.open(page);
   }
 
+  /** The guided first patch, from the start. */
+  openTutorial(): void {
+    if (this.docs.isOpen) this.docs.close();
+    this.tutorial.open();
+  }
+
   cancelRender(): void {
     this.render?.cancel();
     this.render = null;
@@ -1668,18 +1691,64 @@ export class App {
     this.toast(msg);
   }
 
-  savePatch(): void {
-    // sign it with your remembered details, where it has no artist yet
+  /** Sign the patch with your remembered details, where it has no artist yet; the toast's suffix if it did. */
+  private sign(): string {
     const info = this.patch.info;
     const signed = signInfo(info, readAuthor());
-    if (signed !== info) this.commit({ op: 'info', value: signed! });
+    if (signed === info) return '';
+    this.commit({ op: 'info', value: signed! });
+    return ` · signed ${signed!.artist}`;
+  }
+
+  /** Save the patch in this browser under `name`; false (with a toast) if it couldn't be. */
+  saveToBrowser(name: string): boolean {
+    const replaced = !!this.library.get(name);
+    const signed = this.sign();
+    try {
+      const e = this.library.save(name, clone(this.patch));
+      this.savedName = e.name;
+      this.toast(`${replaced ? 'replaced' : 'saved'} “${e.name}” in this browser${signed}`);
+      return true;
+    } catch (err) {
+      this.toast(`could not save: ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  /** Open a patch saved in this browser, framed, with its info. */
+  openSaved(name: string): void {
+    const e = this.library.get(name);
+    if (!e) {
+      this.toast(`“${name}” isn't saved here any more`);
+      return;
+    }
+    if (!this.load(e.patch, `opened “${e.name}”`)) return;
+    this.savedName = e.name;
+    this.fitView();
+    this.showInfo();
+  }
+
+  deleteSaved(name: string): void {
+    try {
+      this.library.remove(name);
+      if (this.savedName?.toLowerCase() === name.toLowerCase()) this.savedName = null;
+      this.toast(`deleted “${name}” from this browser`);
+    } catch (err) {
+      this.toast(`could not delete: ${(err as Error).message}`);
+    }
+  }
+
+  /** Download the patch as a JSON file. */
+  exportPatch(): void {
+    const signed = this.sign();
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
     const name = infoFileName(this.patch.info) || `gener8-${stamp}`;
     download(new Blob([JSON.stringify(this.patch, null, 2)], { type: 'application/json' }), `${name}.json`);
-    this.toast(signed !== info ? `patch saved · signed ${signed!.artist}` : 'patch saved');
+    this.toast(`exported ${name}.json${signed}`);
   }
 
-  openPatch(): void {
+  /** Load a patch file. */
+  importPatch(): void {
     const inp = document.createElement('input');
     inp.type = 'file';
     inp.accept = '.json,application/json';
@@ -1692,7 +1761,7 @@ export class App {
 
   private onKey(e: KeyboardEvent): void {
     // typing in a text box must not trigger shortcuts (c captures, t taps tempo…), nor keys meant for the bar's controls
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || this.bar?.owns(e.target)) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || this.bar?.owns(e.target) || this.tutorial.owns(e.target)) return;
     if (e.key === 'Escape' && this.bar?.close()) return;
     if (this.docs.isOpen) {
       if (e.key === 'Escape') this.docs.escape();
@@ -1704,14 +1773,12 @@ export class App {
       return;
     }
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.key === 's') {
+    // ⌘S / ⌘O: the browser's own saved patches; with shift, files
+    const k = e.key.toLowerCase();
+    if (mod && (k === 's' || k === 'o')) {
       e.preventDefault();
-      this.savePatch();
-      return;
-    }
-    if (mod && e.key === 'o') {
-      e.preventDefault();
-      this.openPatch();
+      if (k === 's') e.shiftKey ? this.exportPatch() : this.bar?.open('save');
+      else e.shiftKey ? this.importPatch() : this.bar?.open('library');
       return;
     }
     if (mod && e.key === 'd' && this.sel) {
@@ -1844,6 +1911,14 @@ export class App {
         return;
       }
     }
+  }
+}
+
+function browserStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
   }
 }
 

@@ -8,6 +8,7 @@
 import type { App } from './app.ts';
 import { DISCORD_URL } from './docs.ts';
 import { EXAMPLES } from './examples.ts';
+import { NAME_MAX, savedAgo } from './library.ts';
 import { DB_MAX, DB_MIN } from './mixer.ts';
 import { NOTE_NAMES, SCALE_LABELS, SCALE_ORDER } from '../core/music.ts';
 import { strHash } from '../core/rand.ts';
@@ -100,6 +101,18 @@ const CSS = `
 .g8-pop button.primary{color:#f0a830;border-color:rgba(240,168,48,.7)}
 .g8-pop .tabs{display:flex;gap:4px;margin:0 0 12px}
 .g8-pop .tabs button{flex:1}
+.g8-pop .lib{display:flex;flex-direction:column;gap:2px;max-height:min(360px,calc(var(--g8-vh,100vh) - 220px));overflow-y:auto;margin:0 -6px;padding:0 6px}
+.g8-pop .lib .item{display:flex;gap:4px;align-items:center}
+.g8-pop .lib .item button.open{flex:1;min-width:0;justify-content:space-between;border-color:transparent;background:none;border-radius:6px;height:30px}
+.g8-pop .lib .item button.open:hover{background:rgba(233,228,218,.08)}
+.g8-pop .lib .item .n{overflow:hidden;text-overflow:ellipsis}
+.g8-pop .lib .item .when{color:rgba(233,228,218,.35);font-size:10px;flex:none}
+.g8-pop .lib .item.cur .n{color:#f0a830}
+.g8-pop .lib .item button.del{width:28px;padding:0;border-color:transparent;background:none;color:rgba(233,228,218,.4)}
+.g8-pop .lib .item button.del:hover{color:#f06e6e}
+.g8-pop .lib .item button.del.sure{width:auto;padding:0 9px;color:#f06e6e;border-color:rgba(240,90,90,.5)}
+.g8-pop.sheet .lib .item button.open{height:44px}
+.g8-pop.sheet .lib .item button.del{width:44px}
 .g8-pop .progress{height:6px;border-radius:3px;background:rgba(233,228,218,.1);overflow:hidden;margin:6px 0 4px}
 .g8-pop .progress>i{display:block;height:100%;background:#f06e6e}
 .g8-pop .ctl{display:flex;gap:6px;align-items:center;flex:1;min-width:0}
@@ -333,6 +346,12 @@ function extLink(text: string, href: string, title?: string): HTMLAnchorElement 
   return a;
 }
 
+/** Name an element for the tutorial to point at (`[data-tut=…]`). */
+function tag<T extends HTMLElement>(e: T, name: string): T {
+  e.dataset.tut = name;
+  return e;
+}
+
 function btn(text: string, onClick: () => void, cls?: string, title?: string): HTMLButtonElement {
   const b = el('button', cls, text);
   b.type = 'button';
@@ -348,7 +367,7 @@ function keyBtn(text: string, kbd: string, onClick: () => void, mobile: boolean)
   return b;
 }
 
-type PopId = 'sheet' | 'patch' | 'examples' | 'render';
+type PopId = 'sheet' | 'patch' | 'examples' | 'render' | 'save' | 'library';
 type TakeKind = 'audio' | 'video';
 
 const LENGTHS: [string, number][] = [['1 min', 60], ['5 min', 300], ['10 min', 600], ['30 min', 1800], ['1 h', 3600]];
@@ -413,6 +432,11 @@ export class Bar {
       },
       true,
     );
+  }
+
+  /** The open menu, if any. */
+  get menu(): PopId | null {
+    return this.pop?.id ?? null;
   }
 
   /** Is this element part of the bar or one of its menus? Keys typed there are theirs. */
@@ -515,7 +539,7 @@ export class Bar {
         b.title = app.panMode ? 'pan mode: one finger moves around, nothing on the canvas can change' : 'select mode: tap to select, drag the selection to move it';
         b.setAttribute('aria-pressed', String(app.panMode));
       });
-      const menu = btn('☰', openSheet, 'menu', 'more');
+      const menu = tag(btn('☰', openSheet, 'menu', 'more'), 'menu');
       menu.setAttribute('aria-label', 'more');
       l.append(play, vol.el, bpm.el, key, busy, mode, menu);
       this.root.append(l, this.slot);
@@ -525,24 +549,26 @@ export class Bar {
     const vol = this.volume();
     const bpm = this.tempo();
     const seed = this.seed();
+    tag(bpm.el, 'bpm');
     l.append(play, vol.el, sep(), bpm.el, btn('tap', () => app.tap(), undefined, 'tap tempo (t): three taps or more'), this.rootSelect(), this.scaleSelect(), sep(), seed.el, btn('roll', () => app.rerollSeed(), undefined, 'new engine seed: the same patch, different chances'));
 
     const voices = span('dim', '');
     voices.title = 'voices playing';
     this.syncers.push(() => setText(voices, app.audio.started ? `${app.voices}v` : ''));
-    const mixer = btn('mixer', () => (app.mixerOpen = !app.mixerOpen), undefined, 'levels, mute, solo, FX returns');
+    const mixer = tag(btn('mixer', () => (app.mixerOpen = !app.mixerOpen), undefined, 'levels, mute, solo, FX returns'), 'mixer');
     this.syncers.push(() => void mixer.classList.toggle('on', app.mixerOpen));
-    const capture = btn('● capture', () => void app.capture(), 'rec', 'save the last 30 s as a WAV, with the patch and edit log (c)');
-    const render = btn('', () => this.toggle('render', render), undefined, 'render the patch from a fresh start as a WAV or MP4 (shift-C / shift-V)');
+    const capture = tag(btn('● capture', () => void app.capture(), 'rec', 'save the last 30 s as a WAV, with the patch and edit log (c)'), 'capture');
+    const render = tag(btn('', () => this.toggle('render', render), undefined, 'render the patch from a fresh start as a WAV or MP4 (shift-C / shift-V)'), 'render');
     this.label(render, () => this.jobText() || 'render ▾', (b, s) => b.classList.toggle('busy', s !== 'render ▾'));
-    const patch = btn('patch ▾', () => this.toggle('patch', patch), undefined, 'new, open, save, info, share, random');
-    const examples = btn('examples ▾', () => this.toggle('examples', examples), undefined, 'the bundled demos');
-    const help = btn('? help', () => app.openDocs('overview'), undefined, 'everything at a glance (h) · the full guide (g)');
+    const patch = tag(btn('patch ▾', () => this.toggle('patch', patch), undefined, 'new, open, save, info, share, random'), 'patch');
+    const examples = tag(btn('examples ▾', () => this.toggle('examples', examples), undefined, 'the bundled demos'), 'examples');
+    const help = tag(btn('? help', () => app.openDocs('overview'), undefined, 'everything at a glance (h) · the full guide (g)'), 'help');
+    const tutorial = btn('tutorial', () => app.openTutorial(), undefined, 'build a first patch, step by step');
     for (const [b, id] of [[render, 'render'], [patch, 'patch'], [examples, 'examples']] as const) {
       this.syncers.push(() => void b.classList.toggle('on', this.pop?.id === id));
     }
     const discord = extLink('discord ↗', DISCORD_URL, 'join the GENER8 Discord: share patches, ask questions');
-    r.append(voices, mixer, capture, render, sep(), patch, examples, help, discord);
+    r.append(voices, mixer, capture, render, sep(), patch, examples, help, tutorial, discord);
     this.root.append(l, this.slot, r);
   }
 
@@ -698,6 +724,8 @@ export class Bar {
       id = 'render';
       anchor ??= [...this.root.querySelectorAll('button')].find((b) => b.title.startsWith('render')) ?? null;
     }
+    // from the keyboard, the saved-patch menus sit over patch ▾
+    if ((id === 'save' || id === 'library') && !anchor) anchor = this.root.querySelector<HTMLElement>('[data-tut=patch]');
     this.close();
     const pop = el('div', 'g8-pop');
     pop.setAttribute('role', 'dialog');
@@ -708,7 +736,9 @@ export class Bar {
       }
     });
     let scrim: HTMLElement | null = null;
-    if (id === 'sheet') {
+    // a phone has no menus over the bar: anything else opens as a sheet too
+    const sheet = id === 'sheet' || this.mobile;
+    if (sheet) {
       scrim = el('div', 'g8-scrim');
       scrim.addEventListener('click', () => this.close());
       pop.classList.add('sheet');
@@ -726,13 +756,16 @@ export class Bar {
     if (id === 'sheet') this.fillSheet(pop);
     else if (id === 'patch') this.fillPatch(pop);
     else if (id === 'examples') this.fillExamples(pop);
+    else if (id === 'save') this.fillSave(pop);
+    else if (id === 'library') this.fillLibrary(pop);
     else {
       pop.classList.add('wide');
       this.fillTake(pop);
     }
     document.body.append(pop);
     for (const f of this.popSyncers) f();
-    if (id !== 'sheet') this.place(pop, anchor);
+    if (!sheet) this.place(pop, anchor);
+    if (id === 'save') pop.querySelector<HTMLInputElement>('input[type=text]')?.select();
     if (section) pop.querySelector(`[data-section=${section}]`)?.scrollIntoView({ block: 'start' });
     // the render menu's spec takes typing straight away, as the old one-line entry did
     if (id === 'render' && !this.mobile) pop.querySelector<HTMLInputElement>('input[type=text]')?.focus();
@@ -777,17 +810,26 @@ export class Bar {
     const m = this.mobile;
     const grid = el('div', 'grid');
     grid.append(
-      keyBtn('new', '', this.act(() => app.newPatch()), m),
-      keyBtn('open…', '⌘O', this.act(() => app.openPatch()), m),
-      keyBtn('save', '⌘S', this.act(() => app.savePatch()), m),
+      tag(keyBtn('new', '', this.act(() => app.newPatch()), m), 'new'),
+      tag(keyBtn('open…', '⌘O', this.act(() => this.open('library')), m), 'open'),
+      tag(keyBtn('save…', '⌘S', this.act(() => this.open('save')), m), 'save'),
       keyBtn('info…', 'i', this.act(() => app.editInfo()), m),
-      keyBtn('share', '', this.act(() => void app.share()), m),
-      keyBtn('random', 'r', () => {
-        // the patch menu stays open on the first press: random asks again over an edited patch
-        if (app.randomPatch()) this.close();
-      }, m),
+      tag(keyBtn('share', '', this.act(() => void app.share()), m), 'share'),
+      tag(
+        keyBtn('random', 'r', () => {
+          // the patch menu stays open on the first press: random asks again over an edited patch
+          if (app.randomPatch()) this.close();
+        }, m),
+        'random',
+      ),
+      tag(keyBtn('import…', '⇧⌘O', this.act(() => app.importPatch()), m), 'import'),
+      tag(keyBtn('export', '⇧⌘S', this.act(() => app.exportPatch()), m), 'export'),
     );
-    grid.querySelector<HTMLButtonElement>('button:nth-child(5)')!.title = 'copy a link to this patch';
+    grid.querySelector<HTMLButtonElement>('[data-tut=share]')!.title = 'copy a link to this patch';
+    grid.querySelector<HTMLButtonElement>('[data-tut=open]')!.title = 'a patch saved in this browser';
+    grid.querySelector<HTMLButtonElement>('[data-tut=save]')!.title = 'keep this patch in this browser, by name';
+    grid.querySelector<HTMLButtonElement>('[data-tut=import]')!.title = 'load a patch file (or drop one on the canvas)';
+    grid.querySelector<HTMLButtonElement>('[data-tut=export]')!.title = 'download this patch as a file';
     c.append(el('h3', undefined, 'patch'), grid);
 
     c.append(el('h3', undefined, 'new from a seed'));
@@ -812,8 +854,107 @@ export class Bar {
     c.append(row, el('p', 'hint', 'The same seed always makes the same patch.'));
   }
 
+  /** On a phone, where these open as sheets: a title and a close button. */
+  private sheetHead(c: HTMLElement, title: string): void {
+    if (!this.mobile) return;
+    const head = el('div', 'head');
+    const x = btn('✕', () => this.close(), 'step', 'close');
+    x.setAttribute('aria-label', 'close');
+    head.append(el('div', 'grab'), el('p', undefined, title), x);
+    c.append(head);
+  }
+
+  /** Save to this browser: a name, and what saving under it would replace. */
+  private fillSave(c: HTMLElement): void {
+    const app = this.app;
+    this.sheetHead(c, 'SAVE');
+    c.append(el('h3', undefined, 'save in this browser'));
+    const row = el('div', 'row');
+    const inp = el('input');
+    inp.type = 'text';
+    inp.maxLength = NAME_MAX;
+    inp.placeholder = 'a name';
+    inp.spellcheck = false;
+    inp.autocomplete = 'off';
+    inp.setAttribute('aria-label', 'name to save the patch under');
+    inp.value = app.savedName ?? app.patch.info?.title ?? '';
+    const hint = el('p', 'hint');
+    const go = () => {
+      if (!inp.value.trim()) return inp.focus();
+      if (app.saveToBrowser(inp.value)) this.close();
+    };
+    const sync = () => {
+      const taken = inp.value.trim() ? app.library.get(inp.value) : undefined;
+      hint.textContent = taken
+        ? `Replaces “${taken.name}”, saved ${savedAgo(taken.saved)}.`
+        : 'Kept in this browser only. export downloads a file to keep or move.';
+    };
+    inp.addEventListener('input', sync);
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      // ⌘S again saves, rather than the browser's own save
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') e.preventDefault();
+      if (e.key === 'Enter' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's')) go();
+      else if (e.key === 'Escape') this.close();
+    });
+    sync();
+    row.append(inp, btn('save', go, 'primary'));
+    c.append(row, hint);
+  }
+
+  /** The patches saved in this browser: open one, or delete it (press twice). */
+  private fillLibrary(c: HTMLElement): void {
+    const app = this.app;
+    this.sheetHead(c, 'OPEN');
+    const h = el('h3', undefined, 'saved in this browser');
+    const count = el('span');
+    h.append(count);
+    const list = tag(el('div', 'lib'), 'library-list');
+    let armed: string | null = null;
+    let armTimer = 0;
+    const draw = () => {
+      const entries = app.library.list();
+      count.textContent = entries.length ? String(entries.length) : '';
+      list.replaceChildren();
+      if (!entries.length) list.append(el('p', 'hint', 'Nothing saved yet. save… keeps the patch here, by name.'));
+      for (const e of entries) {
+        const item = el('div', 'item');
+        if (app.savedName?.toLowerCase() === e.name.toLowerCase()) item.classList.add('cur');
+        const open = btn('', this.act(() => app.openSaved(e.name)), 'open', `open “${e.name}”`);
+        open.append(span('n', e.name), span('when', savedAgo(e.saved)));
+        const sure = armed === e.name;
+        const del = btn(sure ? 'delete?' : '✕', () => {
+          clearTimeout(armTimer);
+          if (armed === e.name) {
+            armed = null;
+            app.deleteSaved(e.name);
+          } else {
+            armed = e.name;
+            armTimer = window.setTimeout(() => {
+              armed = null;
+              draw();
+            }, 3000);
+          }
+          draw();
+        }, sure ? 'del sure' : 'del', sure ? 'press again to delete' : `delete “${e.name}”`);
+        del.setAttribute('aria-label', sure ? 'confirm delete' : `delete ${e.name}`);
+        item.append(open, del);
+        list.append(item);
+      }
+    };
+    draw();
+    c.append(h, list);
+    const foot = el('div', 'foot');
+    foot.append(
+      el('p', 'hint', 'Files:'),
+      btn('import…', this.act(() => app.importPatch()), undefined, 'load a patch file (or drop one on the canvas)'),
+      btn('export', this.act(() => app.exportPatch()), undefined, 'download this patch as a file'),
+    );
+    c.append(foot);
+  }
+
   private fillExamples(c: HTMLElement): void {
-    const list = el('div', 'list');
+    const list = tag(el('div', 'list'), 'examples-list');
     for (const ex of EXAMPLES) list.append(keyBtn(ex.label, ex.key ? '⇧' + ex.key : '', this.act(() => this.app.loadExample(ex)), this.mobile));
     c.append(el('h3', undefined, 'examples'), list);
   }
@@ -821,7 +962,7 @@ export class Bar {
   /** Render a WAV or an MP4: a spec you can type, or pick with the chips. */
   private fillTake(c: HTMLElement): void {
     const app = this.app;
-    const body = el('div');
+    const body = tag(el('div'), 'take');
     c.append(body);
     let shownFor = '';
     const draw = () => {
@@ -997,10 +1138,10 @@ export class Bar {
 
     const rec = el('h3', undefined, 'record');
     rec.dataset.section = 'record';
-    const mixer = btn('mixer', this.act(() => (app.mixerOpen = !app.mixerOpen)));
+    const mixer = tag(btn('mixer', this.act(() => (app.mixerOpen = !app.mixerOpen))), 'mixer');
     into.push(() => void mixer.classList.toggle('on', app.mixerOpen));
     const grid = el('div', 'grid');
-    grid.append(btn('● capture 30 s', this.act(() => void app.capture()), 'rec'), mixer);
+    grid.append(tag(btn('● capture 30 s', this.act(() => void app.capture()), 'rec'), 'capture'), mixer);
     c.append(rec, grid);
     const take = el('div');
     take.style.marginTop = '12px';
@@ -1011,7 +1152,7 @@ export class Bar {
     this.fillExamples(c);
     c.append(el('h3', undefined, 'help'));
     const help = el('div', 'grid');
-    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), btn('the guide', this.act(() => app.openDocs('start'))), extLink('discord ↗', DISCORD_URL));
+    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), tag(btn('the guide', this.act(() => app.openDocs('start'))), 'help'), btn('tutorial', this.act(() => app.openTutorial())), extLink('discord ↗', DISCORD_URL));
     c.append(help);
   }
 }

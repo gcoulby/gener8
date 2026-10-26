@@ -16,7 +16,7 @@ npm run dev        # open the printed URL, press space
 npm run dev:lan    # the same over https on your network, to try it on a phone
 ```
 
-Press **space** to start audio. The ambient demo loads first. **examples ▾** in the bottom bar has thirteen more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), plinko (bells and strings as pegs), turing machine, progression (chords leading bowed strings), breaks (topo drums and a locked Turing bassline), clocks (polyrhythm, a bouncing ball, phasing plucks and a sweep), rhythmic and a stress patch. Loading one frames it in the window.
+Press **space** to start audio. The ambient demo loads first. On a first visit a **tutorial** walks you through it in three short chapters: building a patch from an empty stage (sounds, generators, transformers, FX, internals, motion), mixing and keeping it (tempo and key, the mixer, the timeline, capture, render), and exploring (examples, random and new patches, sharing, the guide). **tutorial** in the bottom bar (on a phone, in **☰**) runs it again, from the start or any chapter. **examples ▾** in the bottom bar has thirteen more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), plinko (bells and strings as pegs), turing machine, progression (chords leading bowed strings), breaks (topo drums and a locked Turing bassline), clocks (polyrhythm, a bouncing ball, phasing plucks and a sweep), rhythmic and a stress patch. Loading one frames it in the window.
 
 **The guide:** press **? help** in the bottom bar (or <kbd>h</kbd>) for [At a glance](docs/guide/overview.md), the whole instrument on one page, or <kbd>g</kbd> for the full guide, rendered in the app. The same pages are in [`docs/guide/`](docs/guide/README.md) and read fine on GitHub too. Link to a page with `#docs/<page>`, e.g. `#docs/maps`. The guide's last page, [Patch structure](docs/guide/model.md) (`#docs/model`), walks through the metamodel diagram below.
 
@@ -116,7 +116,7 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | shift-V / render ▾ | the same render as an MP4 of the whole window, e.g. `5`, `90s 60fps fade`, `1:00:00 4k out:30s` (default 1080p, 30 fps), or `short` for a 1080 × 1920 one-minute portrait video of just the elements |
 | vol / bpm / seed | drag or scroll (shift: fine), or click and type; double-click vol for 0 dB |
 | mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
-| patch ▾ | new · open · save · info… · share · random · new from a seed |
+| patch ▾ | new · open… / save… (patches kept in this browser, ⌘O / ⌘S) · import… / export (files, ⇧⌘O / ⇧⌘S) · info… · share · random · new from a seed |
 | r / random | a new patch from a random seed (asks again before replacing an edited patch) |
 | share | copy a link to the current patch |
 | h / ? / help | the guide's At a glance page: everything on one page |

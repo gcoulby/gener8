@@ -53,7 +53,8 @@ You place **sounds** on an infinite canvas and lay **fields** over them. Where t
 | <kbd>c</kbd> / **● capture** | The last 30 seconds as a WAV, with the patch and edit log. |
 | <kbd>shift</kbd>+<kbd>C</kbd> / **render ▾** | The patch from a fresh start, up to an hour, as a WAV. |
 | <kbd>shift</kbd>+<kbd>V</kbd> | The same as an MP4 of the whole window, or a portrait [short](mixing.md#shorts). |
-| <kbd>⌘S</kbd> / <kbd>⌘O</kbd> | Save or open a patch file. You can also drop one on the canvas. |
+| <kbd>⌘S</kbd> / <kbd>⌘O</kbd> | Save a patch in this browser by name, or open one saved there. |
+| <kbd>⇧⌘S</kbd> / <kbd>⇧⌘O</kbd> | Export the patch as a file, or import one. You can also drop a file on the canvas. |
 | **share** | Copy a link to the patch. |
 | <kbd>i</kbd> | Title, artist and notes: [patch info](mixing.md#patch-info). |
 | <kbd>r</kbd> | A new patch from a random seed. **patch ▾** also makes one from a seed you type. |
