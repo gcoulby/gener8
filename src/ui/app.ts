@@ -29,6 +29,7 @@ import { axisTargetEdit, inAxisMenu, menuHitAt, MOVE, POS_TYPES, motionHitAt, op
 import { EXAMPLES } from './examples.ts';
 import { DocsViewer, parseDocsHash } from './docs.ts';
 import { Tutorial, tutorialSeen } from './tutorial.ts';
+import { Library } from './library.ts';
 import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
 
 export interface Pulse {
@@ -182,6 +183,10 @@ export class App {
   readonly docs = new DocsViewer();
   readonly infoDialog = new InfoDialog();
   readonly tutorial = new Tutorial(this);
+  /** Patches saved in this browser (patch ▾ → save… / open…). */
+  readonly library = new Library(browserStorage());
+  /** The library name this patch was last saved under or opened from: save… suggests it. */
+  savedName: string | null = null;
   /** Patches loaded and captures saved this session (the tutorial watches these). */
   loads = 0;
   captures = 0;
@@ -401,6 +406,7 @@ export class App {
       const patch = normalizePatch(p);
       this.commit({ op: 'load', patch });
       this.loads++;
+      this.savedName = null;
       this.sel = null;
       this.panel = null;
       this.toast(label);
@@ -1685,18 +1691,64 @@ export class App {
     this.toast(msg);
   }
 
-  savePatch(): void {
-    // sign it with your remembered details, where it has no artist yet
+  /** Sign the patch with your remembered details, where it has no artist yet; the toast's suffix if it did. */
+  private sign(): string {
     const info = this.patch.info;
     const signed = signInfo(info, readAuthor());
-    if (signed !== info) this.commit({ op: 'info', value: signed! });
+    if (signed === info) return '';
+    this.commit({ op: 'info', value: signed! });
+    return ` · signed ${signed!.artist}`;
+  }
+
+  /** Save the patch in this browser under `name`; false (with a toast) if it couldn't be. */
+  saveToBrowser(name: string): boolean {
+    const replaced = !!this.library.get(name);
+    const signed = this.sign();
+    try {
+      const e = this.library.save(name, clone(this.patch));
+      this.savedName = e.name;
+      this.toast(`${replaced ? 'replaced' : 'saved'} “${e.name}” in this browser${signed}`);
+      return true;
+    } catch (err) {
+      this.toast(`could not save: ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  /** Open a patch saved in this browser, framed, with its info. */
+  openSaved(name: string): void {
+    const e = this.library.get(name);
+    if (!e) {
+      this.toast(`“${name}” isn't saved here any more`);
+      return;
+    }
+    if (!this.load(e.patch, `opened “${e.name}”`)) return;
+    this.savedName = e.name;
+    this.fitView();
+    this.showInfo();
+  }
+
+  deleteSaved(name: string): void {
+    try {
+      this.library.remove(name);
+      if (this.savedName?.toLowerCase() === name.toLowerCase()) this.savedName = null;
+      this.toast(`deleted “${name}” from this browser`);
+    } catch (err) {
+      this.toast(`could not delete: ${(err as Error).message}`);
+    }
+  }
+
+  /** Download the patch as a JSON file. */
+  exportPatch(): void {
+    const signed = this.sign();
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
     const name = infoFileName(this.patch.info) || `gener8-${stamp}`;
     download(new Blob([JSON.stringify(this.patch, null, 2)], { type: 'application/json' }), `${name}.json`);
-    this.toast(signed !== info ? `patch saved · signed ${signed!.artist}` : 'patch saved');
+    this.toast(`exported ${name}.json${signed}`);
   }
 
-  openPatch(): void {
+  /** Load a patch file. */
+  importPatch(): void {
     const inp = document.createElement('input');
     inp.type = 'file';
     inp.accept = '.json,application/json';
@@ -1721,14 +1773,12 @@ export class App {
       return;
     }
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.key === 's') {
+    // ⌘S / ⌘O: the browser's own saved patches; with shift, files
+    const k = e.key.toLowerCase();
+    if (mod && (k === 's' || k === 'o')) {
       e.preventDefault();
-      this.savePatch();
-      return;
-    }
-    if (mod && e.key === 'o') {
-      e.preventDefault();
-      this.openPatch();
+      if (k === 's') e.shiftKey ? this.exportPatch() : this.bar?.open('save');
+      else e.shiftKey ? this.importPatch() : this.bar?.open('library');
       return;
     }
     if (mod && e.key === 'd' && this.sel) {
@@ -1861,6 +1911,14 @@ export class App {
         return;
       }
     }
+  }
+}
+
+function browserStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
   }
 }
 

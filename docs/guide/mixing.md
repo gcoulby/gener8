@@ -82,21 +82,25 @@ These are in **patch ▾**, apart from the examples.
 
 | | |
 |---|---|
-| **save** (<kbd>⌘S</kbd>) | Download the patch as JSON, named after its title if it has one. |
+| **save…** (<kbd>⌘S</kbd>) | Keep the patch in this browser under a name. It suggests the name you last saved or opened it as, or its title. Saving under a name that's taken replaces that patch. |
+| **open…** (<kbd>⌘O</kbd>) | The patches saved in this browser, newest first. Click one to open it; ✕ then **delete?** removes it. |
+| **export** (<kbd>⇧⌘S</kbd>) | Download the patch as a JSON file, named after its title if it has one. |
+| **import…** (<kbd>⇧⌘O</kbd>) | Load a patch file. You can also drop one on the canvas. |
 | **info…** (<kbd>i</kbd>) | Edit the patch info (see below). |
-| **open** (<kbd>⌘O</kbd>) | Load a patch file. You can also drop one on the canvas. |
 | **new** | Start an empty stage (keeps the tempo, key and seed). |
 | **random** (<kbd>r</kbd>) | A new patch from a random seed. |
 | **new from a seed** | Type a seed, a number or any text, and press **make**. The same seed always makes the same patch. |
 | **examples ▾** | The bundled demos, framed in the window as they load. |
 
-Your patch is also saved in the browser as you go. Replacing an edited patch asks you to press again to confirm.
+Saved patches stay in this browser on this device: clearing the site's data removes them, and a private window forgets them when it closes. Export a patch to keep it anywhere else or move it to another device.
+
+Your working patch is also saved in the browser as you go, separately from the saved ones, so a reload picks up where you left off. Replacing an edited patch with **random** asks you to press again to confirm.
 
 ## Patch info
 
-**info…** (<kbd>i</kbd>) gives a patch a title, artist, genre, link and notes. Info is saved in the patch file and travels in share links. When you open a patch file, a link or one of the examples and it has info, a card shows it first.
+**info…** (<kbd>i</kbd>) gives a patch a title, artist, genre, link and notes. Info is saved in the patch file and travels in share links. When you open a saved patch, a patch file, a link or one of the examples and it has info, a card shows it first.
 
-Tick **remember my artist name and link** and they're kept in this browser. Every patch you save afterwards that has no artist yet is signed with them. A patch that already names an artist keeps it, so saving someone else's patch doesn't claim it as yours. Info isn't part of the sound: it never changes a render.
+Tick **remember my artist name and link** and they're kept in this browser. Every patch you save or export afterwards that has no artist yet is signed with them. A patch that already names an artist keeps it, so saving someone else's patch doesn't claim it as yours. Info isn't part of the sound: it never changes a render.
 
 ## Sharing
 

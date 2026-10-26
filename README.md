@@ -116,7 +116,7 @@ A trace hits a listener when it passes through the listener's body. A selected s
 | shift-V / render ▾ | the same render as an MP4 of the whole window, e.g. `5`, `90s 60fps fade`, `1:00:00 4k out:30s` (default 1080p, 30 fps), or `short` for a 1080 × 1920 one-minute portrait video of just the elements |
 | vol / bpm / seed | drag or scroll (shift: fine), or click and type; double-click vol for 0 dB |
 | mixer | per-sound level, mute and solo, FX returns, master, with live meters. Double-click a fader to reset it. |
-| patch ▾ | new · open · save · info… · share · random · new from a seed |
+| patch ▾ | new · open… / save… (patches kept in this browser, ⌘O / ⌘S) · import… / export (files, ⇧⌘O / ⇧⌘S) · info… · share · random · new from a seed |
 | r / random | a new patch from a random seed (asks again before replacing an edited patch) |
 | share | copy a link to the current patch |
 | h / ? / help | the guide's At a glance page: everything on one page |

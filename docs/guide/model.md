@@ -85,4 +85,4 @@ A patch file is the diagram written out. Containment becomes nesting, and refere
 }
 ```
 
-Save a patch with <kbd>⌘S</kbd> to see a real one. Loading checks a file first: out-of-range values are clamped and unknown keys dropped, so a hand-edited patch is safe to open. See [Saving, opening and new](mixing.md#saving-opening-and-new).
+Export a patch with <kbd>⇧⌘S</kbd> to see a real one. Loading checks a file first: out-of-range values are clamped and unknown keys dropped, so a hand-edited patch is safe to open. See [Saving, opening and new](mixing.md#saving-opening-and-new).

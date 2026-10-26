@@ -22,7 +22,8 @@
 | <kbd>shift</kbd>+<kbd>V</kbd> | Render the patch from a fresh start as a video of the whole window (see [Video](mixing.md#video)). |
 | <kbd>t</kbd> | Tap tempo. |
 | <kbd>r</kbd> | Random patch. |
-| <kbd>⌘S</kbd> / <kbd>⌘O</kbd> | Save / open a patch file. |
+| <kbd>⌘S</kbd> / <kbd>⌘O</kbd> | Save a patch in this browser / open one saved there. |
+| <kbd>⇧⌘S</kbd> / <kbd>⇧⌘O</kbd> | Export the patch as a file / import a patch file. |
 | <kbd>i</kbd> | Edit the patch info: title, artist and so on (see [Patch info](mixing.md#patch-info)). |
 | <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd> | Zoom in, zoom out, reset the view. |
 | <kbd>shift</kbd>+<kbd>D</kbd> <kbd>T</kbd> <kbd>R</kbd> <kbd>X</kbd> | The ambient, tape, rhythmic and stress examples. |

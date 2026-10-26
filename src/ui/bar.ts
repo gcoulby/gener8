@@ -8,6 +8,7 @@
 import type { App } from './app.ts';
 import { DISCORD_URL } from './docs.ts';
 import { EXAMPLES } from './examples.ts';
+import { NAME_MAX, savedAgo } from './library.ts';
 import { DB_MAX, DB_MIN } from './mixer.ts';
 import { NOTE_NAMES, SCALE_LABELS, SCALE_ORDER } from '../core/music.ts';
 import { strHash } from '../core/rand.ts';
@@ -100,6 +101,18 @@ const CSS = `
 .g8-pop button.primary{color:#f0a830;border-color:rgba(240,168,48,.7)}
 .g8-pop .tabs{display:flex;gap:4px;margin:0 0 12px}
 .g8-pop .tabs button{flex:1}
+.g8-pop .lib{display:flex;flex-direction:column;gap:2px;max-height:min(360px,calc(var(--g8-vh,100vh) - 220px));overflow-y:auto;margin:0 -6px;padding:0 6px}
+.g8-pop .lib .item{display:flex;gap:4px;align-items:center}
+.g8-pop .lib .item button.open{flex:1;min-width:0;justify-content:space-between;border-color:transparent;background:none;border-radius:6px;height:30px}
+.g8-pop .lib .item button.open:hover{background:rgba(233,228,218,.08)}
+.g8-pop .lib .item .n{overflow:hidden;text-overflow:ellipsis}
+.g8-pop .lib .item .when{color:rgba(233,228,218,.35);font-size:10px;flex:none}
+.g8-pop .lib .item.cur .n{color:#f0a830}
+.g8-pop .lib .item button.del{width:28px;padding:0;border-color:transparent;background:none;color:rgba(233,228,218,.4)}
+.g8-pop .lib .item button.del:hover{color:#f06e6e}
+.g8-pop .lib .item button.del.sure{width:auto;padding:0 9px;color:#f06e6e;border-color:rgba(240,90,90,.5)}
+.g8-pop.sheet .lib .item button.open{height:44px}
+.g8-pop.sheet .lib .item button.del{width:44px}
 .g8-pop .progress{height:6px;border-radius:3px;background:rgba(233,228,218,.1);overflow:hidden;margin:6px 0 4px}
 .g8-pop .progress>i{display:block;height:100%;background:#f06e6e}
 .g8-pop .ctl{display:flex;gap:6px;align-items:center;flex:1;min-width:0}
@@ -354,7 +367,7 @@ function keyBtn(text: string, kbd: string, onClick: () => void, mobile: boolean)
   return b;
 }
 
-type PopId = 'sheet' | 'patch' | 'examples' | 'render';
+type PopId = 'sheet' | 'patch' | 'examples' | 'render' | 'save' | 'library';
 type TakeKind = 'audio' | 'video';
 
 const LENGTHS: [string, number][] = [['1 min', 60], ['5 min', 300], ['10 min', 600], ['30 min', 1800], ['1 h', 3600]];
@@ -711,6 +724,8 @@ export class Bar {
       id = 'render';
       anchor ??= [...this.root.querySelectorAll('button')].find((b) => b.title.startsWith('render')) ?? null;
     }
+    // from the keyboard, the saved-patch menus sit over patch ▾
+    if ((id === 'save' || id === 'library') && !anchor) anchor = this.root.querySelector<HTMLElement>('[data-tut=patch]');
     this.close();
     const pop = el('div', 'g8-pop');
     pop.setAttribute('role', 'dialog');
@@ -721,7 +736,9 @@ export class Bar {
       }
     });
     let scrim: HTMLElement | null = null;
-    if (id === 'sheet') {
+    // a phone has no menus over the bar: anything else opens as a sheet too
+    const sheet = id === 'sheet' || this.mobile;
+    if (sheet) {
       scrim = el('div', 'g8-scrim');
       scrim.addEventListener('click', () => this.close());
       pop.classList.add('sheet');
@@ -739,13 +756,16 @@ export class Bar {
     if (id === 'sheet') this.fillSheet(pop);
     else if (id === 'patch') this.fillPatch(pop);
     else if (id === 'examples') this.fillExamples(pop);
+    else if (id === 'save') this.fillSave(pop);
+    else if (id === 'library') this.fillLibrary(pop);
     else {
       pop.classList.add('wide');
       this.fillTake(pop);
     }
     document.body.append(pop);
     for (const f of this.popSyncers) f();
-    if (id !== 'sheet') this.place(pop, anchor);
+    if (!sheet) this.place(pop, anchor);
+    if (id === 'save') pop.querySelector<HTMLInputElement>('input[type=text]')?.select();
     if (section) pop.querySelector(`[data-section=${section}]`)?.scrollIntoView({ block: 'start' });
     // the render menu's spec takes typing straight away, as the old one-line entry did
     if (id === 'render' && !this.mobile) pop.querySelector<HTMLInputElement>('input[type=text]')?.focus();
@@ -791,8 +811,8 @@ export class Bar {
     const grid = el('div', 'grid');
     grid.append(
       tag(keyBtn('new', '', this.act(() => app.newPatch()), m), 'new'),
-      keyBtn('open…', '⌘O', this.act(() => app.openPatch()), m),
-      tag(keyBtn('save', '⌘S', this.act(() => app.savePatch()), m), 'save'),
+      tag(keyBtn('open…', '⌘O', this.act(() => this.open('library')), m), 'open'),
+      tag(keyBtn('save…', '⌘S', this.act(() => this.open('save')), m), 'save'),
       keyBtn('info…', 'i', this.act(() => app.editInfo()), m),
       tag(keyBtn('share', '', this.act(() => void app.share()), m), 'share'),
       tag(
@@ -802,8 +822,14 @@ export class Bar {
         }, m),
         'random',
       ),
+      tag(keyBtn('import…', '⇧⌘O', this.act(() => app.importPatch()), m), 'import'),
+      tag(keyBtn('export', '⇧⌘S', this.act(() => app.exportPatch()), m), 'export'),
     );
-    grid.querySelector<HTMLButtonElement>('button:nth-child(5)')!.title = 'copy a link to this patch';
+    grid.querySelector<HTMLButtonElement>('[data-tut=share]')!.title = 'copy a link to this patch';
+    grid.querySelector<HTMLButtonElement>('[data-tut=open]')!.title = 'a patch saved in this browser';
+    grid.querySelector<HTMLButtonElement>('[data-tut=save]')!.title = 'keep this patch in this browser, by name';
+    grid.querySelector<HTMLButtonElement>('[data-tut=import]')!.title = 'load a patch file (or drop one on the canvas)';
+    grid.querySelector<HTMLButtonElement>('[data-tut=export]')!.title = 'download this patch as a file';
     c.append(el('h3', undefined, 'patch'), grid);
 
     c.append(el('h3', undefined, 'new from a seed'));
@@ -826,6 +852,105 @@ export class Bar {
     });
     row.append(inp, btn('make', go, 'primary'));
     c.append(row, el('p', 'hint', 'The same seed always makes the same patch.'));
+  }
+
+  /** On a phone, where these open as sheets: a title and a close button. */
+  private sheetHead(c: HTMLElement, title: string): void {
+    if (!this.mobile) return;
+    const head = el('div', 'head');
+    const x = btn('✕', () => this.close(), 'step', 'close');
+    x.setAttribute('aria-label', 'close');
+    head.append(el('div', 'grab'), el('p', undefined, title), x);
+    c.append(head);
+  }
+
+  /** Save to this browser: a name, and what saving under it would replace. */
+  private fillSave(c: HTMLElement): void {
+    const app = this.app;
+    this.sheetHead(c, 'SAVE');
+    c.append(el('h3', undefined, 'save in this browser'));
+    const row = el('div', 'row');
+    const inp = el('input');
+    inp.type = 'text';
+    inp.maxLength = NAME_MAX;
+    inp.placeholder = 'a name';
+    inp.spellcheck = false;
+    inp.autocomplete = 'off';
+    inp.setAttribute('aria-label', 'name to save the patch under');
+    inp.value = app.savedName ?? app.patch.info?.title ?? '';
+    const hint = el('p', 'hint');
+    const go = () => {
+      if (!inp.value.trim()) return inp.focus();
+      if (app.saveToBrowser(inp.value)) this.close();
+    };
+    const sync = () => {
+      const taken = inp.value.trim() ? app.library.get(inp.value) : undefined;
+      hint.textContent = taken
+        ? `Replaces “${taken.name}”, saved ${savedAgo(taken.saved)}.`
+        : 'Kept in this browser only. export downloads a file to keep or move.';
+    };
+    inp.addEventListener('input', sync);
+    inp.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      // ⌘S again saves, rather than the browser's own save
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') e.preventDefault();
+      if (e.key === 'Enter' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's')) go();
+      else if (e.key === 'Escape') this.close();
+    });
+    sync();
+    row.append(inp, btn('save', go, 'primary'));
+    c.append(row, hint);
+  }
+
+  /** The patches saved in this browser: open one, or delete it (press twice). */
+  private fillLibrary(c: HTMLElement): void {
+    const app = this.app;
+    this.sheetHead(c, 'OPEN');
+    const h = el('h3', undefined, 'saved in this browser');
+    const count = el('span');
+    h.append(count);
+    const list = tag(el('div', 'lib'), 'library-list');
+    let armed: string | null = null;
+    let armTimer = 0;
+    const draw = () => {
+      const entries = app.library.list();
+      count.textContent = entries.length ? String(entries.length) : '';
+      list.replaceChildren();
+      if (!entries.length) list.append(el('p', 'hint', 'Nothing saved yet. save… keeps the patch here, by name.'));
+      for (const e of entries) {
+        const item = el('div', 'item');
+        if (app.savedName?.toLowerCase() === e.name.toLowerCase()) item.classList.add('cur');
+        const open = btn('', this.act(() => app.openSaved(e.name)), 'open', `open “${e.name}”`);
+        open.append(span('n', e.name), span('when', savedAgo(e.saved)));
+        const sure = armed === e.name;
+        const del = btn(sure ? 'delete?' : '✕', () => {
+          clearTimeout(armTimer);
+          if (armed === e.name) {
+            armed = null;
+            app.deleteSaved(e.name);
+          } else {
+            armed = e.name;
+            armTimer = window.setTimeout(() => {
+              armed = null;
+              draw();
+            }, 3000);
+          }
+          draw();
+        }, sure ? 'del sure' : 'del', sure ? 'press again to delete' : `delete “${e.name}”`);
+        del.setAttribute('aria-label', sure ? 'confirm delete' : `delete ${e.name}`);
+        item.append(open, del);
+        list.append(item);
+      }
+    };
+    draw();
+    c.append(h, list);
+    const foot = el('div', 'foot');
+    foot.append(
+      el('p', 'hint', 'Files:'),
+      btn('import…', this.act(() => app.importPatch()), undefined, 'load a patch file (or drop one on the canvas)'),
+      btn('export', this.act(() => app.exportPatch()), undefined, 'download this patch as a file'),
+    );
+    c.append(foot);
   }
 
   private fillExamples(c: HTMLElement): void {

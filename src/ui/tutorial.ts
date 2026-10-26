@@ -307,10 +307,11 @@ const STEPS: Step[] = [
     title: 'Save and share',
     body: (_app, m) =>
       `<b>patch</b> ${m ? 'in ☰' : '▾'} also keeps your work:<br>` +
+      `· <b>save…</b>${m ? '' : ' (<kbd>⌘S</kbd>)'} keeps it in this browser by name; <b>open…</b>${m ? '' : ' (<kbd>⌘O</kbd>)'} brings it back<br>` +
+      `· <b>export</b> downloads it as a file; <b>import…</b> or dropping a file loads one<br>` +
       `· <b>share</b> copies a link with the whole patch in it<br>` +
-      `· <b>save</b>${m ? '' : ' (<kbd>⌘S</kbd>)'} downloads it as a file; <b>open…</b> or dropping a file loads one<br>` +
-      `· <b>info…</b>${m ? '' : ' (<kbd>i</kbd>)'} gives it a title, artist and notes<br><br>Your patch is also saved in the browser as you go.`,
-    target: ui('share', 'patch'),
+      `· <b>info…</b>${m ? '' : ' (<kbd>i</kbd>)'} gives it a title, artist and notes`,
+    target: ui('save', 'patch'),
   },
   {
     chapter: 3,
