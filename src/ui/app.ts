@@ -182,6 +182,9 @@ export class App {
   readonly docs = new DocsViewer();
   readonly infoDialog = new InfoDialog();
   readonly tutorial = new Tutorial(this);
+  /** Patches loaded and captures saved this session (the tutorial watches these). */
+  loads = 0;
+  captures = 0;
   /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
   axisMenu: AxisMenu | null = null;
   /** Picking a leader for this object: the next click on an object sets its follow. */
@@ -397,6 +400,7 @@ export class App {
     try {
       const patch = normalizePatch(p);
       this.commit({ op: 'load', patch });
+      this.loads++;
       this.sel = null;
       this.panel = null;
       this.toast(label);
@@ -493,6 +497,7 @@ export class App {
       replay: { root: h.root, edits: h.log.filter((e) => e.sample < end) },
     };
     download(new Blob([JSON.stringify(capture)], { type: 'application/json' }), `${name}.json`);
+    this.captures++;
     this.toast(`captured ${Math.round(r.left.length / SR)} s → ${name}.wav + .json`);
   }
 

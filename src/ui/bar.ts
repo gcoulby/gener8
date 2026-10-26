@@ -333,6 +333,12 @@ function extLink(text: string, href: string, title?: string): HTMLAnchorElement 
   return a;
 }
 
+/** Name an element for the tutorial to point at (`[data-tut=…]`). */
+function tag<T extends HTMLElement>(e: T, name: string): T {
+  e.dataset.tut = name;
+  return e;
+}
+
 function btn(text: string, onClick: () => void, cls?: string, title?: string): HTMLButtonElement {
   const b = el('button', cls, text);
   b.type = 'button';
@@ -413,6 +419,11 @@ export class Bar {
       },
       true,
     );
+  }
+
+  /** The open menu, if any. */
+  get menu(): PopId | null {
+    return this.pop?.id ?? null;
   }
 
   /** Is this element part of the bar or one of its menus? Keys typed there are theirs. */
@@ -515,7 +526,7 @@ export class Bar {
         b.title = app.panMode ? 'pan mode: one finger moves around, nothing on the canvas can change' : 'select mode: tap to select, drag the selection to move it';
         b.setAttribute('aria-pressed', String(app.panMode));
       });
-      const menu = btn('☰', openSheet, 'menu', 'more');
+      const menu = tag(btn('☰', openSheet, 'menu', 'more'), 'menu');
       menu.setAttribute('aria-label', 'more');
       l.append(play, vol.el, bpm.el, key, busy, mode, menu);
       this.root.append(l, this.slot);
@@ -525,19 +536,20 @@ export class Bar {
     const vol = this.volume();
     const bpm = this.tempo();
     const seed = this.seed();
+    tag(bpm.el, 'bpm');
     l.append(play, vol.el, sep(), bpm.el, btn('tap', () => app.tap(), undefined, 'tap tempo (t): three taps or more'), this.rootSelect(), this.scaleSelect(), sep(), seed.el, btn('roll', () => app.rerollSeed(), undefined, 'new engine seed: the same patch, different chances'));
 
     const voices = span('dim', '');
     voices.title = 'voices playing';
     this.syncers.push(() => setText(voices, app.audio.started ? `${app.voices}v` : ''));
-    const mixer = btn('mixer', () => (app.mixerOpen = !app.mixerOpen), undefined, 'levels, mute, solo, FX returns');
+    const mixer = tag(btn('mixer', () => (app.mixerOpen = !app.mixerOpen), undefined, 'levels, mute, solo, FX returns'), 'mixer');
     this.syncers.push(() => void mixer.classList.toggle('on', app.mixerOpen));
-    const capture = btn('● capture', () => void app.capture(), 'rec', 'save the last 30 s as a WAV, with the patch and edit log (c)');
-    const render = btn('', () => this.toggle('render', render), undefined, 'render the patch from a fresh start as a WAV or MP4 (shift-C / shift-V)');
+    const capture = tag(btn('● capture', () => void app.capture(), 'rec', 'save the last 30 s as a WAV, with the patch and edit log (c)'), 'capture');
+    const render = tag(btn('', () => this.toggle('render', render), undefined, 'render the patch from a fresh start as a WAV or MP4 (shift-C / shift-V)'), 'render');
     this.label(render, () => this.jobText() || 'render ▾', (b, s) => b.classList.toggle('busy', s !== 'render ▾'));
-    const patch = btn('patch ▾', () => this.toggle('patch', patch), undefined, 'new, open, save, info, share, random');
-    const examples = btn('examples ▾', () => this.toggle('examples', examples), undefined, 'the bundled demos');
-    const help = btn('? help', () => app.openDocs('overview'), undefined, 'everything at a glance (h) · the full guide (g)');
+    const patch = tag(btn('patch ▾', () => this.toggle('patch', patch), undefined, 'new, open, save, info, share, random'), 'patch');
+    const examples = tag(btn('examples ▾', () => this.toggle('examples', examples), undefined, 'the bundled demos'), 'examples');
+    const help = tag(btn('? help', () => app.openDocs('overview'), undefined, 'everything at a glance (h) · the full guide (g)'), 'help');
     const tutorial = btn('tutorial', () => app.openTutorial(), undefined, 'build a first patch, step by step');
     for (const [b, id] of [[render, 'render'], [patch, 'patch'], [examples, 'examples']] as const) {
       this.syncers.push(() => void b.classList.toggle('on', this.pop?.id === id));
@@ -778,15 +790,18 @@ export class Bar {
     const m = this.mobile;
     const grid = el('div', 'grid');
     grid.append(
-      keyBtn('new', '', this.act(() => app.newPatch()), m),
+      tag(keyBtn('new', '', this.act(() => app.newPatch()), m), 'new'),
       keyBtn('open…', '⌘O', this.act(() => app.openPatch()), m),
-      keyBtn('save', '⌘S', this.act(() => app.savePatch()), m),
+      tag(keyBtn('save', '⌘S', this.act(() => app.savePatch()), m), 'save'),
       keyBtn('info…', 'i', this.act(() => app.editInfo()), m),
-      keyBtn('share', '', this.act(() => void app.share()), m),
-      keyBtn('random', 'r', () => {
-        // the patch menu stays open on the first press: random asks again over an edited patch
-        if (app.randomPatch()) this.close();
-      }, m),
+      tag(keyBtn('share', '', this.act(() => void app.share()), m), 'share'),
+      tag(
+        keyBtn('random', 'r', () => {
+          // the patch menu stays open on the first press: random asks again over an edited patch
+          if (app.randomPatch()) this.close();
+        }, m),
+        'random',
+      ),
     );
     grid.querySelector<HTMLButtonElement>('button:nth-child(5)')!.title = 'copy a link to this patch';
     c.append(el('h3', undefined, 'patch'), grid);
@@ -814,7 +829,7 @@ export class Bar {
   }
 
   private fillExamples(c: HTMLElement): void {
-    const list = el('div', 'list');
+    const list = tag(el('div', 'list'), 'examples-list');
     for (const ex of EXAMPLES) list.append(keyBtn(ex.label, ex.key ? '⇧' + ex.key : '', this.act(() => this.app.loadExample(ex)), this.mobile));
     c.append(el('h3', undefined, 'examples'), list);
   }
@@ -822,7 +837,7 @@ export class Bar {
   /** Render a WAV or an MP4: a spec you can type, or pick with the chips. */
   private fillTake(c: HTMLElement): void {
     const app = this.app;
-    const body = el('div');
+    const body = tag(el('div'), 'take');
     c.append(body);
     let shownFor = '';
     const draw = () => {
@@ -998,10 +1013,10 @@ export class Bar {
 
     const rec = el('h3', undefined, 'record');
     rec.dataset.section = 'record';
-    const mixer = btn('mixer', this.act(() => (app.mixerOpen = !app.mixerOpen)));
+    const mixer = tag(btn('mixer', this.act(() => (app.mixerOpen = !app.mixerOpen))), 'mixer');
     into.push(() => void mixer.classList.toggle('on', app.mixerOpen));
     const grid = el('div', 'grid');
-    grid.append(btn('● capture 30 s', this.act(() => void app.capture()), 'rec'), mixer);
+    grid.append(tag(btn('● capture 30 s', this.act(() => void app.capture()), 'rec'), 'capture'), mixer);
     c.append(rec, grid);
     const take = el('div');
     take.style.marginTop = '12px';
@@ -1012,7 +1027,7 @@ export class Bar {
     this.fillExamples(c);
     c.append(el('h3', undefined, 'help'));
     const help = el('div', 'grid');
-    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), btn('the guide', this.act(() => app.openDocs('start'))), btn('tutorial', this.act(() => app.openTutorial())), extLink('discord ↗', DISCORD_URL));
+    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), tag(btn('the guide', this.act(() => app.openDocs('start'))), 'help'), btn('tutorial', this.act(() => app.openTutorial())), extLink('discord ↗', DISCORD_URL));
     c.append(help);
   }
 }
