@@ -4,6 +4,8 @@ GENER8 is a generative music instrument on an infinite canvas. You don't patch c
 
 ## Your first minute
 
+For a guided version, press **tutorial** in the bottom bar (on a phone, in **☰**). It builds a patch with you one step at a time, pointing at what to use.
+
 1. Press <kbd>space</kbd> (or tap ▶ on a phone) to start audio. The **ambient** demo is loaded the first time you open GENER8.
    On a phone you start in **pan** mode, where one finger just moves around: tap **pan** in the bar to switch to **select** before step 3. See [On a phone or tablet](touch.md).
 2. Drag the canvas to look around. Scroll or pinch to zoom.

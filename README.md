@@ -16,7 +16,7 @@ npm run dev        # open the printed URL, press space
 npm run dev:lan    # the same over https on your network, to try it on a phone
 ```
 
-Press **space** to start audio. The ambient demo loads first. **examples ▾** in the bottom bar has thirteen more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), plinko (bells and strings as pegs), turing machine, progression (chords leading bowed strings), breaks (topo drums and a locked Turing bassline), clocks (polyrhythm, a bouncing ball, phasing plucks and a sweep), rhythmic and a stress patch. Loading one frames it in the window.
+Press **space** to start audio. The ambient demo loads first. On a first visit a **tutorial** walks you through building a patch from an empty stage, one step at a time; **tutorial** in the bottom bar (on a phone, in **☰**) runs it again. **examples ▾** in the bottom bar has thirteen more: tape, loops (airport-style phasing), rainfall, bloom, choir (motion only), cells (automaton), plinko (bells and strings as pegs), turing machine, progression (chords leading bowed strings), breaks (topo drums and a locked Turing bassline), clocks (polyrhythm, a bouncing ball, phasing plucks and a sweep), rhythmic and a stress patch. Loading one frames it in the window.
 
 **The guide:** press **? help** in the bottom bar (or <kbd>h</kbd>) for [At a glance](docs/guide/overview.md), the whole instrument on one page, or <kbd>g</kbd> for the full guide, rendered in the app. The same pages are in [`docs/guide/`](docs/guide/README.md) and read fine on GitHub too. Link to a page with `#docs/<page>`, e.g. `#docs/maps`. The guide's last page, [Patch structure](docs/guide/model.md) (`#docs/model`), walks through the metamodel diagram below.
 

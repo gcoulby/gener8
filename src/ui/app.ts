@@ -28,6 +28,7 @@ import { panelPointerDown, panelPointerMove, panelRect } from './panel.ts';
 import { axisTargetEdit, inAxisMenu, menuHitAt, MOVE, POS_TYPES, motionHitAt, openAxisMenu, readValue, stepValue, toggleEdit, valueEdit, MAX_PERIOD, periodLabel, type AxisMenu, type MenuHit, type MotionHit, type ValueKey } from './motionbar.ts';
 import { EXAMPLES } from './examples.ts';
 import { DocsViewer, parseDocsHash } from './docs.ts';
+import { Tutorial, tutorialSeen } from './tutorial.ts';
 import { inMinimap, m2w, minimapTf, type MiniTf } from './minimap.ts';
 
 export interface Pulse {
@@ -180,6 +181,7 @@ export class App {
   lit = readFlag(LIT_KEY, false);
   readonly docs = new DocsViewer();
   readonly infoDialog = new InfoDialog();
+  readonly tutorial = new Tutorial(this);
   /** Open axis-target dropdown, and its item hit boxes (set while drawing). */
   axisMenu: AxisMenu | null = null;
   /** Picking a leader for this object: the next click on an object sets its follow. */
@@ -255,7 +257,8 @@ export class App {
     const link = parseHash(location.hash);
     const seeded = link?.kind === 'seed' && generators[link.gen] ? generatePatch(link.seed, link.gen) : null;
     if (seeded) this.stashPrev(false);
-    this.patch = seeded ?? this.loadStored() ?? normalizePatch(EXAMPLES[0].patch);
+    const stored = seeded ? null : this.loadStored();
+    this.patch = seeded ?? stored ?? normalizePatch(EXAMPLES[0].patch);
     this.resize();
     this.bind();
     this.bar = new Bar(this);
@@ -268,6 +271,8 @@ export class App {
     } else if (link) void this.loadFromHash();
     const doc = parseDocsHash(location.hash);
     if (doc) this.docs.open(doc.page, doc.anchor);
+    // a first visit (nothing stored, not from a link) gets the tutorial
+    else if (!link && !stored && !tutorialSeen()) this.tutorial.open();
     window.addEventListener('hashchange', () => void this.loadFromHash());
     requestAnimationFrame(this.frame);
   }
@@ -568,6 +573,7 @@ export class App {
 
   private frame = (now: number): void => {
     this.bar?.sync();
+    this.tutorial.sync();
     this.flushSends();
     if (this.audio.started) {
       const a = this.audio.audibleSample();
@@ -1570,6 +1576,12 @@ export class App {
     this.docs.open(page);
   }
 
+  /** The guided first patch, from the start. */
+  openTutorial(): void {
+    if (this.docs.isOpen) this.docs.close();
+    this.tutorial.open();
+  }
+
   cancelRender(): void {
     this.render?.cancel();
     this.render = null;
@@ -1692,7 +1704,7 @@ export class App {
 
   private onKey(e: KeyboardEvent): void {
     // typing in a text box must not trigger shortcuts (c captures, t taps tempo…), nor keys meant for the bar's controls
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || this.bar?.owns(e.target)) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || this.bar?.owns(e.target) || this.tutorial.owns(e.target)) return;
     if (e.key === 'Escape' && this.bar?.close()) return;
     if (this.docs.isOpen) {
       if (e.key === 'Escape') this.docs.escape();

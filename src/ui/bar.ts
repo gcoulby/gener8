@@ -538,11 +538,12 @@ export class Bar {
     const patch = btn('patch ▾', () => this.toggle('patch', patch), undefined, 'new, open, save, info, share, random');
     const examples = btn('examples ▾', () => this.toggle('examples', examples), undefined, 'the bundled demos');
     const help = btn('? help', () => app.openDocs('overview'), undefined, 'everything at a glance (h) · the full guide (g)');
+    const tutorial = btn('tutorial', () => app.openTutorial(), undefined, 'build a first patch, step by step');
     for (const [b, id] of [[render, 'render'], [patch, 'patch'], [examples, 'examples']] as const) {
       this.syncers.push(() => void b.classList.toggle('on', this.pop?.id === id));
     }
     const discord = extLink('discord ↗', DISCORD_URL, 'join the GENER8 Discord: share patches, ask questions');
-    r.append(voices, mixer, capture, render, sep(), patch, examples, help, discord);
+    r.append(voices, mixer, capture, render, sep(), patch, examples, help, tutorial, discord);
     this.root.append(l, this.slot, r);
   }
 
@@ -1011,7 +1012,7 @@ export class Bar {
     this.fillExamples(c);
     c.append(el('h3', undefined, 'help'));
     const help = el('div', 'grid');
-    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), btn('the guide', this.act(() => app.openDocs('start'))), extLink('discord ↗', DISCORD_URL));
+    help.append(btn('at a glance', this.act(() => app.openDocs('overview'))), btn('the guide', this.act(() => app.openDocs('start'))), btn('tutorial', this.act(() => app.openTutorial())), extLink('discord ↗', DISCORD_URL));
     c.append(help);
   }
 }
