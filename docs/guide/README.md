@@ -63,3 +63,9 @@ Join the [GENER8 Discord](https://discord.gg/yA3CC5vTYn) to share patches, ask q
 ## AI use
 
 AI tools were used in the development of this app. No AI was used to create any music or audio in the app. The design and architecture of the app is entirely my own. I think it's the responsible thing to say so openly, and I review and take responsibility for everything that ships.
+
+## Licence and credit
+
+GENER8 is made by [Graham Coulby](https://grahamcoulby.co.uk) and released under the [MIT License](https://github.com/gcoulby/gener8/blob/main/LICENSE). You're free to use, modify and redistribute it, as long as the copyright and licence notice stays with the code.
+
+If you build on a significant part of GENER8, I'd be grateful (though it isn't required) if you added a visible credit somewhere people will see it, such as an about page, the footer or the credits, for example: *Based on GENER8 by [Graham Coulby](https://grahamcoulby.co.uk)*. It helps people find the original, and it means a lot to me.
